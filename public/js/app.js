@@ -4770,20 +4770,20 @@ async function renderPOS() {
             ` : `
             <div class="pt-2"></div>
             `}
-            <div id="pos-primary-action-wrap" class="grid grid-cols-1 gap-3">
+            <div id="pos-primary-action-wrap" class="grid ${isRetail && currentUserHasPermission('orders.take_payment') && currentUserHasPermission('orders.complete') ? 'grid-cols-2 gap-2' : 'grid-cols-1 gap-3'}">
               ${isRetail || deliveryOnly ? `
               <button onclick="checkout('${deliveryOnly ? 'pending' : 'completed'}')" id="checkout-btn"
-                class="${splitLayout ? 'py-1 text-xs h-9' : 'py-3 text-base h-14'} rounded-xl bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 font-black shadow-xl transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center gap-2">
+                class="${splitLayout ? 'py-1 text-[11px] h-8' : isRetail ? 'py-2 text-sm h-11' : 'py-3 text-base h-14'} rounded-xl bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 font-black shadow-xl transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center gap-2">
                 <span>${deliveryOnly ? 'Place Delivery Order' : 'Place Order'}</span>
               </button>
               ${isRetail && currentUserHasPermission('orders.take_payment') && currentUserHasPermission('orders.complete') ? `
               <button onclick="checkout('payment_pending', true)" id="complete-order-btn"
-                class="${splitLayout ? 'py-1 text-xs h-9' : 'py-3 text-base h-14'} rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black shadow-xl shadow-emerald-600/20 transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center gap-2">
+                class="${splitLayout ? 'py-1 text-[11px] h-8' : isRetail ? 'py-2 text-sm h-11' : 'py-3 text-base h-14'} rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black shadow-xl shadow-emerald-600/20 transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center gap-2">
                 <span>Complete Order</span>
               </button>` : ''}
               ` : `
               <button onclick="sendToKitchen()" id="kitchen-btn"
-                class="${splitLayout ? 'py-1 text-xs h-9' : 'py-3 text-base h-14'} rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-black shadow-xl transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center gap-2">
+                class="${splitLayout ? 'py-1 text-[11px] h-8' : isRetail ? 'py-2 text-sm h-11' : 'py-3 text-base h-14'} rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-black shadow-xl transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center gap-2">
                 <span>Kitchen</span>
               </button>
               `}
@@ -7496,10 +7496,10 @@ function calculateCartTotal() {
     checkoutBtn.onclick = window._posIsRetail ? () => checkout('payment_pending') : () => checkout('completed');
     if (_editingOrderId) {
       checkoutBtn.innerHTML = `<span>Update Order #${_tempEditSaleDetails?.order_number || _editingOrderId}</span>`;
-      checkoutBtn.className = `${compactAction ? "py-1 text-xs h-9 rounded-xl gap-2" : "py-4 text-xl h-20 rounded-2xl gap-3"} bg-amber-500 hover:bg-amber-400 text-white font-black shadow-2xl transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center w-full`;
+      checkoutBtn.className = `${compactAction ? "py-1 text-[11px] h-8 rounded-xl gap-2" : window._posIsRetail ? "py-2 text-sm h-11 rounded-xl gap-2" : "py-4 text-xl h-20 rounded-2xl gap-3"} bg-amber-500 hover:bg-amber-400 text-white font-black shadow-2xl transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center w-full`;
     } else {
       checkoutBtn.innerHTML = `<span>${window._posIsRetail ? 'Save Order' : 'Place Order'}</span>`;
-      checkoutBtn.className = `${compactAction ? "py-1 text-xs h-9 rounded-xl gap-2" : "py-4 text-xl h-20 rounded-2xl gap-3"} bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 font-black shadow-2xl transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center`;
+      checkoutBtn.className = `${compactAction ? "py-1 text-[11px] h-8 rounded-xl gap-2" : window._posIsRetail ? "py-2 text-sm h-11 rounded-xl gap-2" : "py-4 text-xl h-20 rounded-2xl gap-3"} bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 font-black shadow-2xl transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center`;
     }
   }
 
