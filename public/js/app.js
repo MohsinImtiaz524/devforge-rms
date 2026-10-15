@@ -4560,8 +4560,8 @@ async function renderPOS() {
               </div>
             </aside>
           </div>`}
-          <div id="pos-products-pagination" class="hidden"></div>
           <div id="pos-products" class="${splitLayout ? 'h-[calc(100vh-16rem)] min-h-0 overflow-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900' : 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 items-start min-h-[50vh] max-h-[calc(100vh-21rem)] overflow-y-auto pr-1 pb-4'}"></div>
+          <div id="pos-products-pagination" class="hidden"></div>
         </div>
 
         <!-- Checkout Drawer -->
