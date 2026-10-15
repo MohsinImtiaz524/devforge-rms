@@ -3,6 +3,7 @@ import { ArrowLeft, ChefHat, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, 
 import { api, legacyUrl } from '../../api/client'
 import { formatShopCurrency as money } from '../../currency'
 import PosOrdersView from './PosOrdersView'
+import PosPaymentModal from './PosPaymentModal'
 import PosTableSelection from './PosTableSelection'
 import { cartItemStock as itemStock, cartSelectionKey as itemSelectionKey, configuredItemName, isRecipeProduct as isRecipe, isRetailOrder, menuStock as productStock, menuVariants, normalizedNote, parseList, saleItemPayload } from './pos.logic'
 import './pos.generated.css'
@@ -63,7 +64,7 @@ export default function PosPage() {
   const [categories,setCategories] = useState([])
   const [cart,setCart] = useState([]), [form,setForm] = useState(emptyForm), [search,setSearch] = useState(''), [category,setCategory] = useState(''), [config,setConfig] = useState(null)
   const categoryScrollRef = useRef(null), productScrollRef = useRef(null)
-  const [loading,setLoading] = useState(true), [saving,setSaving] = useState(false), [error,setError] = useState(''), [toast,setToast] = useState(null), [complete,setComplete] = useState(null), [editing,setEditing] = useState(null)
+  const [loading,setLoading] = useState(true), [saving,setSaving] = useState(false), [error,setError] = useState(''), [toast,setToast] = useState(null), [complete,setComplete] = useState(null), [checkoutPayment,setCheckoutPayment] = useState(null), [editing,setEditing] = useState(null)
   const retail = isRetailOrder(user,orderType)
   const selectedTable = tables.find(item => Number(item.id) === Number(form.table_id))
   const assignedWaiter = staff.find(person => Number(person.id) === Number(form.waiter_id))
@@ -149,7 +150,7 @@ export default function PosPage() {
 function openReceiptWindow(id,format) {
     window.open('/print/sales/'+id+'?format='+format+'&autoprint=1&shop_id='+(user.shop_id || '')+'&timezone='+encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone),'_blank','noopener')
   }
-  async function submit(status) {
+  async function submit(status,openPayment=false) {
     if (saving || !cart.length) return
     if (orderType === 'dine_in' && !form.table_id) return setStage('tables')
     if (orderType === 'dine_in' && !form.waiter_id) return notify('This table has no assigned waiter. Assign one in Table Management first.','error')
@@ -168,8 +169,13 @@ function openReceiptWindow(id,format) {
         setEditing(null)
         setCart([])
         setForm(emptyForm)
-        notify('Order saved successfully.')
-        setStage('orders')
+        if (openPayment) {
+          setCheckoutPayment({...payload,id:saleId,order_number:result.orderNumber||editing?.order_number||saleId,total:Number(result.total||0),amount_received:0,tip_amount:0})
+          notify('Order saved. Complete its payment.')
+        } else {
+          notify('Order saved successfully.')
+          setStage('orders')
+        }
         return
       }
       setComplete({id:saleId,number:result.orderNumber||editing?.order_number||saleId,total:result.total,token:payload.token_number,updated:Boolean(editing),status})
@@ -196,8 +202,9 @@ function openReceiptWindow(id,format) {
       {!retail&&orderType==='takeaway'&&<div className="pos-service"><label>Token<input value={form.token_number} onChange={event=>field('token_number',event.target.value)}/></label><label>Order taker{currentUserIsWaiter?<span className="service-value">{user.name || user.username}</span>:<select value={form.waiter_id} onChange={event=>field('waiter_id',event.target.value)}><option value="">Select</option>{staff.filter(person=>['waiter','order_taker'].includes(person.role)).map(person=><option value={person.id} key={person.id}>{person.name || person.username}</option>)}</select>}</label></div>}
       {!retail&&orderType==='delivery'&&<div className="pos-service"><label>Rider<select value={form.rider_id} onChange={event=>field('rider_id',event.target.value)}><option value="">Select</option>{staff.filter(person=>person.role==='rider').map(person=><option value={person.id} key={person.id}>{person.name || person.username}</option>)}</select></label><label>Address<input value={form.delivery_address} onChange={event=>field('delivery_address',event.target.value)}/></label></div>}
       <div className="pos-cart">{cart.length?cart.map(item=><article key={item.key}><span><b>{configuredItemName(item)}</b>{item.special_instructions&&<small>{item.special_instructions}</small>}</span><b>{money(item.quantity*item.selling_price)}</b><div><button onClick={()=>changeItemQuantity(item.key,item.quantity-1)}>-</button><input type="number" min="1" value={item.quantity} onChange={event=>changeItemQuantity(item.key,event.target.value)}/><button onClick={()=>changeItemQuantity(item.key,item.quantity+1)}>+</button>{(!editing||!item.original_quantity||can(user,'orders.remove_items'))&&<button onClick={()=>setCart(current=>current.filter(row=>row.key!==item.key))}>x</button>}</div></article>):<div className="cart-empty"><ShoppingCart size={34}/><b>Your cart is empty</b><small>Select a product to begin</small></div>}</div>
-<div className="pos-controls pos-action-only"><footer><button className={retail?'primary':'kitchen'} disabled={saving||!cart.length} onClick={()=>submit(retail?'payment_pending':'pending')}>{saving?'Processing...':editing?(retail?'Update Order #':'Update Kitchen #')+(editing.order_number||editing.id):retail?'Save Order':'Kitchen'}</button></footer></div></aside></main>}
+<div className="pos-controls pos-action-only"><footer><button className={retail?'primary':'kitchen'} disabled={saving||!cart.length} onClick={()=>submit(retail?'payment_pending':'pending')}>{saving?'Processing...':editing?(retail?'Update Order #':'Update Kitchen #')+(editing.order_number||editing.id):retail?'Save Order':'Kitchen'}</button>{retail&&can(user,'orders.take_payment')&&can(user,'orders.complete')&&<button className="primary" disabled={saving||!cart.length} onClick={()=>submit('payment_pending',true)}>{saving?'Processing...':'Complete Order'}</button>}</footer></div></aside></main>}
     {config&&<ProductOptions product={config} close={()=>setConfig(null)} add={addItem} notify={notify}/>}
+    {checkoutPayment&&<PosPaymentModal order={checkoutPayment} close={()=>setCheckoutPayment(null)} notify={notify} onDone={()=>{setCheckoutPayment(null);startNewOrder()}} printReceipt={printReceipt}/>}
     {complete&&<Modal title={complete.updated?'Order Updated':'Order Placed'} close={()=>{setComplete(null);setForm(emptyForm);startNewOrder()}}><div className="pos-done"><PartyPopper size={48}/><p>Order #{complete.number}</p>{complete.token&&<b>Token: {complete.token}</b>}<strong>{money(complete.total)}</strong><button onClick={()=>printReceipt(complete.id,'customer')}>Customer Bill</button>{!retail&&<button onClick={()=>printReceipt(complete.id,'kitchen')}>Kitchen Ticket</button>}<button onClick={()=>{setComplete(null);setForm(emptyForm);startNewOrder()}}>Continue Ordering</button></div></Modal>}
     {toast&&<div className={'pos-toast '+toast.type}>{toast.message}<button onClick={()=>setToast(null)} aria-label="Dismiss notification"><X size={16}/></button></div>}
   </div>

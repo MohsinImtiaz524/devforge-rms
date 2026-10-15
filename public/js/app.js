@@ -4763,6 +4763,11 @@ async function renderPOS() {
                 class="${splitLayout ? 'py-1 text-xs h-9' : 'py-3 text-base h-14'} rounded-xl bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 font-black shadow-xl transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center gap-2">
                 <span>${deliveryOnly ? 'Place Delivery Order' : 'Place Order'}</span>
               </button>
+              ${isRetail && currentUserHasPermission('orders.take_payment') && currentUserHasPermission('orders.complete') ? `
+              <button onclick="checkout('payment_pending', true)" id="complete-order-btn"
+                class="${splitLayout ? 'py-1 text-xs h-9' : 'py-3 text-base h-14'} rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black shadow-xl shadow-emerald-600/20 transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center gap-2">
+                <span>Complete Order</span>
+              </button>` : ''}
               ` : `
               <button onclick="sendToKitchen()" id="kitchen-btn"
                 class="${splitLayout ? 'py-1 text-xs h-9' : 'py-3 text-base h-14'} rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-black shadow-xl transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center gap-2">
@@ -6165,11 +6170,14 @@ function tipSummaryRows(summary) {
     ' | Card ' + formatRegisterMoney(summary.card_tips) + ' | Online ' + formatRegisterMoney(summary.online_tips) + '</div></div>';
 }
 
-async function showOrderCompleteModal(id) {
+async function showOrderCompleteModal(id, selectedOrder = null) {
   if (!currentUserHasPermission('orders.take_payment') || !currentUserHasPermission('orders.complete')) {
     return toast('Payment and complete permissions are required for this action.', 'error');
   }
-  const s = _posActiveOrders.find(o => o.id === id);
+  if (selectedOrder) {
+    _posActiveOrders = [selectedOrder, ..._posActiveOrders.filter(order => Number(order.id) !== Number(id))];
+  }
+  const s = selectedOrder || _posActiveOrders.find(o => o.id === id);
   if (!s) return toast('Order not found', 'error');
   showAppLoader('Preparing payment', `Opening payment for order #${id}...`);
   await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
@@ -7622,7 +7630,8 @@ function handlePOSMethodChange(method) {
   calculateRemaining();
 }
 
-function getPOSActionButton(status = "completed") {
+function getPOSActionButton(status = "completed", actionId = null) {
+  if (actionId) return $c(actionId);
   return status === "pending"
     ? ($c("kitchen-btn") || $c("checkout-btn"))
     : ($c("checkout-btn") || $c("kitchen-btn"));
@@ -7634,8 +7643,8 @@ function getPOSActionLabel(status = "completed", isEditing = false) {
   return status === "pending" ? "Kitchen" : "Place Order";
 }
 
-function setPOSActionSubmitting(status = "completed", isSubmitting = true, fallbackIsEditing = false) {
-  const btn = getPOSActionButton(status);
+function setPOSActionSubmitting(status = "completed", isSubmitting = true, fallbackIsEditing = false, actionId = null) {
+  const btn = getPOSActionButton(status, actionId);
   if (!btn) return null;
 
   if (isSubmitting) {
@@ -7657,13 +7666,13 @@ function setPOSActionSubmitting(status = "completed", isSubmitting = true, fallb
   return btn;
 }
 
-function resetPOSCheckoutSubmission(status = "completed", fallbackIsEditing = false) {
+function resetPOSCheckoutSubmission(status = "completed", fallbackIsEditing = false, actionId = null) {
   _posCheckoutSubmitting = false;
   window._lastOrderAutoPrintKitchen = false;
-  setPOSActionSubmitting(status, false, fallbackIsEditing);
+  setPOSActionSubmitting(status, false, fallbackIsEditing, actionId);
 }
 
-async function checkout(status = 'completed') {
+async function checkout(status = 'completed', openPaymentAfterSave = false) {
   if (_posCheckoutSubmitting) return;
   if (!cart.length) return toast("Cart is empty", "error");
 
@@ -7673,11 +7682,12 @@ async function checkout(status = 'completed') {
   }
 
   const isEditing = _editingOrderId !== null;
-  const btn = setPOSActionSubmitting(status, true, isEditing);
+  const actionId = openPaymentAfterSave ? 'complete-order-btn' : null;
+  const btn = setPOSActionSubmitting(status, true, isEditing, actionId);
   _posCheckoutSubmitting = true;
 
   if (status === 'completed' && !(await ensureOpenShiftForPayment())) {
-    resetPOSCheckoutSubmission(status, isEditing);
+    resetPOSCheckoutSubmission(status, isEditing, actionId);
     return;
   }
 
@@ -7702,12 +7712,12 @@ async function checkout(status = 'completed') {
     customer_name = '';
     customer_phone = '';
     if (!table_id) {
-      resetPOSCheckoutSubmission(status, isEditing);
+      resetPOSCheckoutSubmission(status, isEditing, actionId);
       toast('Please choose a table for this dine-in order', 'error');
       return renderPOSTableSelection();
     }
     if (!waiter_id) {
-      resetPOSCheckoutSubmission(status, isEditing);
+      resetPOSCheckoutSubmission(status, isEditing, actionId);
       return toast('This table has no assigned order taker. Assign one in Table Management first.', 'error');
     }
   } else if (orderType === 'delivery') {
@@ -7716,7 +7726,7 @@ async function checkout(status = 'completed') {
   } else if (orderType === 'takeaway') {
     waiter_id = Number($c('pos-takeaway-waiter')?.value) || null;
     if (!waiter_id) {
-      resetPOSCheckoutSubmission(status, isEditing);
+      resetPOSCheckoutSubmission(status, isEditing, actionId);
       $c('pos-takeaway-waiter')?.focus();
       return toast('Select the order taker for this takeaway order.', 'error');
     }
@@ -7725,7 +7735,7 @@ async function checkout(status = 'completed') {
 
   const order_note = String($c('pos-order-note')?.value || '').trim().replace(/\s+/g, ' ');
   if (order_note && !/^[A-Za-z0-9 ]+$/.test(order_note)) {
-    resetPOSCheckoutSubmission(status, isEditing);
+    resetPOSCheckoutSubmission(status, isEditing, actionId);
     $c('pos-order-note')?.focus();
     return toast('Order Note may contain letters, numbers, and spaces only', 'error');
   }
@@ -7783,7 +7793,7 @@ async function checkout(status = 'completed') {
     const r = await api(url, method, payload);
     if (r.error) {
       toast(r.error, "error");
-      resetPOSCheckoutSubmission(status, isEditing);
+      resetPOSCheckoutSubmission(status, isEditing, actionId);
       return;
     }
     orderPersisted = true;
@@ -7795,7 +7805,9 @@ async function checkout(status = 'completed') {
       toast("Order updated successfully!");
       _editingOrderId = null;
     } else if (savedRetailOrder) {
-      toast(`Order #${completedOrderNumber} saved in View Orders.`);
+      toast(openPaymentAfterSave
+        ? `Order #${completedOrderNumber} saved. Complete its payment.`
+        : `Order #${completedOrderNumber} saved in View Orders.`);
     } else {
       toast(`Order placed! ${shopCurrencyCode()} ` + r.total);
     }
@@ -7808,7 +7820,19 @@ async function checkout(status = 'completed') {
       _tempEditSaleDetails = null;
       _posSelectedCustomer = null;
       _posCheckoutSubmitting = false;
-      if (btn) btn.removeAttribute('aria-busy');
+      renderCart();
+      setPOSActionSubmitting(status, false, isEditing, actionId);
+      if (openPaymentAfterSave) {
+        await showOrderCompleteModal(completedSaleId, {
+          ...payload,
+          id: completedSaleId,
+          order_number: completedOrderNumber,
+          total: Number(r.total || grandTotal),
+          amount_received: 0,
+          tip_amount: 0
+        });
+        return;
+      }
       await openPOSOrdersView();
       return;
     }
@@ -7855,7 +7879,7 @@ async function checkout(status = 'completed') {
       if (btn) btn.removeAttribute("aria-busy");
       return;
     }
-    resetPOSCheckoutSubmission(status, isEditing);
+    resetPOSCheckoutSubmission(status, isEditing, actionId);
   }
 }
 
