@@ -4534,15 +4534,15 @@ async function renderPOS() {
             </span>
             <span id="pos-mobile-category-label" class="max-w-[55%] truncate text-xs font-bold text-indigo-600 dark:text-indigo-400">All</span>
           </button>`}
-          <div class="${splitLayout ? 'flex' : 'hidden sm:flex'} min-w-0 items-center gap-1">
-            <button type="button" onclick="scrollPOSCategories(-1)" class="hidden lg:flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-indigo-950/40" aria-label="Scroll categories left">
+          <div class="${splitLayout ? 'flex' : 'hidden sm:flex'} min-w-0 items-center gap-1 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50 p-1 dark:border-indigo-800 dark:from-indigo-950/60 dark:to-violet-950/60">
+            <button type="button" onclick="scrollPOSCategories(-1)" class="hidden lg:flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-200 text-indigo-700 hover:bg-indigo-300 dark:bg-indigo-800 dark:text-indigo-100 dark:hover:bg-indigo-700" aria-label="Scroll categories left">
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
             </button>
-            <div id="pos-category-pills" class="min-w-0 flex-1 flex flex-wrap gap-2 lg:grid lg:grid-flow-col lg:grid-rows-2 lg:auto-cols-max lg:overflow-x-auto lg:overflow-y-hidden lg:scroll-smooth">
-              <button onclick="filterPOSByCategory(null)" class="cat-pill active px-4 py-1.5 rounded-full bg-indigo-600 text-white text-xs font-bold border border-transparent transition-all" data-cat="">All</button>
-              ${(_productCategories || []).map(c => `<button onclick="filterPOSByCategory('${c.name}')" class="cat-pill px-4 py-1.5 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold border border-slate-200 dark:border-slate-700 hover:border-indigo-400 transition-all" data-cat="${c.name}">${c.name}</button>`).join('')}
+            <div id="pos-category-pills" class="min-w-0 flex-1 flex flex-wrap gap-1 lg:grid lg:grid-flow-col lg:grid-rows-2 lg:auto-cols-max lg:overflow-x-auto lg:overflow-y-hidden lg:scroll-smooth">
+              <button onclick="filterPOSByCategory(null)" class="cat-pill active px-3 py-1 rounded-full bg-indigo-600 text-white text-[11px] font-bold border border-transparent transition-all" data-cat="">All</button>
+              ${(_productCategories || []).map(c => `<button onclick="filterPOSByCategory('${c.name}')" class="cat-pill px-3 py-1 rounded-full bg-white/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 text-[11px] font-bold border border-indigo-100 dark:border-indigo-900 hover:border-indigo-400 transition-all" data-cat="${c.name}">${c.name}</button>`).join('')}
             </div>
-            <button type="button" onclick="scrollPOSCategories(1)" class="hidden lg:flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-indigo-950/40" aria-label="Scroll categories right">
+            <button type="button" onclick="scrollPOSCategories(1)" class="hidden lg:flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-200 text-indigo-700 hover:bg-indigo-300 dark:bg-indigo-800 dark:text-indigo-100 dark:hover:bg-indigo-700" aria-label="Scroll categories right">
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
             </button>
           </div>
@@ -6483,8 +6483,8 @@ function filterPOSByCategory(cat) {
   document.querySelectorAll('.cat-pill').forEach(pill => {
     const isActive = (!cat && !pill.dataset.cat) || pill.dataset.cat === cat;
     pill.className = isActive
-      ? 'cat-pill active px-4 py-1.5 rounded-full bg-indigo-600 text-white text-xs font-bold border border-transparent transition-all'
-      : 'cat-pill px-4 py-1.5 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold border border-slate-200 dark:border-slate-700 hover:border-indigo-400 transition-all';
+      ? 'cat-pill active px-3 py-1 rounded-full bg-indigo-600 text-white text-[11px] font-bold border border-transparent transition-all'
+      : 'cat-pill px-3 py-1 rounded-full bg-white/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 text-[11px] font-bold border border-indigo-100 dark:border-indigo-900 hover:border-indigo-400 transition-all';
   });
   document.querySelectorAll('.pos-mobile-category-option').forEach(option => {
     const isActive = (!cat && !option.dataset.cat) || option.dataset.cat === cat;
