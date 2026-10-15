@@ -4094,9 +4094,22 @@ async function withAppLoader(title, detail, action) {
   try { return await action(); } finally { hideAppLoader(); }
 }
 
+function getPOSAllowedOrderTypes() {
+  const supportedTypes = ['dine_in', 'takeaway', 'delivery', 'walk_in'];
+  const defaultTypes = ['retail', 'retail_restaurant'].includes(currentUser?.shop_type)
+    ? supportedTypes
+    : ['dine_in', 'takeaway', 'delivery'];
+  const configuredTypes = Array.isArray(currentUser?.allowed_order_types)
+    ? currentUser.allowed_order_types
+    : defaultTypes;
+  return supportedTypes.filter(type => configuredTypes.includes(type));
+}
+
 function showPOSOrderTypeChooser() {
   setPOSTerminalTopNavHidden(false);
   if (!currentUserHasPermission('orders.create')) return toast('You do not have permission to create orders.', 'error');
+  const enabledOrderTypes = getPOSAllowedOrderTypes();
+  if (enabledOrderTypes.length === 1) return startPOSOrder(enabledOrderTypes[0]);
   // Warm the shared POS data while the user is choosing an order type.
   loadPOSBootstrapData().catch(() => {});
   $c("page-content").innerHTML = `
@@ -4139,10 +4152,7 @@ function showPOSOrderTypeChooser() {
         </div>
       </div>
     </div>`;
-  const defaultOrderTypes = ['retail', 'retail_restaurant'].includes(currentUser.shop_type)
-    ? ['dine_in', 'takeaway', 'delivery', 'walk_in']
-    : ['dine_in', 'takeaway', 'delivery'];
-  const allowedOrderTypes = Array.isArray(currentUser.allowed_order_types) ? currentUser.allowed_order_types : defaultOrderTypes;
+  const allowedOrderTypes = getPOSAllowedOrderTypes();
   document.querySelectorAll('#page-content button').forEach(button => {
     const match = button.getAttribute('onclick')?.match(/^startPOSOrder\('([^']+)'\)$/);
     if (match && !allowedOrderTypes.includes(match[1])) button.remove();
@@ -4153,7 +4163,7 @@ async function startPOSOrder(orderType) {
   if (!currentUserHasPermission('orders.create')) return toast('You do not have permission to create orders.', 'error');
   const allowedTypes = ['dine_in', 'takeaway', 'delivery', 'walk_in'];
   if (!allowedTypes.includes(orderType)) return;
-  const shopAllowedTypes = Array.isArray(currentUser.allowed_order_types) ? currentUser.allowed_order_types : allowedTypes;
+  const shopAllowedTypes = getPOSAllowedOrderTypes();
   if (!shopAllowedTypes.includes(orderType)) return toast('This order type is not enabled for this shop.', 'error');
   const labels = { dine_in: ['Opening dine-in', 'Loading your floor and available tables...'], takeaway: ['Opening takeaway', 'Preparing the counter order screen...'], delivery: ['Opening delivery', 'Loading customers, riders, and menu...'], walk_in: ['Opening walk-in', 'Preparing the retail counter order...'] };
   const [title, detail] = labels[orderType];
@@ -4323,6 +4333,7 @@ function returnToPOSOrderTypeSelection() {
   window._posOrderType = null;
   window._posSelectedTableId = null;
   window._posLayoutRestore = null;
+  if (getPOSAllowedOrderTypes().length === 1) return renderPOSLanding();
   showPOSOrderTypeChooser();
 }
 

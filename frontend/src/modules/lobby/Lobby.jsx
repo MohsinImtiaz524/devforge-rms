@@ -1,10 +1,22 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ArrowRight, Bell, ChevronDown, ChevronRight, Download, LogOut, Moon, Search, Sun } from 'lucide-react'
 import { api, legacyUrl } from '../../api/client'
 import './lobby.css'
+
+const GROUPS = [
+  { key: 'operations', title: 'Operations', description: 'Daily restaurant operations and frontline tools.', ids: ['dashboard', 'pos', 'delivery', 'tables', 'kds', 'register'] },
+  { key: 'business', title: 'Business', description: 'Manage your restaurant business and data.', ids: ['products', 'brands', 'sales-history', 'analytics', 'reports', 'expenses', 'raw-stock', 'waste-management', 'customers'] },
+  { key: 'administration', title: 'Administration', description: 'People, settings and system management.', ids: ['notifications', 'notification-inbox', 'users', 'settings', 'logs', 'hierarchy', 'subscriptions'] },
+]
+
+function ModuleIcon({ module, compact = false }) {
+  return <span className={`module-icon ${compact ? 'compact' : ''}`}><svg viewBox="0 0 24 24" fill="none" aria-hidden="true" dangerouslySetInnerHTML={{ __html: module.icon }} /></span>
+}
 
 function Lobby() {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
+  const [query, setQuery] = useState('')
   const [dark, setDark] = useState(() => {
     const sharedTheme = document.cookie.match(/(?:^|; )rms_theme=(dark|light)(?:;|$)/)?.[1] || localStorage.getItem('theme')
     return sharedTheme === 'dark' || (!sharedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)
@@ -110,57 +122,60 @@ function Lobby() {
     } catch (notificationError) { window.alert(notificationError.message) }
   }
 
+  const filteredModules = useMemo(() => {
+    if (!data) return []
+    const needle = query.trim().toLowerCase()
+    if (!needle) return data.modules
+    return data.modules.filter((module) => `${module.label} ${module.desc}`.toLowerCase().includes(needle))
+  }, [data, query])
+
   if (error) return <main className="lobby-state"><h1>Could not load modules</h1><p>{error}</p><button onClick={() => window.location.reload()}>Try again</button></main>
   if (!data) return <main className="lobby-state"><div className="lobby-spinner" /><p>Loading your workspace…</p></main>
 
   const { user, modules } = data
+  const byId = new Map(filteredModules.map((module) => [module.id, module]))
+  const featured = ['pos', 'kds', 'delivery'].map((id) => modules.find((module) => module.id === id)).filter(Boolean)
+  const primaryFeature = featured[0]
+  const secondaryFeatures = featured.slice(1)
+  const grouped = GROUPS.map((group) => ({ ...group, modules: group.ids.map((id) => byId.get(id)).filter(Boolean) })).filter((group) => group.modules.length)
+  const firstName = String(user.name || user.username || 'there').split(' ')[0]
+  const notificationModule = modules.find((module) => module.id === 'notifications')
+
   return (
     <main className="react-lobby">
       <header className="lobby-topbar">
-        <a className="lobby-brand-logo" href="/app/lobby" aria-label="Orbit OS home">
-          <img className="theme-logo-light" src="/icons/logo-light.png" alt="Orbit OS" />
-          <img className="theme-logo-dark" src="/icons/logo-dark.png" alt="Orbit OS" />
+        <a className="lobby-brand" href="/app/lobby" aria-label="DevForge RMS home">
+          <span className="lobby-brand-logo"><img className="theme-logo-light" src="/icons/logo-light.png" alt="" /><img className="theme-logo-dark" src="/icons/logo-dark.png" alt="" /></span>
+          <strong>{user.shop_name || 'DevForge RMS'}</strong>
         </a>
+        <label className="lobby-search"><Search size={20} aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search modules..." aria-label="Search modules" /><kbd>Ctrl K</kbd></label>
         <div className="lobby-controls">
+          {notificationModule && <button className="header-icon-button notification-button" title="Notifications" onClick={() => openModule(notificationModule)}><Bell size={22} aria-hidden="true" />{unreadCount > 0 && <span>{unreadCount > 99 ? '99+' : unreadCount}</span>}</button>}
           <div className="lobby-user-copy"><strong>{user.name || user.username}</strong><span>{user.role}</span></div>
-          {modules.some((module) => module.id === 'notifications') && <button className="header-icon-button notification-button" title="Notifications" onClick={() => openModule(modules.find((module) => module.id === 'notifications'))}>
-            <svg viewBox="0 0 24 24"><path d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0a3 3 0 01-6 0m6 0H9" /></svg>
-            {unreadCount > 0 && <span>{unreadCount > 99 ? '99+' : unreadCount}</span>}
-          </button>}
           <div className="profile-wrap" ref={profileRef}>
-            <button className="profile-trigger" onClick={(event) => { event.stopPropagation(); setProfileOpen((value) => !value) }} aria-label="Open profile menu" aria-haspopup="menu" aria-expanded={profileOpen}>
-              <span className="profile-avatar">{String(user.name || user.username).charAt(0).toUpperCase()}</span>
-              <svg viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" /></svg>
-            </button>
+            <button className="profile-trigger" onClick={(event) => { event.stopPropagation(); setProfileOpen((value) => !value) }} aria-label="Open profile menu" aria-haspopup="menu" aria-expanded={profileOpen}><span className="profile-avatar">{String(user.name || user.username).charAt(0).toUpperCase()}</span><ChevronDown size={17} aria-hidden="true" /></button>
             <div className={`profile-dropdown ${profileOpen ? 'active' : ''}`} role="menu" aria-label="Profile options">
               <div className="profile-mobile-user"><strong>{user.name || user.username}</strong><span>{user.role}</span></div>
-              <button type="button" role="menuitem" className="dropdown-item" onClick={() => { setDark((value) => !value); setProfileOpen(false) }}>
-                <svg viewBox="0 0 24 24"><path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.4 6.4-.7-.7M6.3 6.3l-.7-.7m12.8 0-.7.7M6.3 17.7l-.7.7M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg><span>{dark ? 'Switch to light mode' : 'Switch to dark mode'}</span>
-              </button>
-              <button type="button" role="menuitem" className="dropdown-item" onClick={installApp}>
-                <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 19h14" /></svg><span>Download app</span>
-              </button>
-              <button type="button" role="menuitem" className="dropdown-item" onClick={enableNotifications}>
-                <svg viewBox="0 0 24 24"><path d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0a3 3 0 01-6 0m6 0H9" /></svg><span>Device notifications</span>
-              </button>
-              <div className="dropdown-separator"><button type="button" role="menuitem" className="dropdown-item sign-out" onClick={logout}>
-                <svg viewBox="0 0 24 24"><path d="M17 16l4-4m0 0-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg><span>Sign out</span>
-              </button></div>
+              <button type="button" role="menuitem" className="dropdown-item" onClick={() => { setDark((value) => !value); setProfileOpen(false) }}>{dark ? <Sun size={19} /> : <Moon size={19} />}<span>{dark ? 'Switch to light mode' : 'Switch to dark mode'}</span></button>
+              <button type="button" role="menuitem" className="dropdown-item" onClick={installApp}><Download size={19} /><span>Download app</span></button>
+              <button type="button" role="menuitem" className="dropdown-item" onClick={enableNotifications}><Bell size={19} /><span>Device notifications</span></button>
+              <div className="dropdown-separator"><button type="button" role="menuitem" className="dropdown-item sign-out" onClick={logout}><LogOut size={19} /><span>Sign out</span></button></div>
             </div>
           </div>
         </div>
       </header>
 
       <section className="lobby-content">
-        <section className="module-grid" aria-label="Available modules">
-          {modules.map((module, index) => (
-            <button className="module-card" style={{ '--delay': `${index * 40}ms` }} key={module.id} onClick={() => openModule(module)}>
-              <span className="module-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" dangerouslySetInnerHTML={{ __html: module.icon }} /></span>
-              <span className="module-copy"><span className="module-title-row"><strong>{module.label}</strong>{module.frontend === 'react' && <span className="react-module-badge" title="React page" aria-label="React page">R</span>}</span><small>{module.desc}</small></span>
-              <span className="module-arrow">→</span>
-            </button>
-          ))}
-        </section>
+        <header className="workspace-heading"><span>Welcome back, {firstName}</span><h1>Your workspace</h1><p>Quickly access your restaurant operations, from daily tasks to business management.</p></header>
+
+        {!query && primaryFeature && <section className="featured-strip" aria-label="Quick access modules">
+          <div className="featured-primary"><ModuleIcon module={primaryFeature} /><div className="featured-copy"><span>{primaryFeature.label}</span><h2>Open {primaryFeature.label === 'POS Terminal' ? 'Point of Sale' : primaryFeature.label}</h2><p>{primaryFeature.desc}</p></div><button onClick={() => openModule(primaryFeature)}>{primaryFeature.id === 'pos' ? 'Open POS' : `Open ${primaryFeature.label}`} <ArrowRight size={20} /></button></div>
+          {secondaryFeatures.map((module) => <button className="featured-secondary" key={module.id} onClick={() => openModule(module)}><ModuleIcon module={module} compact /><span><strong>{module.label}</strong><small>{module.desc}</small></span><ChevronRight size={22} /></button>)}
+        </section>}
+
+        {grouped.length ? <section className="module-groups" aria-label="Available modules">
+          {grouped.map((group) => <article className="module-group" key={group.key}><header><span className={`group-mark ${group.key}`} aria-hidden="true" /><div><h2>{group.title}</h2><p>{group.description}</p></div></header><div className="group-list">{group.modules.map((module) => <button className="module-row" key={module.id} onClick={() => openModule(module)}><ModuleIcon module={module} compact /><span className="module-copy"><strong>{module.label}</strong><small>{module.desc}</small></span><ChevronRight className="module-chevron" size={21} /></button>)}</div></article>)}
+        </section> : <div className="lobby-empty"><Search size={24} /><strong>No matching modules</strong><span>Try another search term.</span></div>}
       </section>
     </main>
   )
