@@ -536,7 +536,37 @@
             from { opacity: 0; transform: scale(0.9); }
             to { opacity: 1; transform: scale(1); }
         }
-    </style>
+
+        /* Subtle POS category position indicator */
+        #pos-category-pills {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(99, 102, 241, 0.4) transparent;
+        }
+
+        #pos-category-pills::-webkit-scrollbar {
+            width: 0;
+            height: 3px;
+        }
+
+        #pos-category-pills::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        #pos-category-pills::-webkit-scrollbar-thumb {
+            border: 0;
+            border-radius: 999px;
+            background: linear-gradient(90deg, rgba(99, 102, 241, 0.4), rgba(168, 85, 247, 0.4));
+            box-shadow: 0 0 8px rgba(129, 140, 248, 0.3);
+        }
+
+        #pos-category-pills::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(90deg, rgba(99, 102, 241, 0.6), rgba(168, 85, 247, 0.6));
+            box-shadow: 0 0 10px rgba(129, 140, 248, 0.4);
+        }
+
+        .dark #pos-category-pills {
+            scrollbar-color: rgba(165, 180, 252, 0.45) transparent;
+        }</style>
 </head>
 
 <body class="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-200 transition-colors duration-300">
