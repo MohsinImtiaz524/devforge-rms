@@ -4497,8 +4497,10 @@ async function renderPOS() {
         <!-- Products Panel -->
         <div class="space-y-4 ${splitLayout ? 'min-w-0' : ''}">
           <div class="${splitLayout ? 'flex flex-col sm:flex-row gap-3' : 'flex flex-row flex-wrap items-center gap-2'}">
-            <input id="pos-search" oninput="filterPOSProducts()" placeholder="Search products…"
+            <input id="pos-search" value="${escapeOrderValue(_posProductSearch)}" oninput="syncPOSProductSearchClear();filterPOSProducts()" placeholder="Search products…"
               class="${splitLayout ? '' : 'order-1 min-w-0'} flex-1 h-12 px-4 py-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-all shadow-sm" />
+            <button type="button" id="pos-search-clear" onclick="clearPOSProductSearch()" aria-label="Clear product search" title="Clear search"
+              class="${_posProductSearch ? 'flex' : 'hidden'} ${splitLayout ? '' : 'order-1'} h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-xl font-black text-slate-500 shadow-sm transition-all hover:border-rose-300 hover:text-rose-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">&times;</button>
             <button type="button" onclick="returnToPOSOrderTypeSelection()"
               class="${splitLayout ? '' : 'order-2'} flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-600 shadow-sm transition-all hover:border-indigo-300 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-indigo-400" title="Back to order types">
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M15 19l-7-7 7-7"/></svg>
@@ -4573,9 +4575,12 @@ async function renderPOS() {
               <span class="text-lg">${activePOSOrderMeta.icon}</span>
               <div class="min-w-0"><span class="block text-[9px] font-black uppercase tracking-widest opacity-60">Order Type</span><span class="block truncate text-xs font-black">${activePOSOrderMeta.label}${activePOSOrderType === 'dine_in' && selectedPOSTable ? ` · Table ${escapeOrderValue(selectedPOSTable.table_number)}` : ''}</span></div>
             </div>
-            <button type="button" onclick="closePOSCheckout()" class="${splitLayout ? 'hidden' : 'flex'} w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-300 transition-all items-center justify-center" title="Close checkout">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
+            <div class="flex items-center gap-2">
+              <button type="button" id="pos-clear-cart" onclick="clearPOSCart()" class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-rose-600 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300" ${cart.length ? '' : 'disabled'}>Clear Cart</button>
+              <button type="button" onclick="closePOSCheckout()" class="${splitLayout ? 'hidden' : 'flex'} w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-300 transition-all items-center justify-center" title="Close checkout">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
           </div>
           
           <div id="cart-items" style="max-height: 30vh; overflow-y: auto;"
@@ -6698,6 +6703,23 @@ function refreshSplitPOSCartQuantities() {
   });
 }
 
+function syncPOSProductSearchClear() {
+  const clearButton = $c("pos-search-clear");
+  if (!clearButton) return;
+  const hasSearch = !!$c("pos-search")?.value.trim();
+  clearButton.classList.toggle("hidden", !hasSearch);
+  clearButton.classList.toggle("flex", hasSearch);
+}
+
+function clearPOSProductSearch() {
+  const input = $c("pos-search");
+  if (input) input.value = "";
+  _posProductSearch = "";
+  syncPOSProductSearchClear();
+  loadPOSProductsPage(1);
+  input?.focus();
+}
+
 var filterPOSProducts = debounce(() => {
   _posProductSearch = $c("pos-search")?.value.trim() || "";
   loadPOSProductsPage(1);
@@ -7157,6 +7179,15 @@ function updateCartBatch(productId, batchId) {
   item.batch_id = parseInt(batchId);
 }
 
+function clearPOSCart() {
+  if (!cart.length) return;
+  if (_editingOrderId && cart.some(item => item.original_quantity) && !currentUserHasPermission('orders.remove_items')) {
+    return toast('Clearing existing order items requires Remove Order Items access.', 'error');
+  }
+  cart = [];
+  renderCart();
+}
+
 function removeFromCart(productId) {
   const item = cart.find((c) => c.product_id === productId);
   if (!canRemoveCartItem(item)) return toast('You cannot remove an existing item from this order.', 'error');
@@ -7192,6 +7223,8 @@ function canRemoveCartItem(item) {
 function renderCart() {
   const cartEl = $c("cart-items");
   if (!cartEl) return;
+  const clearCartButton = $c("pos-clear-cart");
+  if (clearCartButton) clearCartButton.disabled = !cart.length;
   const compactCart = getPOSLayout() === "split" && _currentPage === "pos";
 
   if (!cart.length) {
