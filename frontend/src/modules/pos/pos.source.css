@@ -16,6 +16,7 @@
 .pos-page :where(.pos-products,.pos-cart,.pos-cats,.pos-suggestions,.orders-table,.order-details,.pos-modal,.table-choice)::-webkit-scrollbar{display:none;width:0;height:0}
 /* React POS fixed terminal viewport */
 @media (min-width:1024px){
+  .pos-scroll-horizontal .pos-cats{display:grid;grid-template-rows:repeat(2,minmax(0,auto));grid-auto-flow:column;grid-auto-columns:max-content;align-content:start;overflow-x:auto;overflow-y:hidden}
   .pos-page:has(.pos-terminal){height:100vh;overflow:hidden}
   .pos-terminal{height:100vh;overflow:hidden}
   .pos-terminal>section{display:flex;min-width:0;min-height:0;height:100%;flex-direction:column;overflow:hidden}
