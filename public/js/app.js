@@ -191,6 +191,9 @@ let _posProductPage = 1;
 let _posProductCategory = "";
 let _posProductSearch = "";
 let _posServerPagination = null;
+let _posQuickAddResults = [];
+let _posQuickAddRequest = 0;
+let _posQuickAddBusy = false;
 let _inventoryProductPage = 1;
 const INVENTORY_PRODUCTS_PER_PAGE = 20;
 let _posFilteredProducts = [];
@@ -4591,6 +4594,21 @@ async function renderPOS() {
             </div>
           </div>
           
+          <div class="relative z-20 mb-3 shrink-0">
+            <label for="pos-quick-add-search" class="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-400">Quick add product or variant</label>
+            <div class="relative min-w-0">
+              <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/></svg>
+              <input id="pos-quick-add-search" type="search" autocomplete="off" inputmode="search"
+                placeholder="Search name, SKU, barcode or scan QR"
+                oninput="queuePOSQuickAddSearch()" onkeydown="handlePOSQuickAddKeydown(event)"
+                class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-10 pr-10 text-sm font-bold text-slate-900 shadow-sm outline-none transition focus:border-indigo-500 focus:bg-white dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:bg-slate-900" />
+              <button type="button" id="pos-quick-add-clear" onclick="clearPOSQuickAddSearch(true)" aria-label="Clear quick-add search"
+                class="hidden absolute right-2 top-1/2 h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-lg font-black text-slate-400 hover:bg-slate-200 hover:text-rose-500 dark:hover:bg-slate-800">&times;</button>
+            </div>
+            <div id="pos-quick-add-results" class="hidden absolute left-0 right-0 top-full mt-1 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-2xl dark:border-slate-700 dark:bg-slate-900" role="listbox" aria-label="Quick-add search results"></div>
+            <p id="pos-quick-add-status" class="sr-only" aria-live="polite"></p>
+          </div>
+
           <div id="cart-items" style="max-height: 30vh; overflow-y: auto;"
             class="relative isolate z-0 mb-4 min-h-20 shrink-0 space-y-2 rounded-xl border border-slate-200 bg-slate-50/70 p-2 dark:border-slate-800 dark:bg-slate-950/40"></div>
 
@@ -6737,6 +6755,180 @@ var filterPOSProducts = debounce(() => {
   _posProductSearch = $c("pos-search")?.value.trim() || "";
   loadPOSProductsPage(1);
 });
+
+function clearPOSQuickAddSearch(focus = false) {
+  _posQuickAddRequest += 1;
+  _posQuickAddResults = [];
+  const input = $c("pos-quick-add-search");
+  const clearButton = $c("pos-quick-add-clear");
+  const results = $c("pos-quick-add-results");
+  if (input) input.value = "";
+  if (clearButton) {
+    clearButton.classList.add("hidden");
+    clearButton.classList.remove("flex");
+  }
+  if (results) {
+    results.innerHTML = "";
+    results.classList.add("hidden");
+  }
+  if (focus) input?.focus();
+}
+
+function finishPOSQuickAdd(message, type) {
+  const status = $c("pos-quick-add-status");
+  if (status) status.textContent = message;
+  clearPOSQuickAddSearch(true);
+  toast(message, type);
+}
+
+function getPOSQuickAddEntries(products) {
+  return products.flatMap(product => {
+    const variants = getProductMenuVariants(product);
+    if (variants.length) return variants.map(variant => ({ product, variant }));
+    return [{ product, variant: null }];
+  });
+}
+
+function renderPOSQuickAddResults(entries) {
+  const results = $c("pos-quick-add-results");
+  if (!results) return;
+  if (!entries.length) {
+    results.innerHTML = '<div class="px-3 py-4 text-center text-xs font-bold text-slate-400">No matching product or variant</div>';
+    results.classList.remove("hidden");
+    return;
+  }
+  results.innerHTML = entries.map(({ product, variant }) => {
+    const isRecipe = inventoryIsRecipeProduct(product);
+    const stock = isRecipe ? Infinity : Number(variant?.stock ?? product.stock ?? 0);
+    const available = isRecipe || stock > 0;
+    const name = variant ? `${product.name} - ${variant.name}` : product.name;
+    const sku = variant?.sku || product.sku || "";
+    const barcode = variant?.barcode || product.barcode || "";
+    const price = Number(variant?.price ?? variant?.selling_price ?? product.selling_price ?? 0);
+    return `<button type="button" role="option" onclick="quickAddPOSItem(${Number(product.id)}, ${variant ? Number(variant.id) : 'null'})"
+      class="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-indigo-50 focus:bg-indigo-50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-indigo-950/40 dark:focus:bg-indigo-950/40" ${available ? '' : 'disabled'}>
+      <span class="min-w-0"><strong class="block truncate text-xs text-slate-900 dark:text-white">${escapeOrderValue(name)}</strong><small class="block truncate text-[10px] font-bold text-slate-400">${escapeOrderValue(sku)}${barcode ? ` · ${escapeOrderValue(barcode)}` : ''}</small></span>
+      <span class="shrink-0 text-right"><strong class="block text-xs text-emerald-600 dark:text-emerald-400">${shopCurrencyCode()} ${price.toLocaleString()}</strong><small class="text-[10px] font-bold ${available ? 'text-slate-400' : 'text-rose-500'}">${isRecipe ? 'Available' : available ? `${stock} in stock` : 'Out of stock'}</small></span>
+    </button>`;
+  }).join("");
+  results.classList.remove("hidden");
+}
+
+async function searchPOSQuickAdd({ submit = false, autoAddBarcode = true } = {}) {
+  const input = $c("pos-quick-add-search");
+  const query = String(input?.value || "").trim();
+  if (!query) return clearPOSQuickAddSearch(false);
+  const requestId = ++_posQuickAddRequest;
+  const results = $c("pos-quick-add-results");
+  if (results) {
+    results.innerHTML = '<div class="px-3 py-4 text-center text-xs font-bold text-slate-400">Searching…</div>';
+    results.classList.remove("hidden");
+  }
+  try {
+    const params = new URLSearchParams({ paginate: '1', page: '1', page_size: '20', menu_only: '1', exclude_components: '1', search: query });
+    const response = await api(`/api/products?${params.toString()}`);
+    if (requestId !== _posQuickAddRequest) return;
+    const products = Array.isArray(response?.items) ? response.items : [];
+    products.forEach(product => { productMap[product.id] = product; });
+    _posQuickAddResults = getPOSQuickAddEntries(products);
+    const normalized = query.toLowerCase();
+    const barcodeMatches = _posQuickAddResults.filter(({ product, variant }) =>
+      [variant?.barcode, product.barcode].some(value => value && String(value).trim().toLowerCase() === normalized));
+    const identifierMatches = _posQuickAddResults.filter(({ product, variant }) =>
+      [variant?.barcode, variant?.sku, product.barcode, product.sku].some(value => value && String(value).trim().toLowerCase() === normalized));
+
+    if (autoAddBarcode && barcodeMatches.length === 1) {
+      return quickAddPOSItem(barcodeMatches[0].product.id, barcodeMatches[0].variant?.id ?? null);
+    }
+    if (submit) {
+      const match = identifierMatches.length === 1 ? identifierMatches[0] : (_posQuickAddResults.length === 1 ? _posQuickAddResults[0] : null);
+      if (match) return quickAddPOSItem(match.product.id, match.variant?.id ?? null);
+      if (!_posQuickAddResults.length) return finishPOSQuickAdd("Product, barcode, or QR code not found", "error");
+    }
+    renderPOSQuickAddResults(_posQuickAddResults);
+  } catch (error) {
+    if (requestId === _posQuickAddRequest) finishPOSQuickAdd(error.message || "Could not search products", "error");
+  }
+}
+
+const runPOSQuickAddSearch = debounce(() => searchPOSQuickAdd(), 180);
+
+function queuePOSQuickAddSearch() {
+  const input = $c("pos-quick-add-search");
+  const clearButton = $c("pos-quick-add-clear");
+  const hasValue = !!input?.value.trim();
+  clearButton?.classList.toggle("hidden", !hasValue);
+  clearButton?.classList.toggle("flex", hasValue);
+  if (!hasValue) return clearPOSQuickAddSearch(false);
+  runPOSQuickAddSearch();
+}
+
+function handlePOSQuickAddKeydown(event) {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    searchPOSQuickAdd({ submit: true, autoAddBarcode: false });
+  } else if (event.key === "ArrowDown") {
+    event.preventDefault();
+    $c("pos-quick-add-results")?.querySelector("button:not(:disabled)")?.focus();
+  } else if (event.key === "Escape") {
+    clearPOSQuickAddSearch(true);
+  }
+}
+
+function isPOSQuickAddExpired(record) {
+  const value = record?.expiry_date || record?.expires_at || record?.expiration_date;
+  if (!value) return false;
+  const expiry = new Date(`${String(value).slice(0, 10)}T23:59:59`);
+  return Number.isFinite(expiry.getTime()) && expiry.getTime() < Date.now();
+}
+
+function quickAddPOSItem(productId, variantId = null) {
+  if (_posQuickAddBusy) return;
+  _posQuickAddBusy = true;
+  try {
+    const product = productMap[productId];
+    if (!product) return finishPOSQuickAdd("Product is no longer available", "error");
+    const isRecipe = inventoryIsRecipeProduct(product);
+    const variants = getProductMenuVariants(product);
+    const variant = variantId == null ? null : variants.find(item => Number(item.id) === Number(variantId));
+    if (variantId != null && !variant) return finishPOSQuickAdd("This product variant is inactive or unavailable", "error");
+    if (isPOSQuickAddExpired(variant) || isPOSQuickAddExpired(product)) return finishPOSQuickAdd("This product or variant has expired", "error");
+    if (product.components?.length) return finishPOSQuickAdd("This product requires detailed configuration", "error");
+    if (variants.length > 1 && !variant) return finishPOSQuickAdd("Select a product variant before adding", "error");
+
+    const availableStock = isRecipe ? Infinity : Number(variant?.stock ?? product.stock ?? 0);
+    if (!isRecipe && availableStock <= 0) return finishPOSQuickAdd("This product or variant is out of stock", "error");
+    const activeBatches = (product.batches || []).filter(batch => Number(batch.quantity || 0) > 0 && !isPOSQuickAddExpired(batch));
+    if (!variant && !isRecipe && product.batches?.length && !activeBatches.length) return finishPOSQuickAdd("All available batches for this product have expired", "error");
+
+    const price = Number(variant?.price ?? variant?.selling_price ?? product.selling_price ?? 0);
+    if (!Number.isFinite(price) || price <= 0) return finishPOSQuickAdd("This product does not have a valid selling price", "error");
+    const selectionKey = `${variant?.id || 'regular'}::`;
+    const existing = cart.find(item => item.product_id === product.id && item.selection_key === selectionKey);
+    if (existing) {
+      if (!isRecipe && Number(existing.quantity || 0) + 1 > availableStock) return finishPOSQuickAdd("Insufficient stock for another unit", "error");
+      existing.quantity = Number(existing.quantity || 0) + 1;
+      existing.selling_price = price;
+    } else {
+      cart.push({
+        product_id: product.id,
+        quantity: 1,
+        selling_price: price,
+        product,
+        batch_id: activeBatches[0]?.id || product.batches?.[0]?.id || null,
+        selection_key: selectionKey,
+        special_instructions: null,
+        variants: variant ? [{ id: variant.id, name: variant.name, price }] : null,
+        addons: [],
+        stock_variant_id: !isRecipe && variant ? Number(variant.id) : null
+      });
+    }
+    renderCart();
+    finishPOSQuickAdd(`${variant ? `${product.name} - ${variant.name}` : product.name} added to cart`, "success");
+  } finally {
+    _posQuickAddBusy = false;
+  }
+}
 
 /**
  * Prompts user for quantity and selling price before adding to cart
