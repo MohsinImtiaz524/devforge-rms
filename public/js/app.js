@@ -6222,6 +6222,10 @@ async function showOrderCompleteModal(id, selectedOrder = null) {
   const subtotal = taxableSubtotal + discount;
   const taxAmount = total - taxableSubtotal;
   const received = Number(s.amount_received || 0) > 0.01 ? Number(s.amount_received) : Number(s.total);
+  const [discounts, taxes] = await Promise.all([
+    api('/api/shop-settings/discounts').catch(() => []),
+    api('/api/shop-settings/taxes').catch(() => [])
+  ]);
   window._completeOrderSelectedCustomer = s.customer_id ? { id: s.customer_id, name, phone } : null;
 
   openModal('Collect Payment', `
@@ -6240,9 +6244,29 @@ async function showOrderCompleteModal(id, selectedOrder = null) {
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
+          <label for="op-discount" class="block text-xs font-bold text-slate-500 mb-1">Discount</label>
+          <div class="flex gap-2">
+            <select id="op-disc-preset" onchange="applyCompleteOrderDiscountPreset(${subtotal})" class="w-1/2 px-3 py-3 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
+              <option value="">Presets</option>
+              ${discounts.map(d => `<option value="${d.value}" data-type="${d.type}">${escapeOrderValue(d.name)} (${d.type === 'percentage' ? d.value + '%' : `${shopCurrencyCode()} ${d.value}`})</option>`).join('')}
+            </select>
+            <input id="op-discount" type="number" min="0" step="0.01" value="${discount}" oninput="updateCompleteOrderSummary(${subtotal})" class="flex-1 min-w-0 px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-bold" />
+          </div>
+        </div>
+        <div>
+          <label for="op-tax" class="block text-xs font-bold text-slate-500 mb-1">Tax (%)</label>
+          <select id="op-tax-preset" class="hidden">
+            <option value="">Presets</option>
+            ${taxes.map(t => `<option value="${t.percentage}" data-method="${t.linked_payment_method || ''}">${escapeOrderValue(t.name)} (${t.percentage}%)</option>`).join('')}
+          </select>
+          <input id="op-tax" type="number" step="0.01" value="${taxPercentage}" oninput="updateCompleteOrderSummary(${subtotal})" class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-bold" />
+        </div>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
         <label for="op-tip" class="block text-xs font-bold text-slate-500 mb-1">Tip Received</label>
         <input id="op-tip" type="number" min="0" step="0.01" value="${Number(s.tip_amount || 0)}" ${Number(s.tip_amount || 0) > 0 ? 'readonly' : ''}
-          oninput="updateCompleteOrderSummary(${total})" class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-bold" />
+          oninput="updateCompleteOrderSummary(${subtotal})" class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-bold" />
         <p class="mt-1 text-xs text-slate-500">Enter the tip included in Amount Received. Any remaining extra money is change.</p>
         </div>
         <div id="op-tip-method-wrap" class="${Number(s.tip_amount || 0) > 0 ? '' : 'hidden'}">
@@ -6259,16 +6283,16 @@ async function showOrderCompleteModal(id, selectedOrder = null) {
         <div>
           <label class="block text-xs font-bold text-slate-500 mb-1">Amount Received</label>
           <input id="op-received" type="number" step="0.01" value="${received}" 
-            oninput="updateCompleteOrderSummary(${total})"
+            oninput="updateCompleteOrderSummary(${subtotal})"
             class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-bold text-xl text-emerald-600" />
           <div class="grid grid-cols-2 gap-2 mt-2">
-            <button type="button" onclick="$c('op-received').value='0';updateCompleteOrderSummary(${total})" class="py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-black">Pay 0</button>
-            <button type="button" onclick="$c('op-received').value=(${Number(total)} + Number($c('op-tip').value || 0)).toFixed(2);updateCompleteOrderSummary(${total})" class="py-2 rounded-lg bg-emerald-600 text-white text-xs font-black">Pay Full</button>
+            <button type="button" onclick="$c('op-received').value='0';updateCompleteOrderSummary(${subtotal})" class="py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-black">Pay 0</button>
+            <button type="button" onclick="setCompleteOrderFullPayment(${subtotal})" class="py-2 rounded-lg bg-emerald-600 text-white text-xs font-black">Pay Full</button>
           </div>
         </div>
         <div>
           <label class="block text-xs font-bold text-slate-500 mb-1">Payment Method</label>
-          <select id="op-method" class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-bold">
+          <select id="op-method" onchange="applyCompleteOrderLinkedTax(${subtotal})" class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-bold">
             <option value="cash" ${s.payment_method === 'cash' ? 'selected' : ''}>Cash</option>
             <option value="card" ${s.payment_method === 'card' ? 'selected' : ''}>Card</option>
             <option value="online" ${s.payment_method === 'online' ? 'selected' : ''}>Online</option>
@@ -6279,15 +6303,19 @@ async function showOrderCompleteModal(id, selectedOrder = null) {
       <div class="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700/50 space-y-2">
         <div class="flex justify-between text-xs">
           <span class="text-slate-500 font-bold uppercase tracking-wider">Subtotal</span>
-          <span class="text-slate-900 dark:text-white font-black">${shopCurrencyCode()} ${subtotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+          <span id="oc-subtotal" class="text-slate-900 dark:text-white font-black">${shopCurrencyCode()} ${subtotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+        </div>
+        <div class="flex justify-between text-xs">
+          <span class="text-slate-500 font-bold uppercase tracking-wider">Discount</span>
+          <span id="oc-discount" class="text-rose-500 font-black">- ${shopCurrencyCode()} ${discount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
         </div>
         <div class="flex justify-between text-xs">
           <span class="text-slate-500 font-bold uppercase tracking-wider">Tax Amount</span>
-          <span class="text-slate-900 dark:text-white font-black">${shopCurrencyCode()} ${taxAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+          <span id="oc-tax" class="text-slate-900 dark:text-white font-black">${shopCurrencyCode()} ${taxAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
         </div>
         <div class="flex justify-between text-xs pt-2 border-t border-slate-200 dark:border-slate-700">
           <span class="text-slate-500 font-bold uppercase tracking-wider">Grand Total</span>
-          <span class="text-slate-900 dark:text-white font-black">${shopCurrencyCode()} ${total.toLocaleString()}</span>
+          <span id="oc-total" class="text-slate-900 dark:text-white font-black">${shopCurrencyCode()} ${total.toLocaleString()}</span>
         </div>
         <div id="oc-due-row" class="flex justify-between text-xs hidden">
           <span class="text-slate-500 font-bold uppercase tracking-wider">Remaining Due</span>
@@ -6308,8 +6336,37 @@ async function showOrderCompleteModal(id, selectedOrder = null) {
   `, 'max-w-md');
 
   // Initial trigger to sync summary
-  updateCompleteOrderSummary(total);
+  updateCompleteOrderSummary(subtotal);
   hideAppLoader();
+}
+
+function applyCompleteOrderDiscountPreset(subtotal) {
+  const select = document.getElementById('op-disc-preset');
+  const option = select?.options[select.selectedIndex];
+  if (!select || !option || select.value === '') return;
+  const value = Number(select.value) || 0;
+  const discount = option.dataset.type === 'percentage' ? subtotal * value / 100 : value;
+  document.getElementById('op-discount').value = discount.toFixed(2);
+  updateCompleteOrderSummary(subtotal);
+}
+
+function applyCompleteOrderLinkedTax(subtotal) {
+  const method = document.getElementById('op-method')?.value;
+  const preset = Array.from(document.getElementById('op-tax-preset')?.options || []).find(option => option.dataset.method === method);
+  if (preset) document.getElementById('op-tax').value = preset.value;
+  updateCompleteOrderSummary(subtotal);
+}
+
+function completeOrderTotal(subtotal) {
+  const discount = Number(document.getElementById('op-discount')?.value || 0);
+  const taxPercentage = Number(document.getElementById('op-tax')?.value || 0);
+  return subtotal - discount + ((subtotal - discount) * taxPercentage / 100);
+}
+
+function setCompleteOrderFullPayment(subtotal) {
+  const tip = Number(document.getElementById('op-tip')?.value || 0);
+  document.getElementById('op-received').value = (completeOrderTotal(subtotal) + tip).toFixed(2);
+  updateCompleteOrderSummary(subtotal);
 }
 
 let _completeOrderCustomerSuggestTimer = null;
@@ -6355,12 +6412,16 @@ function selectCompleteOrderCustomer(customerId) {
   });
 }
 
-function updateCompleteOrderSummary(total) {
+function updateCompleteOrderSummary(subtotal) {
   const receivedInp = document.getElementById('op-received');
   if (!receivedInp) return;
 
   const received = parseFloat(receivedInp.value) || 0;
   const tip = Number(document.getElementById('op-tip')?.value || 0);
+  const discount = Number(document.getElementById('op-discount')?.value || 0);
+  const taxPercentage = Number(document.getElementById('op-tax')?.value || 0);
+  const taxAmount = (subtotal - discount) * (taxPercentage / 100);
+  const total = subtotal - discount + taxAmount;
   document.getElementById('op-tip-method-wrap')?.classList.toggle('hidden', tip <= 0);
   const diff = (Math.round(received * 100) - Math.round(total * 100) - Math.round(tip * 100)) / 100;
 
@@ -6368,6 +6429,9 @@ function updateCompleteOrderSummary(total) {
   const dueVal = document.getElementById('oc-due');
   const changeRow = document.getElementById('oc-change-row');
   const changeVal = document.getElementById('oc-change');
+  if (document.getElementById('oc-discount')) document.getElementById('oc-discount').textContent = `- ${shopCurrencyCode()} ${discount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  if (document.getElementById('oc-tax')) document.getElementById('oc-tax').textContent = `${shopCurrencyCode()} ${taxAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  if (document.getElementById('oc-total')) document.getElementById('oc-total').textContent = `${shopCurrencyCode()} ${total.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
   if (diff < 0) {
     dueRow?.classList.remove('hidden');
@@ -6392,16 +6456,23 @@ async function updateAndCompleteOrder(id) {
   const customerName = nameEl.value.trim();
   const customerPhone = $c('op-phone').value.trim();
   const amountReceived = Math.max(parseFloat($c('op-received').value) || 0, 0);
+  const discount = parseFloat($c('op-discount').value) || 0;
+  const taxPercentage = parseFloat($c('op-tax').value) || 0;
+  const currentTaxPercentage = Number(s.tax_percentage || 0);
+  const currentTaxableSubtotal = currentTaxPercentage === -100
+    ? Number(s.total || 0)
+    : Number(s.total || 0) / (1 + (currentTaxPercentage / 100));
+  const subtotal = currentTaxableSubtotal + Number(s.discount || 0);
+  const finalTotal = subtotal - discount + ((subtotal - discount) * taxPercentage / 100);
   const tipAmount = Number($c('op-tip')?.value || 0);
   if (!Number.isFinite(tipAmount) || tipAmount < 0 || Math.abs(tipAmount * 100 - Math.round(tipAmount * 100)) > 0.00001) {
     return toast('Enter a valid tip with at most two decimal places.', 'error');
   }
-  if (Math.round(amountReceived * 100) < Math.round(Number(s.total || 0) * 100) + Math.round(tipAmount * 100) && tipAmount > 0) {
+  if (Math.round(amountReceived * 100) < Math.round(finalTotal * 100) + Math.round(tipAmount * 100) && tipAmount > 0) {
     return toast('Amount received must cover the bill and tip.', 'error');
   }
   const previousReceived = Number(s.amount_received || 0);
-  const total = Number(s.total || 0);
-  const fullyPaid = amountReceived >= total - 0.01;
+  const fullyPaid = amountReceived >= finalTotal - 0.01;
 
   if (!fullyPaid && (!customerName || !customerPhone)) {
     if (!customerName) nameEl.focus();
@@ -6415,6 +6486,8 @@ async function updateAndCompleteOrder(id) {
     customer_id: window._completeOrderSelectedCustomer?.id || null,
     customer_name: customerName,
     customer_phone: customerPhone,
+    discount,
+    tax_percentage: taxPercentage,
     tip_amount: tipAmount,
     tip_payment_method: tipAmount > 0 ? ($c('op-tip-method')?.value || $c('op-method')?.value || s.payment_method || 'cash') : undefined,
     payment_method: $c('op-method')?.value || s.payment_method || 'cash'
@@ -7963,11 +8036,6 @@ async function checkout(status = 'completed', openPaymentAfterSave = false) {
     rider_id = parseInt($c('pos-rider')?.value) || null;
   } else if (orderType === 'takeaway') {
     waiter_id = Number($c('pos-takeaway-waiter')?.value) || null;
-    if (!waiter_id) {
-      resetPOSCheckoutSubmission(status, isEditing, actionId);
-      $c('pos-takeaway-waiter')?.focus();
-      return toast('Select the order taker for this takeaway order.', 'error');
-    }
     token_number = $c('pos-token')?.value.trim() || `TK-${Date.now()}`;
   }
 

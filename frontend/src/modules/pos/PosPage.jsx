@@ -154,7 +154,6 @@ function openReceiptWindow(id,format) {
     if (saving || !cart.length) return
     if (orderType === 'dine_in' && !form.table_id) return setStage('tables')
     if (orderType === 'dine_in' && !form.waiter_id) return notify('This table has no assigned waiter. Assign one in Table Management first.','error')
-    if (orderType === 'takeaway' && !form.waiter_id) return notify('Select the order taker first.','error')
     const payload = { items:cart.map(saleItemPayload), discount:Number(form.discount || 0), tax_percentage:Number(form.tax_percentage || 0), payment_method:form.payment_method, amount_received:0, customer_name:form.customer_name.trim(), customer_phone:form.customer_phone.trim(), customer_id:form.customer_id || null, delivery_address:form.delivery_address.trim(), order_type:orderType, table_id:Number(form.table_id)||null, waiter_id:Number(form.waiter_id)||null, rider_id:Number(form.rider_id)||null, kitchen_id:null, guest_count:1, token_number:orderType==='takeaway' ? form.token_number.trim() || 'TK-'+Date.now() : null, order_status:status, money_received:false, client_request_id:crypto.randomUUID?.() || 'pos-'+Date.now() }
     try {
       setSaving(true)
