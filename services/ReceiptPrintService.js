@@ -446,6 +446,60 @@ function renderSaleReceiptPage(details, options = {}) {
 </html>`;
 }
 
+function renderTipReceiptPage(details, options = {}) {
+  const tip = details.tip || {};
+  const sale = details.sale || {};
+  const shop = details.shop || {};
+  const collector = details.collector || {};
+  const table = details.table || {};
+  const autoPrint = options.autoPrint !== false;
+  const context = sale.order_type === 'dine_in' && table.table_number
+    ? `Table ${table.table_number}`
+    : formatOrderType(sale.order_type);
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tip Receipt #${escapeHtml(sale.order_number || sale.id)}</title>
+  <style>
+    @page { margin: 0; size: 74mm 80mm; }
+    html, body { margin: 0; padding: 0; width: 74mm; background: #fff; color: #000; }
+    .slip { box-sizing: border-box; width: 74mm; padding: 3mm 8mm 3mm 3mm; font-family: ${cssFontFamily(shop.receipt_font_family)}; font-size: 11px; line-height: 1.3; }
+    h1 { margin: 0; text-align: center; font-size: 15px; text-transform: uppercase; }
+    h2 { margin: 2px 0 6px; text-align: center; font-size: 12px; }
+    .divider { border: 0; border-top: 1px dashed #000; margin: 5px 0; }
+    .row { display: flex; justify-content: space-between; gap: 8px; margin: 2px 0; }
+    .amount { margin: 6px 0; font-size: 17px; font-weight: 800; }
+    .footer { margin-top: 7px; text-align: center; font-size: 9px; }
+    @media print { html, body, .slip { width: 100%; } }
+  </style>
+</head>
+<body>
+  <main class="slip">
+    <h1>${escapeHtml(shop.name || 'POS System')}</h1>
+    <h2>TIP RECEIPT</h2>
+    <hr class="divider">
+    <div class="row"><strong>Order</strong><span>#${escapeHtml(sale.order_number || sale.id)}</span></div>
+    <div class="row"><strong>Service</strong><span>${escapeHtml(context)}</span></div>
+    ${sale.customer_name ? `<div class="row"><strong>Customer</strong><span>${escapeHtml(sale.customer_name)}</span></div>` : ''}
+    <hr class="divider">
+    <div class="row amount"><span>Tip Received</span><span>${escapeHtml(shop.currency || 'PKR')} ${formatMoney(Number(tip.amount_cents || 0) / 100)}</span></div>
+    <div class="row"><strong>Method</strong><span>${escapeHtml(String(tip.payment_method || '').toUpperCase())}</span></div>
+    <div class="row"><strong>Recorded by</strong><span>${escapeHtml(collector.name || collector.username || 'Staff')}</span></div>
+    <div class="row"><strong>Recorded at</strong><span>${escapeHtml(formatReceiptDateTime(tip.collected_at, options.timeZone))}</span></div>
+    <hr class="divider">
+    <div class="footer">Tip receipt only. Bill payment remains unchanged.</div>
+  </main>
+  <script>
+    window.receiptReady = true;
+    ${autoPrint ? "setTimeout(function() { window.focus(); window.print(); }, 200);" : ''}
+  </script>
+</body>
+</html>`;
+}
+
 module.exports = {
   renderSaleReceiptPage,
+  renderTipReceiptPage,
 };

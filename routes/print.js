@@ -1,7 +1,8 @@
 const express = require("express");
 const db = require("../db/knex");
+const { requireAuth } = require('../middleware/auth');
 const salesService = require("../services/SalesService");
-const { renderSaleReceiptPage } = require("../services/ReceiptPrintService");
+const { renderSaleReceiptPage, renderTipReceiptPage } = require("../services/ReceiptPrintService");
 const shiftService = require('../services/ShiftService');
 const { renderShiftReceiptPage } = require('../services/ShiftReceiptService');
 
@@ -128,6 +129,28 @@ router.get("/sales/:id", async (req, res) => {
   });
 
   res.type("html").send(html);
+});
+
+router.get('/tips/:saleId', requireAuth, async (req, res) => {
+  const shopId = req.session.user.shop_id;
+  const row = await db('sale_tips as tip')
+    .join('sales as s', function () { this.on('s.id', 'tip.sale_id').andOn('s.shop_id', 'tip.shop_id'); })
+    .leftJoin('users as u', 'u.id', 'tip.collected_by')
+    .leftJoin('tables as t', 't.id', 's.table_id')
+    .where({ 'tip.sale_id': req.params.saleId, 'tip.shop_id': shopId })
+    .select('tip.amount_cents', 'tip.payment_method', 'tip.collected_at',
+      's.id as sale_id', 's.order_number', 's.order_type', 's.customer_name',
+      'u.name as collector_name', 'u.username as collector_username', 't.table_number')
+    .first();
+  if (!row) return res.status(404).send('Recorded tip not found');
+  const shop = await db('shops').where({ id: shopId }).first();
+  res.type('html').send(renderTipReceiptPage({
+    tip: row,
+    sale: { id: row.sale_id, order_number: row.order_number, order_type: row.order_type, customer_name: row.customer_name },
+    collector: { name: row.collector_name, username: row.collector_username },
+    table: { table_number: row.table_number },
+    shop
+  }, { autoPrint: req.query.autoprint !== '0', timeZone: req.query.timezone }));
 });
 
 router.get('/shifts/:id', async (req, res) => {

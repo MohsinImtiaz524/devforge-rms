@@ -6,7 +6,7 @@ require.cache[require.resolve('../db/knex')] = { exports: db };
 const tips = require('../src/modules/tips/tips.service');
 const { ensureTipsSchema } = require('../src/modules/tips/tips.migration');
 const shifts = require('../services/ShiftService');
-const { renderSaleReceiptPage } = require('../services/ReceiptPrintService');
+const { renderSaleReceiptPage, renderTipReceiptPage } = require('../services/ReceiptPrintService');
 const { renderShiftReceiptPage } = require('../services/ShiftReceiptService');
 
 test('tip collection, isolation, retries, receipts, and shift reconciliation', async t => {
@@ -191,5 +191,19 @@ test('tip collection, isolation, retries, receipts, and shift reconciliation', a
     await collect(input); // Exact retry does not move or duplicate a closed-shift tip.
     await db('sales').insert({id:2,shop_id:1,total:100,amount_received:110});
     await assert.rejects(collect({...input,saleId:2,total:100,received:110,amount:10}), /open a register/);
+  });
+  await t.test('standalone tip slip is compact and contains saved collection details', () => {
+    const receipt = renderTipReceiptPage({
+      tip: { amount_cents: 50000, payment_method: 'card', collected_at: '2026-09-06 12:30:00' },
+      sale: { id: 6, order_number: 106, order_type: 'dine_in', customer_name: '<Guest>' },
+      collector: { name: 'Cashier' }, table: { table_number: 'A1' }, shop: { name: 'Test Shop', currency: 'PKR' }
+    }, { autoPrint: false, timeZone: 'Asia/Karachi' });
+    assert.match(receipt, /TIP RECEIPT/);
+    assert.match(receipt, /PKR 500\.00/);
+    assert.match(receipt, /Table A1/);
+    assert.match(receipt, /Cashier/);
+    assert.match(receipt, /Tip receipt only\. Bill payment remains unchanged\./);
+    assert.match(receipt, /&lt;Guest&gt;/);
+    assert.doesNotMatch(receipt, /window\.print\(\)/);
   });
 });

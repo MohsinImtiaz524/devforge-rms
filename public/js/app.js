@@ -6181,14 +6181,44 @@ async function submitRecordedTip() {
   const button = document.getElementById('record-tip-submit');
   if (button) { button.disabled = true; button.textContent = 'Recording Tip…'; }
   try {
-    await api(`/api/tips/${_tipSelectedOrder.id}`, 'POST', { amount, payment_method: document.getElementById('tip-payment-method')?.value || 'cash' });
-    closeModal();
-    toast(`Tip of ${formatRegisterMoney(amount)} recorded for order #${_tipSelectedOrder.order_number || _tipSelectedOrder.id}.`, 'success');
+    const order = _tipSelectedOrder;
+    const result = await api(`/api/tips/${order.id}`, 'POST', { amount, payment_method: document.getElementById('tip-payment-method')?.value || 'cash' });
+    showRecordedTipSuccess(order, result);
+    toast(`Tip of ${formatRegisterMoney(amount)} recorded for order #${order.order_number || order.id}.`, 'success');
     renderPOSOrders();
   } catch (error) {
     toast(error.message || 'Could not record the tip.', 'error');
     if (button) { button.disabled = false; button.textContent = 'Confirm Record Tip'; }
   }
+}
+
+function showRecordedTipSuccess(order, result) {
+  const body = document.getElementById('modal-body');
+  if (!body) return;
+  body.innerHTML = `
+    <div class="space-y-5 text-center">
+      <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-2xl text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400">✓</div>
+      <div>
+        <h4 class="text-lg font-black text-slate-900 dark:text-white">Tip Recorded</h4>
+        <p class="mt-1 text-sm font-medium text-slate-500">Order #${escapeOrderValue(order.order_number || order.id)} · ${formatRegisterMoney(result.amount)}</p>
+      </div>
+      <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left text-sm dark:border-slate-700 dark:bg-slate-800/50">
+        <div class="flex justify-between gap-4"><span class="font-bold text-slate-500">Payment method</span><strong class="uppercase text-slate-900 dark:text-white">${escapeOrderValue(result.payment_method)}</strong></div>
+        <div class="mt-2 flex justify-between gap-4"><span class="font-bold text-slate-500">Order</span><strong class="text-slate-900 dark:text-white">${tipOrderContext(order)}</strong></div>
+      </div>
+      <button type="button" onclick="printRecordedTipSlip(${Number(result.sale_id)})" aria-label="Print tip receipt" class="mx-auto flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3.5 text-sm font-black text-white shadow-lg shadow-indigo-600/20 transition hover:bg-indigo-500">
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2m-12-4h12v8H6v-8z" /></svg>
+        Print Tip Slip
+      </button>
+      <button type="button" onclick="closeModal()" class="w-full rounded-xl border border-slate-200 py-3 text-sm font-black text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">Done</button>
+    </div>`;
+}
+
+function printRecordedTipSlip(saleId) {
+  const params = new URLSearchParams({ autoprint: '1' });
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (timeZone) params.set('timezone', timeZone);
+  printSaleReceiptUrl(`/print/tips/${encodeURIComponent(saleId)}?${params.toString()}`);
 }
 
 function tipSummaryRows(summary) {
