@@ -6,6 +6,7 @@ export function BarChart({
   dataPoints
 }) {
   const [size, ref] = useChartSize();
+  const [activeIndex, setActiveIndex] = useState(null);
   if (!dataPoints || dataPoints.length === 0) {
     return <div ref={ref} className="w-full h-full relative">{<div className={"flex items-center justify-center h-full text-slate-400 text-xs italic"}>No sales transactions found in this period.</div>}</div>;
   }
@@ -33,7 +34,7 @@ export function BarChart({
         <span className={"text-sm text-indigo-400 font-extrabold block"}>{formattedSales}</span>
         <span className={"text-xs text-slate-300 font-black block mt-0.5"}>{dp.orders} Total Orders</span>
       </div>;
-    return <g className={"group/bar cursor-pointer select-none"} key={idx}>
+    return <g className={"group/bar cursor-pointer select-none"} key={idx} tabIndex={0} role="button" aria-label={`${dp.label}, ${formattedSales}, ${dp.orders} orders`} onMouseEnter={() => setActiveIndex(idx)} onMouseLeave={() => setActiveIndex(null)} onFocus={() => setActiveIndex(idx)} onBlur={() => setActiveIndex(null)} onClick={() => setActiveIndex(current => current === idx ? null : idx)}>
         
         <rect x={x} y={y} width={barWidth} height={Math.max(barHeight, 2)} rx={Math.min(barWidth / 2, 4)} ry={Math.min(barWidth / 2, 4)} fill={"#3b82f6"} fillOpacity={"0.85"} className={"hover:fill-opacity-100 hover:fill-[#2563eb] transition-all duration-300"} />
         
@@ -41,7 +42,7 @@ export function BarChart({
         <rect x={getX(idx)} y={paddingY} width={chartWidth / barCount} height={chartHeight} fill={"transparent"} />
         
         
-        <foreignObject x={Math.max(Math.min(x + barWidth / 2 - 80, width - 170), 10)} y={Math.max(y - 85, 5)} width={"160"} height={"75"} className={"opacity-0 group-hover/bar:opacity-100 pointer-events-none transition-all duration-200 overflow-visible z-[9999]"}>
+        <foreignObject x={Math.max(Math.min(x + barWidth / 2 - 80, width - 170), 10)} y={Math.max(y - 85, 5)} width={"160"} height={"75"} className={"pointer-events-none transition-all duration-200 overflow-visible z-[9999] " + (activeIndex === idx ? "opacity-100" : "opacity-0")}>
           <div className={"bg-slate-950 text-white rounded-xl p-3 text-left shadow-2xl border border-slate-800 z-[9999]"}>
             {tooltip}
           </div>
@@ -71,6 +72,7 @@ export function LineChart({
   dataPoints
 }) {
   const [size, ref] = useChartSize();
+  const [activePoint, setActivePoint] = useState(null);
   if (!dataPoints || dataPoints.length === 0) {
     return <div ref={ref} className="w-full h-full relative">{<div className={"flex items-center justify-center h-full text-slate-400 text-xs italic"}>No data available.</div>}</div>;
   }
@@ -131,7 +133,7 @@ export function LineChart({
           currency: getShopCurrency(),
           maximumFractionDigits: 0
         }).format(dp.sales);
-        return <g className={"group/dot cursor-pointer select-none"} key={i}>
+        return <g className={"group/dot cursor-pointer select-none"} key={i} tabIndex={0} role="button" aria-label={`${dp.label}, ${formattedSales}`} onMouseEnter={() => setActivePoint(i)} onMouseLeave={() => setActivePoint(null)} onFocus={() => setActivePoint(i)} onBlur={() => setActivePoint(null)} onClick={() => setActivePoint(current => current === i ? null : i)}>
             
             <circle cx={x} cy={y} r={"20"} fill={"transparent"} stroke={"none"} />
             
@@ -140,7 +142,7 @@ export function LineChart({
             <circle cx={x} cy={y} r={"4"} fill={"#ffffff"} stroke={"#3b82f6"} strokeWidth={"2.5"} className={"opacity-0 group-hover/dot:opacity-100 transition-all duration-300 origin-center group-hover/dot:scale-125"} style={styleObject("transform-box: fill-box;")} />
             
             
-            <foreignObject x={x - 70} y={y - 65} width={"140"} height={"55"} className={"opacity-0 group-hover/dot:opacity-100 pointer-events-none transition-all duration-200 overflow-visible z-50"}>
+            <foreignObject x={Math.max(Math.min(x - 70, width - 150), 10)} y={Math.max(y - 65, 5)} width={"140"} height={"55"} className={"pointer-events-none transition-all duration-200 overflow-visible z-50 " + (activePoint === i ? "opacity-100" : "opacity-0")}>
               <div className={"bg-slate-950 text-white rounded-xl p-2 text-center text-[10px] font-bold shadow-xl border border-slate-800"}>
                 <span className={"block text-[8px] text-slate-400 uppercase tracking-widest leading-none mb-1"}>{dp.label}</span>
                 <span className={"text-blue-400"}>{formattedSales}</span>
@@ -189,7 +191,7 @@ export function DonutChart({
     const displayPct = (pct * 100).toFixed(1);
     const isRightSide = lineX2 > 80;
     const tooltipTransform = isRightSide ? 'translate(4px, -50%)' : 'translate(calc(-100% - 4px), -50%)';
-    htmlTooltips.push(<div key={idx} id={"tooltip-" + containerId + "-" + idx + ""} className={"absolute z-[99999] pointer-events-none transition-all duration-300 ease-out " + (hovered === idx ? "opacity-100" : "opacity-0")} style={styleObject("left: " + lineX2 + "px; top: " + lineY2 + "px; transform: " + tooltipTransform + (hovered === idx ? " scale(1);" : " scale(0.95);"))}>
+    htmlTooltips.push(<div key={idx} id={"tooltip-" + containerId + "-" + idx + ""} className={"hidden md:block absolute z-[99999] pointer-events-none transition-all duration-300 ease-out " + (hovered === idx ? "opacity-100" : "opacity-0")} style={styleObject("left: " + lineX2 + "px; top: " + lineY2 + "px; transform: " + tooltipTransform + (hovered === idx ? " scale(1);" : " scale(0.95);"))}>
         <div className={"bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl rounded-xl p-3.5 min-w-[160px]"} style={styleObject("border-left: 4px solid " + color + "")}>
           <div className={"text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1 truncate"}>{s.label}</div>
           <div className={"text-base font-black text-slate-800 dark:text-white leading-tight"}>{formattedSales}</div>
@@ -199,7 +201,7 @@ export function DonutChart({
           </div>
         </div>
       </div>);
-    return <g className={"group cursor-pointer"} key={idx} onMouseEnter={() => setHovered(idx)} onMouseLeave={() => setHovered(null)}>
+    return <g className={"group cursor-pointer"} key={idx} tabIndex={0} role="button" aria-label={`${s.label}, ${formattedSales}, ${displayPct}% share`} onMouseEnter={() => setHovered(idx)} onMouseLeave={() => setHovered(null)} onFocus={() => setHovered(idx)} onBlur={() => setHovered(null)} onClick={() => setHovered(current => current === idx ? null : idx)}>
         <circle cx={"80"} cy={"80"} r={radius} fill={"transparent"} stroke={color} strokeWidth={"22"} strokeDasharray={"" + strokeDash + " " + strokeOffset + ""} transform={"rotate(" + strokeRotation + " 80 80)"} strokeLinecap={"butt"} className={"transition-all duration-300"}>
         </circle>
         
@@ -238,6 +240,11 @@ export function DonutChart({
       </div>
       
       
+      {hovered !== null && <div className="md:hidden w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-center dark:border-slate-700 dark:bg-slate-800/50">
+        <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">{slices[hovered].label}</div>
+        <div className="mt-1 text-sm font-black text-slate-900 dark:text-white">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: getShopCurrency(), maximumFractionDigits: 2 }).format(slices[hovered].sales)}</div>
+        <div className="text-[11px] font-bold text-slate-500">{((slices[hovered].sales / totalValue) * 100).toFixed(1)}% share{slices[hovered].orders !== undefined ? ` · ${slices[hovered].orders} orders` : ''}</div>
+      </div>}
       <div className={"flex-1 w-full max-h-40 overflow-y-auto pr-1"}>
         {legendHtml}
       </div>

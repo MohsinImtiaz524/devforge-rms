@@ -1,4 +1,5 @@
 import { getShopCurrency } from '../../currency';
+import { useState } from 'react';
 import { analyticsAssetUrl } from './analytics-assets';
 import { BarChart, LineChart, DonutChart } from "./AnalyticsCharts";
 import { analyticsInfoIcon, analyticsLabelWithInfo, analyticsPanelTitle, styleObject } from "./analytics-ui";
@@ -223,7 +224,7 @@ export function OverviewTab({
     <div className={"grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 animate-[fadeIn_0.3s_ease-out]"}>
       
       
-      <div className={"w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-6 rounded-3xl shadow-sm flex flex-col justify-between h-fit"}>
+      <div className={"w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm flex flex-col justify-between h-fit"}>
         <div className={"flex items-center justify-between mb-4"}>
           <div>
             {analyticsPanelTitle("Sales Overview", "Completed orders grouped by the selected timeframe. Each bar sums bill subtotal - discount + tax. Refunds are not netted per bar.")}
@@ -235,7 +236,7 @@ export function OverviewTab({
       </div>
 
       
-      <div className={"w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-6 rounded-3xl shadow-sm flex flex-col justify-between h-fit"}>
+      <div className={"w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm flex flex-col justify-between h-fit"}>
         <div className={"flex items-center justify-between mb-4"}>
           <div>
             {analyticsPanelTitle("Sales Trend", "Smoothed trend of completed sale totals over the selected timeframe. Uses bill subtotal - discount + tax. Refunds are not netted per trend point.")}
@@ -254,7 +255,7 @@ export function OverviewTab({
     
     <div className={"grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 animate-[fadeIn_0.3s_ease-out]"}>
       
-      <div className={"w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-6 rounded-3xl shadow-sm h-fit"}>
+      <div className={"w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm h-fit"}>
         <div className={"mb-4 flex flex-col min-[380px]:flex-row min-[380px]:items-center justify-between gap-2"}>
           <div>
             {analyticsPanelTitle("Activity Heatmap", "Completed orders grouped into 4-hour blocks. Cell intensity uses bill subtotal - discount + tax. Refunds are not netted per block.")}
@@ -273,7 +274,7 @@ export function OverviewTab({
             {analyticsPanelTitle("Sales by Category", "Net category revenue from completed orders. Allocates bill subtotal - discount + tax by item share, subtracts category refunds, and groups manual items as General.")}
             <span className={"text-[11px] font-medium text-slate-400 block mt-0.5"}>Category allocations</span>
           </div>
-          <div id={"chart-category-breakdown"} className={"h-44 mt-4 flex items-center justify-center"}><DonutChart containerId="chart-category-breakdown" slices={categorySlices} totalValue={k.totalSales} /></div>
+          <div id={"chart-category-breakdown"} className={"h-80 md:h-44 mt-4 flex items-center justify-center"}><DonutChart containerId="chart-category-breakdown" slices={categorySlices} totalValue={k.totalSales} /></div>
         </div>
 
         
@@ -282,7 +283,7 @@ export function OverviewTab({
             {analyticsPanelTitle("Sales by Channel", "Net completed-order revenue by order type. Revenue = bill subtotal - discount - refunds; tax is reported separately.")}
             <span className={"text-[11px] font-medium text-slate-400 block mt-0.5"}>Store outlets vs POS</span>
           </div>
-          <div id={"chart-channel-breakdown"} className={"h-44 mt-4 flex items-center justify-center"}><DonutChart containerId="chart-channel-breakdown" slices={channelSlices} totalValue={k.totalSales} /></div>
+          <div id={"chart-channel-breakdown"} className={"h-80 md:h-44 mt-4 flex items-center justify-center"}><DonutChart containerId="chart-channel-breakdown" slices={channelSlices} totalValue={k.totalSales} /></div>
         </div>
 
         
@@ -291,14 +292,14 @@ export function OverviewTab({
             {analyticsPanelTitle("Sales by Payment Method", "Net completed-order revenue by payment method. Revenue = bill subtotal - discount + tax - refunds, grouped by the original sale payment method.")}
             <span className={"text-[11px] font-medium text-slate-400 block mt-0.5"}>Revenues by registers</span>
           </div>
-          <div id={"chart-payment-breakdown"} className={"h-44 mt-4 flex items-center justify-center"}><DonutChart containerId="chart-payment-breakdown" slices={paymentSlices} totalValue={k.totalSales} /></div>
+          <div id={"chart-payment-breakdown"} className={"h-80 md:h-44 mt-4 flex items-center justify-center"}><DonutChart containerId="chart-payment-breakdown" slices={paymentSlices} totalValue={k.totalSales} /></div>
         </div>
       </div>
     </div>
 
     
     <div className={"mb-6 animate-[fadeIn_0.3s_ease-out]"}>
-      <div className={"w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-6 rounded-3xl shadow-sm flex flex-col justify-between h-fit"}>
+      <div className={"w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm flex flex-col justify-between h-fit"}>
         <div>
           {analyticsPanelTitle("Top Selling Products", "Ranked by sold quantity after returned quantities. Product revenue is allocated from bill subtotal - discount + tax, then product refunds are subtracted.")}
           <span className={"text-[11px] font-medium text-slate-400 block mt-0.5"}>High velocity items</span>
@@ -312,7 +313,7 @@ export function OverviewTab({
 
     
     <div className={"mb-12 animate-[fadeIn_0.3s_ease-out]"}>
-      <div className={"w-full bg-slate-50/50 dark:bg-slate-900/30 border border-slate-200/60 dark:border-slate-800/80 p-8 rounded-3xl flex flex-col justify-between h-fit shadow-sm"}>
+      <div className={"w-full bg-slate-50/50 dark:bg-slate-900/30 border border-slate-200/60 dark:border-slate-800/80 p-4 sm:p-8 rounded-2xl sm:rounded-3xl flex flex-col justify-between h-fit shadow-sm"}>
         <div className={"mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"}>
           <div>
             <div className={"flex items-center gap-2"}>
@@ -345,6 +346,7 @@ export function OverviewTab({
 function ActivityHeatmap({
   data
 }) {
+  const [activeCell, setActiveCell] = useState(null);
   const parseLocalDate = dateStr => new Date(`${dateStr}T00:00:00`);
   const datesList = [];
   const startD = parseLocalDate(data.bounds.start.split(' ')[0]);
@@ -426,9 +428,6 @@ function ActivityHeatmap({
       const dateParts = formatDateParts(dateStr);
       const salesValue = Math.max(0, Number(block.sales || 0));
       const intensity = salesValue > 0 ? Math.log1p(salesValue) / Math.log1p(maxVolume) : 0;
-      const cellStyle = intensity > 0
-        ? { width: `${heatmapCellSize}px`, height: `${heatmapCellSize}px`, backgroundColor: `rgba(16, 185, 129, ${0.16 + intensity * 0.78})`, borderColor: `rgba(5, 150, 105, ${0.3 + intensity * 0.7})`, color: intensity >= 0.55 ? '#ffffff' : '#065f46' }
-        : { width: `${heatmapCellSize}px`, height: `${heatmapCellSize}px`, backgroundColor: 'rgba(148, 163, 184, 0.08)', borderColor: 'rgba(148, 163, 184, 0.25)', color: '#94a3b8' };
       const bgClass = `analytics-heatmap-cell analytics-heatmap-level-${Math.ceil(intensity * 9)}`;
       const formattedSales = new Intl.NumberFormat('en-IN', {
         style: 'currency',
@@ -441,15 +440,9 @@ function ActivityHeatmap({
           <span className={"text-xs text-white font-extrabold mt-1"}>Revenue: {formattedSales}</span>
           <span className={"text-[10px] text-emerald-400 font-bold"}>{block.count} Orders</span>
         </div>;
-      return <div title={"" + dateParts.full + " · " + shiftLabel + " · " + formattedSales + " · " + block.count + " orders"} className={"rounded-md lg:rounded-lg " + bgClass + " border transition-all duration-300 flex items-center justify-center relative group/cell cursor-pointer hover:ring-2 hover:ring-offset-2 hover:ring-emerald-500 hover:scale-105 z-10 hover:z-[9999]"} style={styleObject("width: " + heatmapCellSize + "px; height: " + heatmapCellSize + "px;")} key={rowIndex}>
-          
-          <div className={"absolute bottom-full left-1/2 -translate-x-1/2 mb-3 bg-slate-950 text-white rounded-xl p-3 opacity-0 group-hover/cell:opacity-100 transition-all duration-200 pointer-events-none shadow-2xl z-[99999] whitespace-nowrap scale-90 group-hover/cell:scale-100 ease-out border border-slate-800"}>
-            {cellTooltip}
-            <div className={"absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-slate-950 border-r border-b border-slate-800 rotate-45"}></div>
-          </div>
-          
-          <span className={"text-[9px] md:text-xs leading-none font-black opacity-0 group-hover/cell:opacity-100 transition-opacity"}>{block.count}</span>
-        </div>;
+      return <button type="button" title={"" + dateParts.full + " · " + shiftLabel + " · " + formattedSales + " · " + block.count + " orders"} aria-label={"" + dateParts.full + ", " + shiftLabel + ", " + formattedSales + ", " + block.count + " orders"} onMouseEnter={() => setActiveCell(cellTooltip)} onFocus={() => setActiveCell(cellTooltip)} onClick={() => setActiveCell(cellTooltip)} className={"rounded-md lg:rounded-lg " + bgClass + " border transition-all duration-300 flex items-center justify-center relative cursor-pointer hover:ring-2 focus-visible:ring-2 hover:ring-offset-2 focus-visible:ring-offset-2 hover:ring-emerald-500 focus-visible:ring-emerald-500 hover:scale-105 z-10"} style={styleObject("width: " + heatmapCellSize + "px; height: " + heatmapCellSize + "px;")} key={rowIndex}>
+          <span className={"text-[9px] md:text-xs leading-none font-black opacity-70"}>{block.count}</span>
+        </button>;
     });
     return <div className={"flex items-center gap-2 md:gap-4"} style={styleObject("min-width: " + heatmapMinWidth + "px;")} key={idx}>
         <div className={"shrink-0 text-right"} style={styleObject("width: " + heatmapLabelWidth + "px;")}>
@@ -461,11 +454,16 @@ function ActivityHeatmap({
         </div>
       </div>;
   });
-  return <div className={"w-full overflow-x-auto pb-2"}>
-      <div className={"flex flex-col gap-2 w-full select-none"}>
-        {headerHtml}
-        <div className={"flex flex-col gap-2"}>
-          {rowsHtml}
+  return <div className={"w-full"}>
+      <div aria-live="polite" className={"mb-3 min-h-[88px] rounded-xl border border-slate-200 bg-slate-950 p-3 text-white shadow-sm dark:border-slate-700"}>
+        {activeCell}
+      </div>
+      <div className={"w-full overflow-x-auto pb-2"}>
+        <div className={"flex flex-col gap-2 w-full select-none"}>
+          {headerHtml}
+          <div className={"flex flex-col gap-2"}>
+            {rowsHtml}
+          </div>
         </div>
       </div>
     </div>;

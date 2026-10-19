@@ -54,7 +54,7 @@ export function AiTab({
 
           <div className={"grid grid-cols-1 lg:grid-cols-2 gap-6"}>
             
-            <div className={"bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-6 rounded-3xl shadow-sm"}>
+            <div className={"bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm"}>
                 <h5 className={"text-xs font-black uppercase text-slate-400 tracking-wider mb-6 flex items-center gap-2"}>
                    <svg className={"w-4 h-4 text-violet-500"} fill={"none"} stroke={"currentColor"} strokeWidth={"2.5"} viewBox={"0 0 24 24"}><path strokeLinecap={"round"} strokeLinejoin={"round"} d={"M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"} /></svg> 
                    Automated Insights
@@ -70,7 +70,7 @@ export function AiTab({
             </div>
 
             
-            <div className={"bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-6 rounded-3xl shadow-sm"}>
+            <div className={"bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm"}>
                 <h5 className={"text-xs font-black uppercase text-slate-400 tracking-wider mb-6 flex items-center gap-2"}>
                    <svg className={"w-4 h-4 text-blue-500"} fill={"none"} stroke={"currentColor"} strokeWidth={"2.5"} viewBox={"0 0 24 24"}><path strokeLinecap={"round"} strokeLinejoin={"round"} d={"M13 10V3L4 14h7v7l9-11h-7z"} /></svg>
                    AI Recommendations

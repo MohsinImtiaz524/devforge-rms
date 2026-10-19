@@ -50,10 +50,10 @@ export function AnalyticsFrame({
     </div> : null;
   return <>
     
-    <div id={"analytics-sidebar-overlay"} className={"lg:hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] " + (drawerOpen ? "opacity-100" : "opacity-0 pointer-events-none") + " transition-opacity duration-300"} onClick={() => {
+    <div id={"analytics-sidebar-overlay"} className={"hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] " + (drawerOpen ? "opacity-100" : "opacity-0 pointer-events-none") + " transition-opacity duration-300"} onClick={() => {
       toggleAnalyticsSidebar();
     }}></div>
-    <div id={"analytics-sidebar-drawer"} inert={!drawerOpen} className={"lg:hidden fixed top-0 left-0 h-full w-full sm:w-80 bg-white dark:bg-slate-900 shadow-2xl z-[110] " + (drawerOpen ? "" : "-translate-x-full") + " transition-transform duration-300 flex flex-col border-r border-slate-100 dark:border-slate-800"}>
+    <div id={"analytics-sidebar-drawer"} inert={!drawerOpen} className={"hidden fixed top-0 left-0 h-full w-full sm:w-80 bg-white dark:bg-slate-900 shadow-2xl z-[110] " + (drawerOpen ? "" : "-translate-x-full") + " transition-transform duration-300 flex flex-col border-r border-slate-100 dark:border-slate-800"}>
       <div className={"p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center"}>
         <div>
           <span className={"text-[9px] uppercase font-black tracking-widest text-slate-400"}>Navigation</span>
@@ -81,9 +81,9 @@ export function AnalyticsFrame({
       </div>
     </div>
 
-    <div className={"flex items-start gap-3 lg:gap-6 min-h-[calc(100vh-6rem)] animate-[fadeIn_0.3s_ease-out]"}>
+    <div className={"flex items-start gap-3 lg:gap-8 xl:gap-10 min-h-[calc(100vh-6rem)] animate-[fadeIn_0.3s_ease-out]"}>
       <div className={"hidden lg:block shrink-0 transition-[width] duration-200 " + (sidebarCollapsed ? "w-20" : "w-72")}>
-        <aside className={"analytics-fixed-sidebar fixed top-20 bottom-4 z-40 flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm transition-[width] duration-200 overflow-hidden " + (sidebarCollapsed ? "w-20" : "w-72")}>
+        <aside className={"analytics-fixed-sidebar fixed top-20 bottom-4 left-4 z-40 flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm transition-[width] duration-200 overflow-hidden " + (sidebarCollapsed ? "w-20" : "w-72")}>
           <header className={"p-4 border-b border-slate-100 dark:border-slate-800 flex items-center " + (sidebarCollapsed ? "justify-center" : "justify-between gap-3")}>
             {!sidebarCollapsed && <div><span className={"text-[9px] uppercase font-black tracking-widest text-slate-400"}>Navigation</span><h4 className={"text-base font-black text-slate-800 dark:text-white"}>Analytics panels</h4></div>}
             <button type="button" onClick={() => setSidebarCollapsed(value => !value)} aria-label={sidebarCollapsed ? 'Expand analytics sidebar' : 'Collapse analytics sidebar'} title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} className={"w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black"}>{sidebarCollapsed ? '›' : '‹'}</button>
@@ -93,6 +93,17 @@ export function AnalyticsFrame({
       </div>
       <div className={"flex-1 min-w-0 flex flex-col gap-6"}>
       {pageHeader}
+
+      <nav aria-label="Analytics sections" className="lg:hidden -mx-1 overflow-x-auto px-1 pb-1">
+        <div className="flex w-max min-w-full gap-2">
+          {analyticsLinks.map((tab) => {
+            const isActive = activeAnalyticsTab === tab.id;
+            return <button key={tab.id} type="button" onClick={() => switchAnalyticsTab(tab.id)} aria-current={isActive ? 'page' : undefined} className={`analytics-mobile-tab shrink-0 inline-flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-bold whitespace-nowrap transition-colors ${isActive ? `${tab.activeBg} ${tab.activeBorder} ${tab.activeText}` : 'border-slate-200 bg-white text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'}`}>
+              <span aria-hidden="true">{tab.icon}</span><span>{tab.label}</span>
+            </button>;
+          })}
+        </div>
+      </nav>
       
       
       <div className={"flex flex-col gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm"}>
@@ -103,7 +114,7 @@ export function AnalyticsFrame({
           <div className={"flex items-center gap-4"}>
             <button onClick={() => {
               toggleAnalyticsSidebar();
-            }} className={"lg:hidden p-2.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-all active:scale-95 shadow-sm border border-slate-200 dark:border-slate-700"}>
+            }} className={"hidden p-2.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-all active:scale-95 shadow-sm border border-slate-200 dark:border-slate-700"}>
               <svg className={"w-5 h-5"} fill={"none"} stroke={"currentColor"} viewBox={"0 0 24 24"}><path strokeLinecap={"round"} strokeLinejoin={"round"} strokeWidth={"2"} d={"M4 6h16M4 12h16M4 18h7"} /></svg>
             </button>
             <div>
@@ -117,7 +128,7 @@ export function AnalyticsFrame({
           
           <div className={"grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto"}>
             
-            <div id={"analytics-custom-dates"} className={"" + (analyticsPeriod === 'custom' ? 'flex' : 'hidden') + " w-full sm:w-auto items-center gap-1 sm:gap-2 bg-slate-50 dark:bg-slate-800/40 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800"}>
+            <div id={"analytics-custom-dates"} className={"" + (analyticsPeriod === 'custom' ? 'flex' : 'hidden') + " w-full sm:w-auto flex-col min-[380px]:flex-row items-stretch min-[380px]:items-center gap-1 sm:gap-2 bg-slate-50 dark:bg-slate-800/40 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800"}>
               <input type={"date"} id={"custom-from"} value={analyticsCustomFrom} onChange={event => {
                 onDateChange('from', event.target.value);
               }} className={"bg-transparent text-[11px] font-bold text-slate-700 dark:text-slate-200 outline-none px-2 py-1 max-w-[110px] cursor-pointer"} />

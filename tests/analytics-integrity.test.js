@@ -52,7 +52,7 @@ test('AI rules use observed data and disclose their actual grain', () => {
   assert.doesNotMatch(analyst, /aiConfidence/);
 });
 
-test('React analytics has a persistent collapsible desktop sidebar and mobile drawer', () => {
+test('React analytics has a persistent collapsible desktop sidebar and horizontal mobile navigation', () => {
   const frame = read('frontend/src/modules/analytics/AnalyticsFrame.jsx');
   assert.match(frame, /rms_analytics_sidebar_collapsed/);
   assert.match(frame, /analytics-fixed-sidebar fixed top-20 bottom-4/);
@@ -60,8 +60,9 @@ test('React analytics has a persistent collapsible desktop sidebar and mobile dr
   assert.doesNotMatch(frame, /sticky top-20/);
   assert.match(frame, /\{pageHeader\}/);
   assert.match(frame, /sidebarCollapsed \? "w-20" : "w-72"/);
-  assert.match(frame, /lg:hidden fixed top-0 left-0/);
-  assert.match(frame, /lg:hidden p-2\.5/);
+  assert.match(frame, /aria-label="Analytics sections"/);
+  assert.match(frame, /lg:hidden[^"\n]*overflow-x-auto/);
+  assert.match(frame, /analytics-mobile-tab/);
 });
 
 test('React analytics provides mobile page, filters, cards and overflow behavior', () => {

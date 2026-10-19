@@ -40,7 +40,7 @@ export function SpecificTab({
           </div>
         </div>
 
-        <div className={"bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-6 rounded-3xl shadow-sm"}>
+        <div className={"bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm"}>
           <div className={"mb-4"}>
             {analyticsPanelTitle("Payment Methods Allocation", "Net completed-order revenue grouped by payment method. Revenue = bill subtotal - discount + tax - refunds, grouped by the original sale payment method.")}
           </div>
@@ -58,7 +58,7 @@ export function SpecificTab({
       </div>;
   } else if (tabId === "products") {
     tabHtml = <div className={"space-y-6 animate-[fadeIn_0.2s_ease-out]"}>
-        <div className={"bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-6 rounded-3xl shadow-sm"}>
+        <div className={"bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm"}>
           <div className={"mb-4"}>
             {analyticsPanelTitle("Top Volume Performers", "Products ranked by sold quantity after returned quantities are deducted. Product revenue is allocated from bill subtotal - discount + tax, then product refunds are subtracted.")}
           </div>
@@ -186,8 +186,8 @@ export function SpecificTab({
           </div>
         </div>
 
-        <div className={"bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-6 rounded-3xl shadow-sm"}>
-          <div className={"mb-4 flex items-center justify-between gap-3"}>
+        <div className={"bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm"}>
+          <div className={"mb-4 flex flex-col items-start sm:flex-row sm:items-center justify-between gap-3"}>
             {analyticsPanelTitle("Whole Business Partner Split", "Configured partner allocations are shown separately from profit retained by the owner or left unallocated.")}
             <span className={"text-[10px] font-black uppercase tracking-widest text-slate-400"}>{formatCurrency(Number(data.totalPartnerProfit || 0))} allocated · {formatCurrency(Number(data.retainedOwnerProfit || 0))} retained</span>
           </div>
@@ -225,7 +225,7 @@ export function SpecificTab({
           </div>
         </div>
 
-        <div className={"bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-6 rounded-3xl shadow-sm"}>
+        <div className={"bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm"}>
           <div className={"mb-4"}>
             {analyticsPanelTitle("Product Brand Sales & Cost", "Product-assignment breakdown by brand. Partner profit is calculated from shop profit in the partner split table.")}
           </div>
@@ -269,7 +269,7 @@ export function SpecificTab({
       </div>;
   } else if (tabId === "staff") {
     tabHtml = <div className={"space-y-6 animate-[fadeIn_0.2s_ease-out]"}>
-        <div className={"bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-6 rounded-3xl shadow-sm"}>
+        <div className={"bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm"}>
           <div className={"mb-4"}>
             {analyticsPanelTitle("Sales by Payment Receiver", "Money actually received, attributed to the staff member who collected or confirmed the payment.")}
           </div>
@@ -287,7 +287,7 @@ export function SpecificTab({
       </div>;
   } else if (tabId === "channels") {
     tabHtml = <div className={"space-y-6 animate-[fadeIn_0.2s_ease-out]"}>
-        <div className={"bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-6 rounded-3xl shadow-sm"}>
+        <div className={"bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm"}>
           <div className={"mb-4"}>
             {analyticsPanelTitle("Revenue Stream Breakdown", "Net completed-order revenue by order type or channel. Revenue = bill subtotal - discount + tax - refunds.")}
           </div>
@@ -311,7 +311,7 @@ export function SpecificTab({
     return <AiTab analyticsPeriod={analyticsPeriod} />;
   } else if (tabId === "reports" || tabId === "custom_reports") {
     tabHtml = <div className={"space-y-6 animate-[fadeIn_0.2s_ease-out]"}>
-        <div className={"bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-6 rounded-3xl shadow-sm"}>
+        <div className={"bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm"}>
           <div className={"flex items-center justify-between mb-6"}>
             {analyticsPanelTitle("Transactional Ledger Statement", "Report/export area for transaction registers. Uses the selected analytics period when report generation is connected.")}
             <button onClick={() => window.print()} className={"px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition-all shadow-sm"}>
