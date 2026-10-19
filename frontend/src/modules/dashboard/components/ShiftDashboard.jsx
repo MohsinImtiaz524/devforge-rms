@@ -48,6 +48,7 @@ export default function ShiftDashboard() {
   // Printed closed-shift receipts use the saved expected balance.
   const expected = shift?.status === 'closed' ? Number(shift.expected_balance || 0) : summary.expected_balance
   const metrics = [
+    ['Net revenue', summary.net_revenue],
     ['Cash sales', summary.net_cash_sales], ['Card sales', summary.net_card_sales], ['Online sales', summary.net_online_sales],
     ['Tips collected', summary.total_tips], ['Cash tips', summary.cash_tips], ['Card tips', summary.card_tips], ['Online tips', summary.online_tips],
     ['Cash due collections', summary.debt_collections], ['Card due collections', summary.card_collections], ['Online due collections', summary.online_collections],

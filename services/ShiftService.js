@@ -202,6 +202,8 @@ class ShiftService {
     const cardRefunds = toMoney(refundsByMethod.card);
     const onlineRefunds = toMoney(refundsByMethod.online);
     const totalRefunds = cashRefunds + cardRefunds + onlineRefunds;
+    const totalSalesExTax = cashSales + cardSales + onlineSales
+      - cashBreakdown.tax - cardBreakdown.tax - onlineBreakdown.tax;
 
     const pendingDrops = await db('cash_drops')
       .where({ shift_id: shiftId, shop_id: shopId, status: 'pending' })
@@ -257,7 +259,8 @@ class ShiftService {
       cash_sales_ex_tax: cashSales - cashBreakdown.tax,
       card_sales_ex_tax: cardSales - cardBreakdown.tax,
       online_sales_ex_tax: onlineSales - onlineBreakdown.tax,
-      total_sales_ex_tax: cashSales + cardSales + onlineSales - cashBreakdown.tax - cardBreakdown.tax - onlineBreakdown.tax,
+      total_sales_ex_tax: totalSalesExTax,
+      net_revenue: totalSalesExTax - totalRefunds,
       total_sales_collected: cashSales + cardSales + onlineSales,
       total_expenses: cashExpenses,
       total_cash_refunds: cashRefunds,

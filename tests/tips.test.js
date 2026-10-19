@@ -53,7 +53,7 @@ test('tip collection, isolation, retries, receipts, and shift reconciliation', a
     const summary=await shifts.calculateShiftSummary(1,1);
     assert.equal(summary.net_cash_sales,4500); assert.equal(summary.total_tips,500);
     assert.equal(summary.cash_orders,1); assert.equal(summary.total_orders,1);
-    assert.equal(summary.cash_tax,500); assert.equal(summary.total_sales_ex_tax,4000);
+    assert.equal(summary.cash_tax,500); assert.equal(summary.total_sales_ex_tax,4000); assert.equal(summary.net_revenue,4000);
     assert.equal(summary.total_sales_collected,4500);
     assert.equal(summary.expected_balance,6000); assert.equal(summary.expected_total,6000);
     const list=await shifts.listReceivedPayments(1,1,{shiftId:1});
@@ -99,6 +99,7 @@ test('tip collection, isolation, retries, receipts, and shift reconciliation', a
     assert.equal(summary.expected_card,180);
     assert.equal(summary.expected_online,0);
     assert.equal(summary.expected_total,325); // 400 - refund 20 - expense 30 - drops 25
+    assert.equal(summary.net_revenue,280); // Sales excluding tax, less refunds.
     await db('cash_drops').where({id:99}).update({status:'verified'});
     await db('shifts').where({id:99}).update({cash_drops:25});
     summary = await shifts.calculateShiftSummary(99,1);
