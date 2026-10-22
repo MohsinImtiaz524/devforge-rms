@@ -12346,22 +12346,8 @@ function isCurrentUserShiftAdmin() {
   return currentUserHasPermission('register.verify_cash');
 }
 
-let pendingCashDropsLoadError = "";
 let pendingCashHandoversLoadError = "";
 let pendingCashHandoversAccessDenied = false;
-
-async function fetchPendingCashDropsForAdmin() {
-  if (!isCurrentUserShiftAdmin()) return [];
-  pendingCashDropsLoadError = "";
-  try {
-    const drops = await api("/api/shifts/cash-drops/pending");
-    return Array.isArray(drops) ? drops : [];
-  } catch (err) {
-    console.warn("Failed to load pending cash drops:", err);
-    pendingCashDropsLoadError = err.message || "Failed to load pending cash drops.";
-    return [];
-  }
-}
 
 async function fetchPendingCashHandoversForRegister() {
   pendingCashHandoversLoadError = "";
@@ -12390,62 +12376,6 @@ async function fetchRegisterHandoverRecipients() {
     console.warn("Failed to load handover recipients:", err);
     return [];
   }
-}
-
-function renderPendingCashDropsSection(drops = []) {
-  if (!isCurrentUserShiftAdmin()) return "";
-
-  const rows = pendingCashDropsLoadError ? `
-    <div class="p-5 rounded-2xl bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 text-sm font-bold text-rose-600 dark:text-rose-300">
-      ${escapeOrderValue(pendingCashDropsLoadError)}
-    </div>
-  ` : drops.length ? drops.map((drop) => {
-    const cashier = drop.cashier_username || drop.cashier_name || `User #${drop.requested_by_user_id}`;
-    const shopLabel = drop.shop_name ? ` | ${drop.shop_name}` : "";
-    const createdAt = drop.created_at ? new Date(drop.created_at).toLocaleString() : "Just now";
-    return `
-      <div class="grid grid-cols-1 xl:grid-cols-[minmax(180px,0.9fr)_minmax(140px,0.45fr)_minmax(220px,1fr)_auto] gap-4 items-center p-4 rounded-2xl bg-white dark:bg-slate-950 border border-amber-100 dark:border-amber-900/40">
-        <div>
-	          <div class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Requested By</div>
-	          <div class="text-sm font-black text-slate-900 dark:text-white mt-1">${escapeOrderValue(cashier)}</div>
-	          <div class="text-[11px] font-bold text-slate-400 mt-0.5">Demanded: ${escapeOrderValue(`${createdAt}${shopLabel}`)}</div>
-        </div>
-        <div>
-          <div class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Amount</div>
-          <div class="text-lg font-black text-amber-600 dark:text-amber-300 mt-1">${formatRegisterMoney(drop.amount)}</div>
-        </div>
-        <div>
-          <div class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Note</div>
-          <div class="text-sm font-bold text-slate-600 dark:text-slate-300 mt-1">${escapeOrderValue(drop.note || "No note")}</div>
-        </div>
-        <div class="flex items-center gap-2 justify-end">
-          <button onclick="verifyCashDrop(${Number(drop.id)}, 'rejected')" class="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300 text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-800 transition-all">Reject</button>
-          <button onclick="verifyCashDrop(${Number(drop.id)}, 'verified')" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-600/20 transition-all">Verify</button>
-        </div>
-      </div>
-    `;
-  }).join("") : `
-    <div class="p-5 rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm font-bold text-slate-500 dark:text-slate-400">
-      No cash drops are waiting for admin verification.
-    </div>
-  `;
-
-  return `
-    <section class="p-6 rounded-3xl bg-amber-50/70 dark:bg-amber-950/10 border border-amber-100 dark:border-amber-900/40 mb-6">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
-        <div>
-          <h4 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Cash Drop Verification</h4>
-          <p class="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1">Admin approval is required before a drop reduces the cashier drawer total.</p>
-        </div>
-        <span class="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-950 border border-amber-100 dark:border-amber-900/40 text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-300">
-          ${pendingCashDropsLoadError ? "Needs Attention" : `${drops.length} Pending`}
-        </span>
-      </div>
-      <div class="space-y-3">
-        ${rows}
-      </div>
-    </section>
-  `;
 }
 
 function renderPendingCashHandoversSection(handovers = []) {
@@ -12960,8 +12890,8 @@ function openCashDropModal() {
         <input id="drop-amount" type="number" step="0.01" class="w-full px-5 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:border-indigo-500 transition-all outline-none font-bold text-xl" placeholder="0.00" />
       </div>
       <div>
-        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Note (Optional)</label>
-        <textarea id="drop-note" class="w-full px-5 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:border-indigo-500 transition-all outline-none font-medium text-sm" placeholder="e.g. Moved to main safe"></textarea>
+        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Reason *</label>
+        <textarea id="drop-note" required class="w-full px-5 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:border-indigo-500 transition-all outline-none font-medium text-sm" placeholder="e.g. Moved to main safe"></textarea>
       </div>
       <button onclick="performCashDrop()" class="w-full py-4 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black text-sm uppercase tracking-widest shadow-xl transition-all">Confirm Drop</button>
     </div>
@@ -12973,6 +12903,7 @@ async function performCashDrop() {
   const amount = parseFloat(document.getElementById("drop-amount").value);
   const note = document.getElementById("drop-note").value;
   if (isNaN(amount) || amount <= 0) return toast("Valid amount required.", "error");
+  if (note.trim().length < 3) return toast("Cash drop reason is required.", "error");
 
   try {
     const res = await api("/api/shifts/cash-drop", "POST", { shift_id: currentShift.id, amount, note });
@@ -13030,6 +12961,7 @@ async function performCashMovement() {
       });
       if (res.ok) toast("Cash handover sent for verification.");
     } else {
+      if (note.trim().length < 3) return toast("Cash drop reason is required.", "error");
       const movementNote = type === "shop_expense"
         ? `Restaurant Expense${note ? `: ${note}` : ""}`
         : note;
@@ -13044,22 +12976,6 @@ async function performCashMovement() {
     if (_currentPage === "register") {
       await renderRegister();
     }
-  } catch (err) {
-    toast(err.message, "error");
-  }
-}
-
-async function verifyCashDrop(cashDropId, status) {
-  if (!isCurrentUserShiftAdmin()) return toast("You do not have permission to verify cash drops.", "error");
-  const label = status === "verified" ? "verify" : "reject";
-  if (!confirm(`Are you sure you want to ${label} this cash drop?`)) return;
-
-  try {
-    await api(`/api/shifts/cash-drops/${cashDropId}/verify`, "POST", { status });
-    toast(status === "verified" ? "Cash drop verified." : "Cash drop rejected.");
-    await fetchActiveShift();
-    if (_currentPage === "register") await renderRegister();
-    if (_currentPage === "logs") await applyLogFilters();
   } catch (err) {
     toast(err.message, "error");
   }
@@ -13275,12 +13191,11 @@ function _activityLogTableShell(title = "Activity Trail", subtitle = "System act
   `;
 }
 
-function _renderRegisterLogsTab(pendingCashDrops = [], pendingCashHandovers = []) {
+function _renderRegisterLogsTab(pendingCashHandovers = []) {
   const tabContent = document.getElementById("logs-tab-content");
   if (!tabContent) return;
 
   tabContent.innerHTML = `
-    ${renderPendingCashDropsSection(pendingCashDrops)}
     ${renderPendingCashHandoversSection(pendingCashHandovers)}
     <div id="shift-history-table-wrap"></div>
     ${_activityLogTableShell("Register Activity Trail", "Shift openings, closings, cash drops, handovers, and drawer audit records")}
@@ -13630,16 +13545,15 @@ async function applyLogFilters() {
     if (_logsFilter.to) params.append('to', _logsFilter.to + ' 23:59:59');
 
     if (_logsActiveTab === "register") {
-      const [logs, history, pendingCashDrops, pendingCashHandovers] = await Promise.all([
+      const [logs, history, pendingCashHandovers] = await Promise.all([
         api(`/api/activity-logs?${params.toString()}`),
         api(`/api/shifts/history?${params.toString()}`),
-        fetchPendingCashDropsForAdmin(),
         fetchPendingCashHandoversForRegister()
       ]);
 
       _logsData = Array.isArray(logs) ? logs : [];
       _shiftHistoryData = Array.isArray(history) ? history : [];
-      _renderRegisterLogsTab(pendingCashDrops, pendingCashHandovers);
+      _renderRegisterLogsTab(pendingCashHandovers);
       return;
     }
 

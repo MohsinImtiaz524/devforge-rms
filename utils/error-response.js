@@ -44,7 +44,7 @@ function formatErrorResponse(error, fallbackMessage = "Something went wrong") {
   }
 
   if (error?.status && error?.message) {
-    return { status: error.status, body: { error: error.message } };
+    return { status: error.status, body: { error: error.message, ...(error.publicCode ? { code: error.publicCode } : {}) } };
   }
 
   if (error?.message && !/^(select|insert|update|delete)\b/i.test(error.message)) {

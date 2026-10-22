@@ -151,7 +151,7 @@ class BrandService {
     await this.rebalanceOwnerShare(shopId, db, { strict: false });
     const isSqlite = db.client.config.client !== 'pg';
     const totalExpRes = await db('expenses')
-      .where({ shop_id: shopId })
+      .where({ shop_id: shopId, status: 'approved' })
       .andWhereRaw(isSqlite ? "strftime('%Y-%m', date) = ?" : "TO_CHAR(date, 'YYYY-MM') = ?", [month])
       .sum('amount as val')
       .first();
@@ -231,7 +231,7 @@ class BrandService {
     const isSqlite = db.client.config.client !== 'pg';
     // 1. Get all unique months from expenses and payments for this shop
     const expMonths = await db('expenses')
-      .where({ shop_id: shopId })
+      .where({ shop_id: shopId, status: 'approved' })
       .select(db.raw(isSqlite ? "strftime('%Y-%m', date) as m" : "TO_CHAR(date, 'YYYY-MM') as m"))
       .distinct();
     

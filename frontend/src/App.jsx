@@ -13,6 +13,8 @@ const SalesPage = lazy(() => import('./modules/sales/SalesPage'))
 const TablesPage = lazy(() => import('./modules/tables/TablesPage'))
 const ExpensesPage = lazy(() => import('./modules/expenses/ExpensesPage'))
 const PosPage = lazy(() => import('./modules/pos/PosPage'))
+const AnnouncementsManager = lazy(() => import('./modules/announcements/AnnouncementsManager'))
+import AnnouncementPrompt from './modules/announcements/AnnouncementPrompt'
 
 function RouteLoader() {
   return (
@@ -36,9 +38,10 @@ function App() {
         : window.location.pathname.startsWith('/app/reports') ? <ReportsPage />
         : window.location.pathname.startsWith('/app/analytics') ? <AnalyticsPage />
         : window.location.pathname.startsWith('/app/dashboard') ? <DashboardPage />
+          : window.location.pathname.startsWith('/app/announcements/manage') ? <AnnouncementsManager />
           : window.location.pathname.startsWith('/app/notification-inbox') ? <NotificationsPage channel={'inbox'} />
             : window.location.pathname.startsWith('/app/notifications') ? <NotificationsPage channel={'platform'} /> : <Lobby />
-  return <Suspense fallback={<RouteLoader />}>{page}</Suspense>
+  return <Suspense fallback={<RouteLoader />}><AnnouncementPrompt />{page}</Suspense>
 }
 
 export default App

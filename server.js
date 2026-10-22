@@ -141,6 +141,8 @@ app.use(async (req, res, next) => {
   }
 });
 
+app.use('/internal/jobs', require('./src/modules/expenses/expenses.jobs'));
+
 app.use(createCsrfProtection({
   allowedOrigins: process.env.CSRF_ALLOWED_ORIGINS,
   isProduction,
@@ -175,7 +177,7 @@ app.use("/api/brands", require("./routes/brands"));
 app.use("/api/products", require("./routes/products"));
 app.use("/api/sales", require("./routes/sales"));
 app.use("/api/delivery", require("./routes/delivery"));
-app.use("/api/expenses", require("./routes/expenses"));
+app.use("/api/expenses", require("./src/modules/expenses/expenses.routes"));
 app.use("/api/expense-categories", require("./routes/expense-categories"));
 app.use("/api/product-categories", require("./routes/product-categories"));
 app.use("/api/analytics", require("./routes/analytics"));
@@ -190,6 +192,7 @@ app.use("/api/waste", require("./routes/waste"));
 app.use("/api/shop-settings", require("./routes/shop-settings"));
 app.use("/api/admin", require("./routes/admin"));
 app.use("/api/notifications", require("./routes/notifications"));
+app.use("/api/announcements", require("./src/modules/announcements/announcements.routes"));
 app.use("/api/notification-preferences", require("./src/modules/notification-preferences/notification-preferences.routes"));
 app.use("/api/tables", require("./routes/tables"));
 app.use("/api/kds", require("./routes/kds"));
@@ -321,6 +324,8 @@ if (require.main === module) {
       require("./db/db");
     }
     await require('./src/modules/tips/tips.migration').ensureTipsSchema(require('./db/knex'));
+    if (!usePostgres()) await require('./src/modules/expenses/expenses.migration').ensureExpensesKnexSchema(require('./db/knex'));
+    if (!usePostgres()) await require('./src/modules/announcements/announcements.migration').ensureAnnouncementsKnexSchema(require('./db/knex'));
     await require('./authorization/service').ensureAuthorizationSchema();
     await require('./services/PushNotificationService').ensureSchema();
     startServer();

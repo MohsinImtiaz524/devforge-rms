@@ -82,7 +82,7 @@ router.get('/pdf/monthly-report', requireAuth, async (req, res) => {
     const shopId = req.session.user.shop_id;
     const isSqlite = db.client.config.client !== 'pg';
     
-    const expenses = await db('expenses').where({ shop_id: shopId }).andWhereRaw(isSqlite ? "strftime('%Y-%m', date) = ?" : "TO_CHAR(date, 'YYYY-MM') = ?", [month]).orderBy('date', 'asc');
+    const expenses = await db('expenses').where({ shop_id: shopId }).andWhere(builder => builder.where('status', 'approved').orWhereNull('status')).andWhereRaw(isSqlite ? "strftime('%Y-%m', date) = ?" : "TO_CHAR(date, 'YYYY-MM') = ?", [month]).orderBy('date', 'asc');
     const payments = await brandService.listPayments(shopId, month);
     const shop = await db('shops').where({ id: shopId }).first();
     const user = req.session.user;

@@ -1,7 +1,8 @@
 const db = require('../db/knex');
 const tipsService = require('../src/modules/tips/tips.service');
 const activityLog = require('./ActivityLogService');
-const cashDropNotificationService = require('./CashDropNotificationService');
+const expenseService = require('../src/modules/expenses/expenses.service');
+const { cashDropListSchema } = require('../src/modules/expenses/expenses.schema');
 
 function toMoney(value) {
   const num = Number(value || 0);
@@ -185,6 +186,7 @@ class ShiftService {
     // Shop/business expenses are reported separately and do not reduce cashier drawer cash.
     const expensesTotal = await db('expenses')
       .where({ shift_id: shiftId, shop_id: shopId })
+      .andWhere(builder => builder.where('status', 'approved').orWhereNull('status'))
       .sum('amount as total');
 
     const cashExpenses = firstTotal(expensesTotal);
@@ -383,6 +385,9 @@ class ShiftService {
    * Record a Cash Drop (Internal removal to safe).
    */
   async recordCashDrop(shiftId, shopId, amount, note = '', requestedByUserId = null) {
+    const reason = String(note || '').trim();
+    if (reason.length < 3) { const error = new Error('A cash drop reason of at least 3 characters is required.'); error.status = 422; error.publicCode = 'CASH_DROP_REASON_REQUIRED'; throw error; }
+    if (reason.length > 1000) { const error = new Error('Cash drop reason must not exceed 1000 characters.'); error.status = 422; error.publicCode = 'CASH_DROP_REASON_TOO_LONG'; throw error; }
     if (toMoney(amount) <= 0) throw new Error('Valid amount required.');
     await this.syncLegacyOpenCashDrops(shopId);
 
@@ -402,13 +407,13 @@ class ShiftService {
       requested_by_user_id: requestedByUserId || shift.user_id,
       amount: toMoney(amount),
       status: 'pending',
-      note: note || null
+      note: reason
     }).returning('id');
 
     await db('shifts')
       .where({ id: shiftId, shop_id: shopId })
       .update({
-        note: db.raw("COALESCE(note, '') || ?", [`\n[Cash Drop Requested: ${amount}${note ? ' - ' + note : ''}]`])
+        note: db.raw("COALESCE(note, '') || ?", [`\n[Cash Drop Requested: ${amount} - ${reason}]`])
       });
 
     const dropId = typeof idObj === 'object' ? idObj.id : idObj;
@@ -416,16 +421,35 @@ class ShiftService {
       shift_id: shiftId,
       amount: amount,
       drop_id: dropId,
-      note: note
+      note: reason
     }, shiftId, 'shift');
 
-    cashDropNotificationService.notifyRequested({
-      shopId, requesterId: requestedByUserId || shift.user_id, amount: toMoney(amount), note: note || '',
-    }).catch((error) => console.error(`Cash drop ${dropId} notification failed:`, error.message));
+
 
     return dropId;
   }
 
+  async listCashDrops(shopId, rawFilters = {}) {
+    await this.syncLegacyOpenCashDrops(shopId);
+    const filters = cashDropListSchema.parse(rawFilters), base = db('cash_drops as cd').leftJoin('shifts as s', 'cd.shift_id', 's.id').leftJoin('users as requester', 'cd.requested_by_user_id', 'requester.id').leftJoin('users as verifier', 'cd.verified_by_user_id', 'verifier.id').where('cd.shop_id', shopId);
+    if (filters.status !== 'all') base.where('cd.status', filters.status);
+    if (filters.from) base.where('cd.created_at', '>=', `${filters.from} 00:00:00`);
+    if (filters.to) base.where('cd.created_at', '<=', `${filters.to} 23:59:59.999`);
+    if (filters.requester_id) base.where('cd.requested_by_user_id', filters.requester_id);
+    if (filters.min_amount !== undefined) base.where('cd.amount', '>=', filters.min_amount);
+    if (filters.max_amount !== undefined) base.where('cd.amount', '<=', filters.max_amount);
+    if (filters.search) { const term = `%${filters.search.toLowerCase()}%`; base.where(builder => builder.whereRaw('LOWER(COALESCE(cd.note, ?)) LIKE ?', ['', term]).orWhereRaw('LOWER(COALESCE(cd.rejection_reason, ?)) LIKE ?', ['', term]).orWhereRaw('LOWER(COALESCE(requester.name, ?)) LIKE ?', ['', term]).orWhereRaw('LOWER(COALESCE(requester.username, ?)) LIKE ?', ['', term]).orWhereRaw('CAST(cd.shift_id AS TEXT) LIKE ?', [term])); }
+    const sortColumns={created_at:'cd.created_at',requester:'requester.name',amount:'cd.amount',status:'cd.status',shift:'cd.shift_id'},sortColumn=sortColumns[filters.sort];
+    const [countRow, items, summaryRows] = await Promise.all([
+      base.clone().clearSelect().clearOrder().countDistinct('cd.id as count').first(),
+      base.clone().select('cd.*', 's.status as shift_status', 's.start_time', 'requester.name as requested_by_name', 'requester.username as requested_by_username', 'verifier.name as verified_by_name').orderBy(sortColumn,filters.direction).orderBy('cd.id',filters.direction).limit(filters.page_size).offset((filters.page - 1) * filters.page_size),
+      db('cash_drops').where({ shop_id: shopId }).select('status').count('* as count').groupBy('status')
+    ]);
+    const summary = { pending: 0, verified: 0, rejected: 0 };
+    for (const row of summaryRows) if (Object.hasOwn(summary, row.status)) summary[row.status] = Number(row.count || 0);
+    const total = Number(countRow?.count || 0);
+    return { items, summary, filters, pagination: { page: filters.page, page_size: filters.page_size, total, total_pages: Math.max(1, Math.ceil(total / filters.page_size)) } };
+  }
   async listPendingCashDrops(shopId) {
     await this.syncLegacyOpenCashDrops(shopId);
 
@@ -451,16 +475,21 @@ class ShiftService {
     return query.orderBy('cd.created_at', 'asc');
   }
 
-  async verifyCashDrop(cashDropId, shopId, verifierUserId, status = 'verified') {
+  async verifyCashDrop(cashDropId, shopId, verifierUser, status = 'verified', reason = '') {
+    const verifierUserId = Number(verifierUser?.id || verifierUser);
     if (!['verified', 'rejected'].includes(status)) throw new Error('Invalid cash drop status');
+    reason = String(reason || '').trim();
+    if (status === 'rejected' && reason.length < 3) { const error = new Error('A rejection reason is required.'); error.status = 422; error.publicCode = 'CASH_DROP_REJECTION_REASON_REQUIRED'; throw error; }
 
     const result = await db.transaction(async (trx) => {
       const dropQuery = trx('cash_drops').where({ id: cashDropId });
       if (shopId) dropQuery.andWhere('shop_id', shopId);
-      const drop = await dropQuery.first();
+      const drop = await dropQuery.forUpdate().first();
 
       if (!drop) throw new Error('Cash drop not found');
       if (drop.status !== 'pending') throw new Error('Cash drop already processed');
+      const verifierRole = String(verifierUser?.role || '').toLowerCase();
+      if (Number(drop.requested_by_user_id) === verifierUserId && !['admin', 'restaurant admin', 'superadmin'].includes(verifierRole)) { const error = new Error('You cannot verify your own cash drop request.'); error.status = 403; error.publicCode = 'SELF_VERIFICATION_FORBIDDEN'; throw error; }
 
       const shift = await trx('shifts')
         .where({ id: drop.shift_id, shop_id: drop.shop_id })
@@ -472,7 +501,8 @@ class ShiftService {
         .update({
           status,
           verified_by_user_id: verifierUserId,
-          verified_at: trx.fn.now()
+          verified_at: trx.fn.now(),
+          rejection_reason: status === 'rejected' ? reason : null
         });
 
       const noteLine = status === 'verified'
@@ -491,16 +521,16 @@ class ShiftService {
         .where({ id: drop.shift_id, shop_id: drop.shop_id })
         .update(updateData);
 
-      await activityLog.log(drop.shop_id, verifierUserId, `CASH_DROP_${status.toUpperCase()}`, {
-        shift_id: drop.shift_id,
-        drop_id: cashDropId,
-        amount: drop.amount,
-        requested_at: drop.created_at
-      }, drop.shift_id, 'shift');
+      let expense = null;
+      if (status === 'verified') {
+        expense = await expenseService.createVerifiedCashDropExpense(trx, { drop, verifier: { id: verifierUserId, role: verifierUser?.role } });
+        await trx('cash_drops').where({ id: cashDropId, shop_id: drop.shop_id }).update({ generated_expense_id: expense.id });
+      }
 
-      return { ...drop, status };
+      return { ...drop, status, rejection_reason: status === 'rejected' ? reason : null, generated_expense_id: expense?.id || null, expense_id: expense?.id || null };
     });
 
+    await activityLog.log(result.shop_id, verifierUserId, `CASH_DROP_${status.toUpperCase()}`, { shift_id: result.shift_id, drop_id: cashDropId, amount: result.amount, requested_at: result.created_at, reason: result.rejection_reason || null, generated_expense_id: result.generated_expense_id || null }, result.shift_id, 'shift');
     await this.refreshClosedShiftSnapshot(result.shift_id, result.shop_id);
 
     return result;
@@ -889,6 +919,7 @@ class ShiftService {
       db('expenses as e')
         .select('e.id', 'e.date', 'e.title', 'e.category', 'e.amount', 'e.note', 'e.created_at')
         .where({ 'e.shift_id': shiftId, 'e.shop_id': shopId })
+        .andWhere(builder => builder.where('e.status', 'approved').orWhereNull('e.status'))
         .orderBy('e.created_at', 'asc'),
       db('returns as r')
         .select('r.id', 'r.sale_id', 'r.created_at', 'r.total_refund', 'r.payment_method', 'r.reason')

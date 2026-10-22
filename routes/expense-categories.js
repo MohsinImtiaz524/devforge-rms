@@ -1,59 +1,27 @@
 const express = require('express');
-const expenseService = require('../services/ExpenseService');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireSuperAdmin } = require('../middleware/auth');
+const expenseService = require('../src/modules/expenses/expenses.service');
 const router = express.Router();
-const db = require('../db/knex');
 
-// GET /api/expense-categories
+// Backward-compatible global expense-category API.
 router.get('/', requireAuth, async (req, res) => {
-    const categories = await expenseService.listCategories(req.session.user.shop_id);
-    res.json(categories);
+  res.json(await expenseService.categories(req.session.user));
 });
 
-// POST /api/expense-categories
-router.post('/', requireAuth, async (req, res) => {
-    const id = await expenseService.createCategory(req.body.name, req.session.user.shop_id);
-    res.json({ ok: true, id });
+router.post('/', requireSuperAdmin, async (req, res) => {
+  const category = await expenseService.createCategory(req.session.user, { name: req.body.name });
+  res.status(201).json({ ok: true, id: category.id, category });
 });
 
-router.patch('/:id', requireAuth, async (req, res) => {
-    const shopId = req.session.user.shop_id;
-    const catId = Number(req.params.id);
-    const nextName = String(req.body.name || '').trim();
-    if (!nextName) return res.status(400).json({ error: 'Category name is required' });
-    await db.transaction(async trx => {
-        const category = await trx('expense_categories').where({ id: catId, shop_id: shopId }).first();
-        if (!category) {
-            const error = new Error('Category not found');
-            error.status = 404;
-            throw error;
-        }
-        const duplicate = await trx('expense_categories').where({ shop_id: shopId }).whereNot({ id: catId }).whereRaw('LOWER(name) = ?', [nextName.toLowerCase()]).first();
-        if (duplicate) {
-            const error = new Error('A category with this name already exists');
-            error.status = 400;
-            throw error;
-        }
-        await trx('expenses').where({ shop_id: shopId, category: category.name }).update({ category: nextName });
-        await trx('expense_categories').where({ id: catId, shop_id: shopId }).update({ name: nextName });
-    });
-    res.json({ ok: true });
+router.patch('/:id', requireSuperAdmin, async (req, res) => {
+  const category = await expenseService.updateCategory(req.session.user, req.params.id, { name: req.body.name });
+  res.json({ ok: true, category });
 });
 
-// DELETE /api/expense-categories/:id
-router.delete('/:id', requireAuth, async (req, res) => {
-    const shopId = req.session.user.shop_id;
-    const catId = req.params.id;
-    
-    const cat = await db('expense_categories').where({ id: catId, shop_id: shopId }).first();
-    if (!cat) return res.status(404).json({ error: 'Category not found' });
-
-    // Check usage
-    const usage = await db('expenses').where({ category: cat.name, shop_id: shopId }).count('* as c').first();
-    if (parseInt(usage.c) > 0) return res.status(400).json({ error: 'Category is in use and cannot be deleted.' });
-
-    await expenseService.deleteCategory(catId, shopId);
-    res.json({ ok: true });
+// Legacy DELETE now archives the master category; history remains intact.
+router.delete('/:id', requireSuperAdmin, async (req, res) => {
+  const category = await expenseService.categoryStatus(req.session.user, req.params.id, false);
+  res.json({ ok: true, category });
 });
 
 module.exports = router;

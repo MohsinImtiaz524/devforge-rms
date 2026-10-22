@@ -225,6 +225,14 @@
                     class="rail-btn w-11 h-11 rounded-full flex items-center justify-center transition-all">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1" d="M3 8h18v10H3V8zm0 3h18M7 15h4M16 15h1"/></svg>
                 </button>
+                <button onclick="window.location.href='/app/expenses/categories'" title="Expense Categories"
+                    class="rail-btn w-11 h-11 rounded-full flex items-center justify-center transition-all">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1" d="M4 5h16v14H4zM8 9h8M8 13h5"/></svg>
+                </button>
+                <button onclick="window.location.href='/app/announcements/manage'" title="Manage Announcements"
+                    class="rail-btn w-11 h-11 rounded-full flex items-center justify-center transition-all">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0a3 3 0 01-6 0M12 3v2"/></svg>
+                </button>
                 <button onclick="openPlatformModule('notifications')" title="Notifications"
                     class="rail-btn w-11 h-11 rounded-full flex items-center justify-center transition-all">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0a3 3 0 01-6 0"/></svg>
@@ -302,6 +310,18 @@
 
         <!-- ==================== VIEW 1: PLATFORM OVERVIEW ==================== -->
         <div id="view-overview" class="view-section block space-y-5 animate-[fadeIn_0.3s_ease-out]">
+            <section class="soft-panel p-5 print-hide" aria-labelledby="platform-management-title">
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div>
+                        <h2 id="platform-management-title" class="text-sm font-black text-slate-900 dark:text-white">Platform management</h2>
+                        <p class="text-xs text-slate-500 mt-1">Manage global communication and shared expense configuration.</p>
+                    </div>
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <a href="/app/announcements/manage" class="h-11 px-5 rounded-full bg-slate-950 text-white dark:bg-white dark:text-slate-950 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2">Manage Announcements</a>
+                        <a href="/app/expenses/categories" class="h-11 px-5 rounded-full pill-control text-slate-600 dark:text-slate-200 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2">Expense Categories</a>
+                    </div>
+                </div>
+            </section>
             <!-- Top Stats Panel -->
             <section id="stats-panel" class="soft-panel min-h-[285px] p-6 relative overflow-hidden">
                 <!-- Populated by JS -->

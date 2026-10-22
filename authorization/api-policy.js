@@ -81,7 +81,14 @@ function actionFor(req, resource) {
   if (resource === 'recipes' && /link-product|product-links/.test(path)) return method === 'GET' ? 'view' : 'link_product';
   if (resource === 'customers' && /payment|adjustment/.test(path)) return 'manage_ledger';
   if (resource === 'brands' && /payment|dues|shares/.test(path)) return method === 'GET' ? 'view' : 'manage_payments';
-  if (resource === 'expenses' && /pdf/.test(path)) return 'export';
+  if (resource === 'expenses') {
+    if (/\/categories/.test(path)) return method === 'GET' ? 'view' : 'manage_categories';
+    if (/\/recurring/.test(path)) return 'manage_recurring';
+    if (/\/(approve|reject)$/.test(path)) return 'approve';
+    if (/\/archive$/.test(path)) return 'delete';
+    if (/\/receipt$/.test(path)) return method === 'GET' ? 'view' : 'update';
+    if (/pdf|export|reports/.test(path)) return 'export';
+  }
   if (resource === 'shop-settings') {
     if (/discount/.test(path)) return method === 'GET' ? 'view' : 'manage_discounts';
     if (/tax/.test(path)) return method === 'GET' ? 'view' : 'manage_taxes';
@@ -119,6 +126,20 @@ function enforceApiPermissions(req, res, next) {
   }
   if (resource === 'analytics' && /\/dashboard-data$/.test(req.path)) {
     return requirePermission('dashboard.view')(req, res, next);
+  }
+  // The modular Expenses router declares the exact permission for every route.
+  // Do not stack a second inferred permission here: that made restore, receipts,
+  // and owner edits accidentally depend on unrelated expense permissions.
+  if (resource === 'expenses') return next();
+  if (resource === 'expenses' && /\/cash-drops(?:\/|$)/.test(req.path)) {
+    return requirePermission('register.verify_cash')(req, res, next);
+  }
+  if (resource === 'expenses' && /\/categories(?:\/|$)/.test(req.path) && req.method !== 'GET') {
+    if (String(req.session?.user?.role || '').toLowerCase() === 'superadmin') return next();
+    return res.status(403).json({ error: 'Only the Super Admin can manage expense categories.', code: 'SUPERADMIN_REQUIRED' });
+  }
+  if (resource === 'expenses' && req.method === 'GET' && !/export|reports|recurring/.test(req.path)) {
+    return requirePermission('expenses.view', 'expenses.create')(req, res, next);
   }
   let action = actionFor(req, resource);
   // Reception operates its own drawer. Route-level shift checks still restrict

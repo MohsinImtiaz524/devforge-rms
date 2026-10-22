@@ -29,7 +29,7 @@ test('cash drop request privately notifies every authorized verifier', async () 
   assert.equal(count, 2);
   assert.deepEqual(notifications.map((item) => item.target_user_id), [7, 9]);
   assert.match(notifications[0].message, /Ayesha requested a cash drop of Rs\. 3500\.00/);
-  assert.equal(notifications[0].action_url, '/dashboard#register');
+  assert.equal(notifications[0].action_url, '/app/expenses/cash-drops');
   assert.equal(notifications[0].priority, 'high');
 });
 

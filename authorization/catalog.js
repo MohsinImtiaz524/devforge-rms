@@ -9,7 +9,7 @@ const MODULES = {
   recipes: ['view', 'create', 'update', 'delete', 'link_product'],
   brands: ['view', 'create', 'update', 'delete', 'manage_payments'],
   customers: ['view', 'create', 'update', 'delete', 'manage_ledger'],
-  expenses: ['view', 'create', 'update', 'delete', 'export'],
+  expenses: ['view', 'create', 'update', 'delete', 'approve', 'export', 'manage_categories', 'manage_recurring'],
   tables: ['view', 'manage', 'create', 'update', 'delete'],
   analytics: ['view'],
   reports: ['view'],
@@ -29,6 +29,7 @@ const MODULES = {
   platform_shops: ['view', 'create', 'update', 'delete'],
   platform_subscriptions: ['view', 'manage'],
   platform_finance: ['view', 'manage'],
+  platform_announcements: ['view', 'create', 'update', 'publish', 'archive', 'analytics'],
 };
 
 const PERMISSIONS = Object.entries(MODULES).flatMap(([module, actions]) =>
@@ -43,8 +44,8 @@ const PERMISSIONS = Object.entries(MODULES).flatMap(([module, actions]) =>
 const ALL_PERMISSION_KEYS = PERMISSIONS.map((permission) => permission.key);
 
 const STANDARD_ROLES = {
-  'Restaurant Admin': ALL_PERMISSION_KEYS.filter(key => !key.startsWith('platform_')),
-  Manager: ALL_PERMISSION_KEYS.filter(key => !key.startsWith('platform_') && !key.startsWith('roles.') && !key.startsWith('users.') && !['payroll.configure','payroll.approve','payroll.finalize'].includes(key)),
+  'Restaurant Admin': ALL_PERMISSION_KEYS.filter(key => !key.startsWith('platform_') && key !== 'expenses.manage_categories'),
+  Manager: ALL_PERMISSION_KEYS.filter(key => !key.startsWith('platform_') && key !== 'expenses.manage_categories' && !key.startsWith('roles.') && !key.startsWith('users.') && !['payroll.configure','payroll.approve','payroll.finalize'].includes(key)),
   Cashier: ['dashboard.view', 'orders.view', 'orders.create', 'orders.update', 'orders.complete', 'orders.take_payment', 'sales.view', 'sales.take_payment', 'customers.view', 'customers.create', 'register.view', 'register.open', 'register.close', 'register.cash_drop', 'attendance.view', 'attendance.clock', 'attendance.correct', 'leave.view', 'leave.request', 'documents.view', 'documents.download', 'staff_activity.view'],
   Waiter: ['dashboard.view', 'orders.view', 'orders.create', 'sales.view', 'customers.view', 'tables.view', 'attendance.view', 'attendance.clock', 'attendance.correct', 'leave.view', 'leave.request', 'documents.view', 'documents.download', 'staff_activity.view'],
   Kitchen: ['kitchen_orders.view', 'kitchen_orders.update_status', 'kitchen_orders.complete', 'attendance.view', 'attendance.clock', 'attendance.correct', 'leave.view', 'leave.request', 'documents.view', 'documents.download', 'staff_activity.view'],

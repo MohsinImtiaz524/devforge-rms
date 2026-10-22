@@ -29,11 +29,11 @@ class CashDropNotificationService {
       await notificationService.create({
         shop_id: shopId, target_user_id: recipient.id, type: 'assignment', priority: 'high',
         title: 'Cash drop awaiting verification', message, action_label: 'Review cash drop',
-        action_url: '/dashboard#register', status: 'active',
+        action_url: '/app/expenses/cash-drops', status: 'active',
       }, { id: requesterId, shop_id: shopId });
       await pushNotificationService.sendToUser(recipient.id, {
         title: 'Cash drop awaiting verification', body: message,
-        tag: `cash-drop-requested-${shopId}-${requesterId}-${recipient.id}`, url: '/dashboard#register',
+        tag: `cash-drop-requested-${shopId}-${requesterId}-${recipient.id}`, url: '/app/expenses/cash-drops',
       }).catch((error) => console.error(`Cash drop push failed for user ${recipient.id}:`, error.message));
     }));
     return eligibleRecipients.length;

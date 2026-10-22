@@ -125,11 +125,14 @@ router.post('/cash-drop', requireAuth, async (req, res) => {
 
   const { shift_id, amount, note } = req.body;
   const val = parseFloat(amount);
+  const reason = String(note || '').trim();
   
   if (isNaN(val) || val <= 0) return res.status(400).json({ error: 'Valid amount required.' });
+  if (reason.length < 3) return res.status(422).json({ error: 'A cash drop reason of at least 3 characters is required.', code: 'CASH_DROP_REASON_REQUIRED' });
+  if (reason.length > 1000) return res.status(422).json({ error: 'Cash drop reason must not exceed 1000 characters.', code: 'CASH_DROP_REASON_TOO_LONG' });
 
   await loadShiftForAccess(req, shift_id, { requireOpen: true });
-  const cashDropId = await shiftService.recordCashDrop(shift_id, req.session.user.shop_id, val, note, req.session.user.id);
+  const cashDropId = await shiftService.recordCashDrop(shift_id, req.session.user.shop_id, val, reason, req.session.user.id);
   res.json({ ok: true, cashDropId });
 });
 
@@ -151,7 +154,7 @@ router.post('/cash-drops/:id/verify', requireAuth, async (req, res) => {
   await shiftService.verifyCashDrop(
     req.params.id,
     shiftAdminShopScope(req.session.user),
-    req.session.user.id,
+    req.session.user,
     status
   );
 
@@ -167,6 +170,7 @@ router.post('/handover', requireAuth, async (req, res) => {
 
   const { shift_id, receiver_id, amount, note } = req.body;
   const val = parseFloat(amount);
+  const reason = String(note || '').trim();
 
   if (isNaN(val) || val <= 0) return res.status(400).json({ error: 'Valid amount required.' });
   const shift = await loadShiftForAccess(req, shift_id, { requireOpen: true });

@@ -891,3 +891,4 @@ CREATE INDEX IF NOT EXISTS idx_shifts_status ON shifts(status);
 CREATE INDEX IF NOT EXISTS idx_cash_handovers_shift_id ON cash_handovers(shift_id);
 CREATE INDEX IF NOT EXISTS idx_cash_drops_shift_id ON cash_drops(shift_id);
 CREATE INDEX IF NOT EXISTS idx_cash_drops_status ON cash_drops(status);
+CREATE INDEX IF NOT EXISTS idx_cash_drops_shop_status_created ON cash_drops(shop_id, status, created_at DESC, id DESC);

@@ -14,6 +14,8 @@ const { ensureStaffActivitySchema } = require('../src/modules/staff-activity/sta
 const { ensureReleaseHardeningSchema } = require('../src/modules/release-hardening/release-hardening.migration');
 const { ensureNotificationPreferencesSchema } = require('../src/modules/notification-preferences/notification-preferences.migration');
 const { ensureInventoryCostingSchema } = require('../src/modules/inventory/inventory-costing.migration');
+const { ensureExpensesSchema } = require('../src/modules/expenses/expenses.migration');
+const { ensureAnnouncementsSchema } = require('../src/modules/announcements/announcements.migration');
 
 async function initPostgres() {
   if (process.env.DB_CLIENT !== "postgres") return;
@@ -101,6 +103,7 @@ await query("ALTER TABLE sales ADD COLUMN IF NOT EXISTS order_number INTEGER");
     await ensureReleaseHardeningSchema(query);
     await ensureNotificationPreferencesSchema(query);
     await ensureInventoryCostingSchema(query);
+    await ensureExpensesSchema(query);
 
     // 2. Check if any user exists (to ensure we have an admin)
     const userCheck = await query("SELECT id FROM users LIMIT 1");
@@ -739,6 +742,7 @@ await query("ALTER TABLE sales ADD COLUMN IF NOT EXISTS order_number INTEGER");
         );
         CREATE INDEX IF NOT EXISTS idx_cash_drops_shift_id ON cash_drops(shift_id);
         CREATE INDEX IF NOT EXISTS idx_cash_drops_status ON cash_drops(status);
+CREATE INDEX IF NOT EXISTS idx_cash_drops_shop_status_created ON cash_drops(shop_id, status, created_at DESC, id DESC);
       `);
       console.log("✅ cash_drops table added.");
     }
@@ -1046,6 +1050,8 @@ await query("ALTER TABLE sales ADD COLUMN IF NOT EXISTS order_number INTEGER");
         console.log("✅ activity_logs reference columns added.");
       }
     }
+
+    await ensureAnnouncementsSchema(query);
 
     // Check for shortage_reason in shifts
     const shiftShortageCheck = await query(`
