@@ -953,3 +953,11 @@ Test:
 - Not mandatory
 - Image or lightweight GIF showing the Expenses table
 - No push notification for the initial release unless the user has already enabled product-update pushes
+
+## Announcement image storage (Cloudflare R2)
+
+Set `R2_BUCKET_NAME`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY` in the backend environment, both locally and on the hosting service, then restart the backend. Use the HTTPS S3 API endpoint without a bucket path and a bucket-scoped Object Read & Write token. Keep the bucket private; no public URL or browser CORS configuration is required because images are served through the authenticated backend.
+
+When all four values are absent, uploads use `ANNOUNCEMENT_MEDIA_DIR` (default `data/announcement-media`). Partial R2 configuration rejects new uploads instead of silently storing files locally. With R2 configured, new objects use the `announcements/` prefix, and database storage keys start with `r2:`. Existing local files remain readable from their original directory; they are not automatically migrated. Keep their persistent disk or re-upload the images to move them to R2. Neon continues to store metadata only.
+
+Uploads retain existing image validation, permissions, checksums, and audit records. Failed database writes remove the newly uploaded object. Replacing an image preserves archived image records and files.
