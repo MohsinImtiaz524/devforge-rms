@@ -356,6 +356,7 @@
         }
         else {
           // Success flourish before redirecting
+          sessionStorage.setItem('rms_announcement_login_pending', '1');
           loginRedirectInProgress = true;
           btn.innerHTML = `<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Success! Redirecting...`;
           btn.classList.replace('from-indigo-600', 'from-emerald-500');

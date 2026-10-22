@@ -39,6 +39,7 @@ export default function LoginPage() {
     setError('')
     try {
       const result = await api('/api/auth/login', { method: 'POST', body: { username: form.username.trim(), password: form.password } })
+      sessionStorage.setItem('rms_announcement_login_pending', '1')
       if (form.remember) localStorage.setItem('remembered_username', form.username.trim())
       else localStorage.removeItem('remembered_username')
       window.location.replace(redirectFor(result.user))
