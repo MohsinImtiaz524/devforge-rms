@@ -16,7 +16,7 @@ function validateProfile(body) {
       const url = new URL(values.google_maps_url);
       const host = url.hostname.toLowerCase();
       if (url.protocol !== 'https:' || url.username || url.password || !(
-        host === 'maps.app.goo.gl' || host === 'goo.gl' && url.pathname.startsWith('/maps') ||
+        host === 'g.page' || host === 'maps.app.goo.gl' || host === 'goo.gl' && url.pathname.startsWith('/maps') ||
         host === 'maps.google.com' || (host === 'google.com' || host === 'www.google.com') && url.pathname.startsWith('/maps')
       )) throw new Error();
     } catch { return {error:'Enter a valid HTTPS Google Maps link.'}; }

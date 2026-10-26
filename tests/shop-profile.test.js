@@ -9,10 +9,10 @@ const {ensureShopLogoSchema} = require('../src/modules/shops/shops.migration');
 test('profile validates shared details and synchronizes shop and printed names', () => {
   assert.deepEqual(validateProfile({name:' X SQUARE ',receipt_phone:' 03249627570 '}).values,
     {name:'X SQUARE',receipt_header_text:'X SQUARE',receipt_phone:'03249627570'});
-  for (const value of ['javascript:alert(1)','https://example.com/maps','https://google.com.evil.test/maps','https://user:pass@maps.google.com/']) {
+  for (const value of ['javascript:alert(1)','https://example.com/maps','https://google.com.evil.test/maps','https://user:pass@maps.google.com/','https://g.page.evil.test/review','http://g.page/example','https://user:pass@g.page/example']) {
     assert.ok(validateProfile({google_maps_url:value}).error);
   }
-  for (const value of ['', 'https://maps.app.goo.gl/abc', 'https://www.google.com/maps/place/X']) {
+  for (const value of ['', 'https://maps.app.goo.gl/abc', 'https://www.google.com/maps/place/X', 'https://g.page/r/CfMCfe7QethqEAE/review']) {
     assert.equal(validateProfile({google_maps_url:value}).error, undefined);
   }
   assert.ok(validateProfile({name:'  '}).error);
