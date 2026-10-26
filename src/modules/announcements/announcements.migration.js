@@ -40,4 +40,8 @@ async function ensureAnnouncementsKnexSchema(db){
  if(!await db.schema.hasTable('announcement_user_state'))await db.schema.createTable('announcement_user_state',t=>{t.integer('announcement_id').notNullable();t.integer('user_id').notNullable();t.integer('shop_id').notNullable();t.integer('display_count').notNullable().defaultTo(0);t.timestamp('first_displayed_at');t.timestamp('last_displayed_at');t.timestamp('viewed_at');t.timestamp('acknowledged_at');t.timestamp('dismissed_at');t.timestamp('cta_clicked_at');t.integer('last_seen_version').notNullable().defaultTo(0);t.timestamp('created_at').defaultTo(db.fn.now());t.timestamp('updated_at').defaultTo(db.fn.now());t.primary(['announcement_id','user_id']);t.index(['user_id','shop_id','announcement_id'])});
  if(!await db.schema.hasTable('announcement_audit_events'))await db.schema.createTable('announcement_audit_events',t=>{t.increments('id');t.integer('announcement_id').notNullable();t.integer('actor_user_id');t.string('action',50).notNullable();t.text('before_json');t.text('after_json');t.text('reason');t.timestamp('created_at').defaultTo(db.fn.now());t.index(['announcement_id','created_at','id'])});
 }
-module.exports={ANNOUNCEMENTS_MIGRATION_SQL,ensureAnnouncementsSchema,ensureAnnouncementsKnexSchema};
+async function ensureAnnouncementArtworkSchema(db){
+ if(!await db.schema.hasColumn('announcements','artwork_source'))await db.schema.alterTable('announcements',t=>t.string('artwork_source',16).notNullable().defaultTo('legacy'));
+ if(!await db.schema.hasColumn('announcements','artwork_alt'))await db.schema.alterTable('announcements',t=>t.string('artwork_alt',300).notNullable().defaultTo(''));
+}
+module.exports={ensureAnnouncementArtworkSchema,ANNOUNCEMENTS_MIGRATION_SQL,ensureAnnouncementsSchema,ensureAnnouncementsKnexSchema};

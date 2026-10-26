@@ -1,3 +1,4 @@
+const imageSafety=require('../public/js/image-safety');
 function escapeHtml(value) {
   if (value === null || value === undefined) return "";
   return String(value)
@@ -15,6 +16,8 @@ function assetUrl(value, baseUrl = "") {
   if (!baseUrl) return str;
   return new URL(str.startsWith("/") ? str : `/${str}`, baseUrl).toString();
 }
+
+function imageAssetUrl(value,baseUrl){const source=imageSafety.source(value);return source?escapeHtml(assetUrl(source,baseUrl)):'';}
 
 function parseJson(value, fallback) {
   if (!value) return fallback;
@@ -99,7 +102,7 @@ function renderShopHeader(shop, baseUrl) {
 
   let html = "";
   if (useLogo) {
-    html += `<div style="margin-bottom: ${headerSpacing}px;"><img src="${assetUrl(shop.logo_data || shop.logo_path, baseUrl)}" style="max-width: 60mm; max-height: 22mm; margin: 0 auto; display: block;" alt="${escapeHtml(headerText)}"></div>`;
+    html += `<div style="margin-bottom: ${headerSpacing}px;"><img src="${imageAssetUrl(shop.logo_data || shop.logo_path, baseUrl)}" style="max-width: ${Math.min(70, Math.max(10, Number(shop.logo_print_width_mm) || 60))}mm; max-height: ${Math.min(70, Math.max(10, Number(shop.logo_print_width_mm) || 60))*22/60}mm; width: auto; height: auto; margin: 0 auto; display: block;" alt="${escapeHtml(headerText)}"></div>`;
   }
 
   if (useText) {
@@ -137,7 +140,7 @@ function renderFooter(shop, baseUrl, isUnpaid) {
   if (images.length > 0) {
     html += `<div style="margin-top: ${sectionGap}px; border-top: ${dividerCss}; padding-top: ${sectionGap}px;">`;
     images.forEach((img) => {
-      html += `<img src="${assetUrl(img.path, baseUrl)}" style="max-width: 70mm; max-height: 25mm; margin: 3px auto; display: block;" alt="${escapeHtml(img.description || "")}">`;
+      html += `<img src="${imageAssetUrl(img.path, baseUrl)}" style="max-width: 70mm; max-height: 25mm; margin: 3px auto; display: block;" alt="${escapeHtml(img.description || "")}">`;
       if (img.description) html += `<div style="font-size: ${footerFontSize}px; text-align: center; margin-top: 2px;">${escapeHtml(img.description)}</div>`;
     });
     html += "</div>";

@@ -1,7 +1,7 @@
 const express = require('express');
 const productService = require('../services/ProductService');
 const { requireAuth } = require('../middleware/auth');
-const multer = require('multer');
+const {createVerifiedImageUpload}=require('../utils/verified-image-upload');
 const path = require('path');
 const fs = require('fs');
 const db = require('../db/knex');
@@ -70,37 +70,7 @@ async function syncCatalogAddonToProducts(trx, shopId, addonId, replacement) {
 }
 
 // MULTER CONFIG FOR PRODUCT IMAGES (Kept in routes as it's part of the HTTP transport layer)
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    try {
-      const uploadDir = path.join(__dirname, "..", "public", "uploads", "products");
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-      cb(null, uploadDir);
-    } catch (err) {
-      cb(err);
-    }
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    cb(null, `prod-${uniqueSuffix}${ext}`);
-  },
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
-  fileFilter: (req, file, cb) => {
-    const allowed = /jpeg|jpg|png|webp/;
-    if (allowed.test(path.extname(file.originalname).toLowerCase())) {
-      cb(null, true);
-    } else {
-      cb(new Error("Only images (jpg, png, webp) allowed"));
-    }
-  },
-});
+const upload=createVerifiedImageUpload({directory:path.join(__dirname,'..','public','uploads','products'),prefix:'prod',maxBytes:2*1024*1024});
 
 // GET /api/products
 router.get('/', requireAuth, async (req, res) => {
@@ -326,6 +296,7 @@ router.put('/:id', requireAuth, upload.single('image'), async (req, res) => {
         addons: parse(addons),
         stock_variants: parse(stock_variants),
     };
+    if (!req.file) delete payload.image_path;
     if (req.file) payload.image_path = "/uploads/products/" + req.file.filename;
 
     await productService.updateProduct(req.params.id, payload, req.session.user.shop_id, req.session.user.id);

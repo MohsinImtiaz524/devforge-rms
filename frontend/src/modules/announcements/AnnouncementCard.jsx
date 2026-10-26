@@ -1,3 +1,4 @@
+import AnnouncementAttachments from '../../components/files/AnnouncementAttachments'
 import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
 
@@ -42,6 +43,7 @@ export default function AnnouncementCard({ item }) {
         <div>
           {item.media_url ? <div className="announcement-media announcement-prompt-media"><img src={item.media_url} alt={item.media_alt || item.headline}/><div className="announcement-embedded-actions"><button type="button" className="announcement-image-skip" onClick={() => setPreview(false)}>Skip</button>{item.cta_path && <button type="button" className="announcement-image-action cta" onClick={action}><span>{item.cta_label || 'Open announcement'}</span><span aria-hidden="true">→</span></button>}</div></div> : <div className="announcement-prompt-actions"><button type="button" onClick={() => setPreview(false)}>Skip</button>{item.cta_path && <button type="button" className="primary" onClick={action}>{item.cta_label || 'Open'} →</button>}</div>}
         </div>
+        <AnnouncementAttachments announcementId={item.id}/>
       </section>
     </div>}
   </>

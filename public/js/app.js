@@ -1265,6 +1265,7 @@ async function renderActiveSettingsContent() {
         </div>
 
         ${renderSubscriptionQuotaCard()}
+        ${currentUser.role === 'admin' && currentUser.shop_id ? `<iframe src="/app/shop-logo" title="Manage shop logo" class="w-full mb-10 rounded-2xl border border-slate-200 dark:border-slate-800" style="height:580px" loading="lazy"></iframe>` : ''}
         ${currentUser.role === 'admin' ? `
           <section class="mb-10 rounded-[2rem] border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
             <h4 class="text-xl font-black text-slate-900 dark:text-white">Shop currency</h4>
@@ -2912,7 +2913,7 @@ function productFormHtml(p = {}, brands = []) {
           <div class="flex items-start gap-4">
             <div id="pf-img-preview" class="w-20 h-20 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center flex-shrink-0">
               ${p.image_url
-      ? `<img src="${p.image_url}" class="w-full h-full object-cover" />`
+      ? `<img src="${RmsImageSafety.attribute(p.image_url)}" class="w-full h-full object-cover" />`
       : `<svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>`
     }
             </div>
@@ -6268,7 +6269,7 @@ async function showOrderCompleteModal(id, selectedOrder = null) {
         </div>
         <div class="relative">
           <label class="block text-xs font-bold text-slate-500 mb-1">Phone Number</label>
-          <input id="op-phone" type="text" autocomplete="off" placeholder="Search or enter phone" value="${phone}" oninput="suggestCompleteOrderCustomers(this.value, 'op-phone')" class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-bold" />
+          <input id="op-phone" type="text" autocomplete="off" placeholder="Search or enter phone" value="${RmsImageSafety.escape(phone)}" oninput="suggestCompleteOrderCustomers(this.value, 'op-phone')" class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-bold" />
           <div id="op-phone-suggestions" class="hidden absolute z-[130] left-0 right-0 top-full mt-1 max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"></div>
         </div>
       </div>
@@ -6689,7 +6690,7 @@ function renderPOSProducts(products, requestedPage = 1, serverPagination = null)
                   <div class="flex items-center gap-2">
                     <div class="h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
                       ${p.image_url
-                        ? `<img src="${escapeOrderValue(p.image_url)}" alt="" class="h-full w-full object-cover" />`
+                        ? `<img src="${RmsImageSafety.attribute(p.image_url)}" alt="" class="h-full w-full object-cover" />`
                         : `<svg class="h-5 w-5 text-slate-300 dark:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`}
                     </div>
                     <div class="min-w-0">
@@ -6737,7 +6738,7 @@ function renderPOSProducts(products, requestedPage = 1, serverPagination = null)
       <!-- Hero Image Layer -->
       ${p.image_url
             ? `<div class="w-full h-28 mt-5 mb-2 flex items-center justify-center">
-                 <img src="${p.image_url}" alt="${p.name}" class="max-w-full max-h-full object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.1)]" />
+                 <img src="${RmsImageSafety.attribute(p.image_url)}" alt="${RmsImageSafety.escape(p.name)}" class="max-w-full max-h-full object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.1)]" />
                </div>`
             : `<div class="w-full h-28 mt-5 mb-2 flex items-center justify-center">
                  <svg class="w-10 h-10 text-slate-200 dark:text-slate-700 drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
@@ -7608,7 +7609,7 @@ function showCartModal() {
                 <div class="flex items-center gap-4">
                   <div class="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex-shrink-0 flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm transition-transform hover:scale-110">
                     ${(item.product && item.product.image_url)
-            ? `<img src="${item.product.image_url}" class="w-full h-full object-cover" />`
+            ? `<img src="${RmsImageSafety.attribute(item.product.image_url)}" class="w-full h-full object-cover" />`
             : `<svg class="w-6 h-6 text-slate-300 dark:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`
           }
                   </div>
@@ -8494,10 +8495,10 @@ async function printBill(saleId, isUnpaid = false) {
   const headerText = shop?.receipt_header_text || shop?.name || "RESTAURANT";
 
   if (useLogo) {
-    headerHtml += `<div style="margin-bottom: ${headerSpacing}px;"><img src="${shop.logo_data || shop.logo_path}" style="max-width: 60mm; max-height: 22mm; margin: 0 auto; display: block;" alt="${headerText}"></div>`;
+    headerHtml += `<div style="margin-bottom: ${headerSpacing}px;"><img src="${RmsImageSafety.attribute(shop.logo_data || shop.logo_path)}" style="max-width: ${Math.min(70, Math.max(10, Number(shop.logo_print_width_mm) || 60))}mm; max-height: ${Math.min(70, Math.max(10, Number(shop.logo_print_width_mm) || 60))*22/60}mm; width: auto; height: auto; margin: 0 auto; display: block;" alt="${RmsImageSafety.escape(headerText)}"></div>`;
   }
   if (useText) {
-    headerHtml += `<h1 style="font-size: ${headerFontSize}px; font-weight: ${headerFontWeight}; margin: 0; text-transform: uppercase; text-align: center;">${headerText}</h1>`;
+    headerHtml += `<h1 style="font-size: ${headerFontSize}px; font-weight: ${headerFontWeight}; margin: 0; text-transform: uppercase; text-align: center;">${RmsImageSafety.escape(headerText)}</h1>`;
   }
   if (shop?.receipt_extended_name) {
     const extFontSize = shop.extended_name_font_size || 10;
@@ -8520,9 +8521,9 @@ async function printBill(saleId, isUnpaid = false) {
   if (shop?.receipt_images && shop.receipt_images.length > 0) {
     promoImagesHtml = `<div style="margin-top: ${sectionGap}px; border-top: ${dividerCss}; padding-top: ${sectionGap}px;">`;
     shop.receipt_images.forEach((img) => {
-      promoImagesHtml += `<img src="${img.path}" style="max-width: 70mm; max-height: 25mm; margin: 3px auto; display: block;" alt="${img.description || ""}">`;
+      promoImagesHtml += `<img src="${RmsImageSafety.attribute(img.path)}" style="max-width: 70mm; max-height: 25mm; margin: 3px auto; display: block;" alt="${RmsImageSafety.escape(img.description || "")}">`;
       if (img.description) {
-        promoImagesHtml += `<div style="font-size: ${footerFontSize}px; text-align: center; margin-top: 2px;">${img.description}</div>`;
+        promoImagesHtml += `<div style="font-size: ${footerFontSize}px; text-align: center; margin-top: 2px;">${RmsImageSafety.escape(img.description)}</div>`;
       }
     });
     promoImagesHtml += `</div>`;
@@ -8832,10 +8833,10 @@ async function printReturnReceipt(returnId) {
   const headerText = shop?.receipt_header_text || shop?.name || "RESTAURANT";
 
   if (useLogo) {
-    headerHtml += `<img src="${shop.logo_data || shop.logo_path}" style="max-width: 60mm; max-height: 20mm; margin: 0 auto; display: block;" alt="${headerText}">`;
+    headerHtml += `<img src="${RmsImageSafety.attribute(shop.logo_data || shop.logo_path)}" style="max-width: ${Math.min(70, Math.max(10, Number(shop.logo_print_width_mm) || 60))}mm; max-height: ${Math.min(70, Math.max(10, Number(shop.logo_print_width_mm) || 60))*20/60}mm; width: auto; height: auto; margin: 0 auto; display: block;" alt="${RmsImageSafety.escape(headerText)}">`;
   }
   if (useText) {
-    headerHtml += `<h1>${headerText}</h1>`;
+    headerHtml += `<h1>${RmsImageSafety.escape(headerText)}</h1>`;
   }
   if (shop?.receipt_extended_name) {
     const extFontSize = shop.extended_name_font_size || 10;
@@ -11681,7 +11682,7 @@ function printQuotation(data) {
   const grandTotal = subtotal - discount + taxAmt;
 
   const shopName = shop?.name || "Our Menu";
-  const logoPath = shop?.logo_path || "";
+  const logoPath = shop?.logo_data || shop?.logo_path || "";
   const address = shop?.receipt_address || "";
   const phone = shop?.receipt_phone || "";
   const policies = shop?.receipt_policies || "";
@@ -11736,9 +11737,9 @@ function printQuotation(data) {
         <div class="watermark">QUOTATION</div>
         <div class="header">
             <div class="shop-info">
-                ${logoPath ? `<img src="${logoPath}" style="max-height: 60px; margin-bottom: 10px; display: block;">` : `<h1>${shopName}</h1>`}
-                <p>${address}</p>
-                <p>Phone: ${phone}</p>
+                ${logoPath ? `<img src="${RmsImageSafety.attribute(logoPath)}" style="max-height: 60px; margin-bottom: 10px; display: block;">` : `<h1>${shopName}</h1>`}
+                <p>${RmsImageSafety.escape(address)}</p>
+                <p>Phone: ${RmsImageSafety.escape(phone)}</p>
             </div>
             <div class="quote-title-box">
                 <h2>ESTIMATE</h2>

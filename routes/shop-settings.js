@@ -1,36 +1,29 @@
 const express = require("express");
 const { getSqlite, getPostgres, usePostgres } = require("../db/runtime");
 const { requireAuth, requireAdmin } = require("../middleware/auth");
-const multer = require("multer");
+const {createVerifiedImageUpload,normalizedDataImage}=require('../utils/verified-image-upload');
 const path = require("path");
 const fs = require("fs");
 const { toDatabaseBoolean } = require("../utils/form-values");
 const router = express.Router();
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, "..", "public", "uploads", "receipt-assets");
-    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, `shop-${req.session.user.shop_id}-${uniqueSuffix}${path.extname(file.originalname)}`);
-  },
-});
+const upload=createVerifiedImageUpload({directory:path.join(__dirname,'..','public','uploads','receipt-assets'),prefix:'shop',maxBytes:5*1024*1024,allowGif:true});
 
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif|webp/;
-    const ext = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mime = allowedTypes.test(file.mimetype);
-    if (ext && mime) cb(null, true);
-    else cb(new Error("Only image files are allowed"));
-  },
-});
-
+const filesRuntime=require('../src/modules/files/files.runtime');
+const logoService=require('../src/modules/shops/shops.logo').createLogoService({db:require('../db/knex'),files:filesRuntime.service});
+const {sendError}=require('../utils/error-response');
+function logoError(res,error){
+  if(!error.status&&!error.issues){error=new Error('Shop logo is temporarily unavailable. Please retry.');error.status=503;}
+  return sendError(res,error);
+}
+router.use('/logo',(req,res,next)=>{res.set('Cache-Control','private, no-store');next();});
+const logoGate=(req,res,next)=>filesRuntime.enabled()?next():res.status(404).json({error:'Logo uploads are not enabled.'});
+router.get('/logo',requireAuth,requireAdmin,logoGate,async(req,res)=>{res.set('Cache-Control','private, no-store');try{res.json(await logoService.get(req.session.user));}catch(e){logoError(res,e);}});
+router.put('/logo',requireAuth,requireAdmin,logoGate,async(req,res)=>{try{res.json(await logoService.save(req.session.user,req.body));}catch(e){logoError(res,e);}});
+function guardLegacyLogo(req,res,next){
+  if(req.body.logo_data!==undefined||req.file)return res.status(409).json({error:'Manage your shop logo in Account Profile.'});
+  next();
+}
 // GET /api/shop-settings
 router.get("/", requireAuth, async (req, res) => {
   try {
@@ -38,7 +31,7 @@ router.get("/", requireAuth, async (req, res) => {
     if (!shopId) return res.status(403).json({ error: "No shop assigned" });
 
     const isPostgres = usePostgres();
-    const query = `SELECT id, name, currency, logo_path, logo_data, receipt_header_text, receipt_extended_name, receipt_phone, receipt_address,
+    const query = `SELECT id, name, currency, logo_path, logo_data, logo_print_width_mm, receipt_header_text, receipt_extended_name, receipt_phone, receipt_address,
                 receipt_images_json, receipt_policies, use_logo_on_receipt, use_text_on_receipt, receipt_font_family,
                 header_font_size, header_font_weight, header_spacing,
                 extended_name_font_size, extended_name_font_weight, extended_name_spacing,
@@ -66,6 +59,8 @@ router.get("/", requireAuth, async (req, res) => {
     if (shop.logo_data) shop.logo_url = shop.logo_data;
     else if (shop.logo_path) shop.logo_url = `/uploads/receipt-assets/${path.basename(shop.logo_path)}`;
 
+    shop.files_enabled=filesRuntime.enabled();
+    res.set('Cache-Control','private, no-store');
     res.json(shop);
   } catch (e) {
     console.error("Fetch settings error:", e);
@@ -74,19 +69,24 @@ router.get("/", requireAuth, async (req, res) => {
 });
 
 // POST /api/shop-settings
-router.post("/", requireAuth, requireAdmin, upload.single("logo"), async (req, res) => {
+router.post("/", requireAuth, requireAdmin, require("multer")({limits:{fields:100,fieldSize:1048576,parts:101}}).none(), guardLegacyLogo, async (req, res) => {
   try {
     const shopId = req.session.user.shop_id;
     const isPostgres = usePostgres();
     if (!shopId) return res.status(403).json({ error: "No shop assigned" });
 
+    if(req.body.logo_print_width_mm!==undefined){
+      const width=Number(req.body.logo_print_width_mm);
+      if(!Number.isFinite(width)||width<10||width>70)return res.status(400).json({error:'Logo width must be between 10 and 70 mm.'});
+      req.body.logo_print_width_mm=width;
+    }
     const fields = [
       "receipt_header_text", "receipt_extended_name", "receipt_phone", "receipt_address", "receipt_policies",
       "use_logo_on_receipt", "use_text_on_receipt", "receipt_font_family", "header_font_size", "header_font_weight",
       "header_spacing", "extended_name_font_size", "extended_name_font_weight", "extended_name_spacing",
       "contact_font_size", "contact_align", "contact_padding", "footer_font_size", "footer_font_style",
       "footer_margin", "divider_style", "divider_width", "section_gap", "auto_calculate_damage_to_loss",
-      "customer_bill_printer", "unpaid_bill_printer", "realtime_printing_enabled", "logo_data"
+      "customer_bill_printer", "unpaid_bill_printer", "realtime_printing_enabled", "logo_print_width_mm"
     ];
 
     const updates = [];
@@ -111,19 +111,6 @@ router.post("/", requireAuth, requireAdmin, upload.single("logo"), async (req, r
         }
     });
 
-    if (req.file) {
-      let current;
-      if (isPostgres) current = (await getPostgres().query("SELECT logo_path FROM shops WHERE id = $1", [shopId])).rows[0];
-      else current = getSqlite().prepare("SELECT logo_path FROM shops WHERE id = ?").get(shopId);
-      if (current?.logo_path) {
-          const oldPath = path.join(__dirname, "..", "public", current.logo_path);
-          if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-      }
-      const relPath = `/uploads/receipt-assets/${req.file.filename}`;
-      updates.push(`logo_path = ${isPostgres ? '$' + (values.push(relPath)) : '?'}`);
-      if (!isPostgres) values.push(relPath);
-    }
-
     if (updates.length > 0) {
         const query = `UPDATE shops SET ${updates.join(", ")} WHERE id = ${isPostgres ? '$' + (values.push(shopId)) : '?'}`;
         if (!isPostgres) values.push(shopId);
@@ -139,7 +126,7 @@ router.post("/", requireAuth, requireAdmin, upload.single("logo"), async (req, r
     res.json({ ok: true });
   } catch (e) {
     console.error("Update settings error:", e);
-    res.status(500).json({ error: "Failed to update settings" });
+    res.status(e.status||500).json({error:e.status?e.message:"Failed to update settings"});
   }
 });
 
@@ -150,11 +137,11 @@ router.post("/images", requireAuth, requireAdmin, upload.single("image"), async 
     if (!shopId) return res.status(403).json({ error: "No shop assigned" });
     
     // Support both file upload and direct logo_data (compressed Base64)
-    const logoData = req.body.logo_data;
+    const logoData = req.body.logo_data?await normalizedDataImage(req.body.logo_data):'';
     if (!req.file && !logoData) return res.status(400).json({ error: "Missing image data" });
 
     const isPostgres = usePostgres();
-    const { description } = req.body;
+    const description=String(req.body.description||'').slice(0,300);
     let shop;
     if (isPostgres) shop = (await getPostgres().query("SELECT receipt_images_json FROM shops WHERE id = $1", [shopId])).rows[0];
     else shop = getSqlite().prepare("SELECT receipt_images_json FROM shops WHERE id = ?").get(shopId);
@@ -174,32 +161,12 @@ router.post("/images", requireAuth, requireAdmin, upload.single("image"), async 
     res.json({ ok: true, image: newImg });
   } catch (e) {
     console.error("Image upload error:", e);
-    res.status(500).json({ error: "Failed to upload image" });
+    res.status(e.status||500).json({error:e.status?e.message:"Failed to upload image"});
   }
 });
 
-// DELETE /api/shop-settings/logo
-router.delete("/logo", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const shopId = req.session.user.shop_id;
-    const isPostgres = usePostgres();
-    let shop;
-    if (isPostgres) shop = (await getPostgres().query("SELECT logo_path FROM shops WHERE id = $1", [shopId])).rows[0];
-    else shop = getSqlite().prepare("SELECT logo_path FROM shops WHERE id = ?").get(shopId);
-
-    if (shop?.logo_path) {
-      const fullPath = path.join(__dirname, "..", "public", shop.logo_path);
-      if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
-    }
-
-    if (isPostgres) await getPostgres().query("UPDATE shops SET logo_path = NULL, logo_data = NULL WHERE id = $1", [shopId]);
-    else getSqlite().prepare("UPDATE shops SET logo_path = NULL, logo_data = NULL WHERE id = ?").run(shopId);
-    res.json({ ok: true });
-  } catch (e) {
-    console.error("Logo delete error:", e);
-    res.status(500).json({ error: "Failed to delete logo" });
-  }
-});
+// Legacy DELETE contract uses the same transactional removal as the profile.
+router.delete('/logo',requireAuth,requireAdmin,logoGate,async(req,res)=>{try{await logoService.save(req.session.user,{file_id:null});res.json({ok:true});}catch(e){logoError(res,e);}});
 
 // DELETE /api/shop-settings/images/:id
 router.delete("/images/:id", requireAuth, requireAdmin, async (req, res) => {

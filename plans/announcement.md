@@ -961,3 +961,5 @@ Set `R2_BUCKET_NAME`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_K
 When all four values are absent, uploads use `ANNOUNCEMENT_MEDIA_DIR` (default `data/announcement-media`). Partial R2 configuration rejects new uploads instead of silently storing files locally. With R2 configured, new objects use the `announcements/` prefix, and database storage keys start with `r2:`. Existing local files remain readable from their original directory; they are not automatically migrated. Keep their persistent disk or re-upload the images to move them to R2. Neon continues to store metadata only.
 
 Uploads retain existing image validation, permissions, checksums, and audit records. Failed database writes remove the newly uploaded object. Replacing an image preserves archived image records and files.
+
+Shared attachment infrastructure is tracked in [document_upload_pipeline.md](document_upload_pipeline.md); initial rollout and outstanding migrations are recorded in [files_pipeline_implementation.md](files_pipeline_implementation.md). Existing announcement artwork remains independent during rollout.

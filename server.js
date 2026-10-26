@@ -192,6 +192,7 @@ app.use("/api/waste", require("./routes/waste"));
 app.use("/api/shop-settings", require("./routes/shop-settings"));
 app.use("/api/admin", require("./routes/admin"));
 app.use("/api/notifications", require("./routes/notifications"));
+app.use("/api/files", require("./src/modules/files/files.routes"));
 app.use("/api/announcements", require("./src/modules/announcements/announcements.routes"));
 app.use("/api/notification-preferences", require("./src/modules/notification-preferences/notification-preferences.routes"));
 app.use("/api/tables", require("./routes/tables"));
@@ -328,6 +329,20 @@ if (require.main === module) {
     if (!usePostgres()) await require('./src/modules/announcements/announcements.migration').ensureAnnouncementsKnexSchema(require('./db/knex'));
     await require('./authorization/service').ensureAuthorizationSchema();
     await require('./services/PushNotificationService').ensureSchema();
+    await db.transaction(async trx=>{
+      if(usePostgres())await trx.raw('SELECT pg_advisory_xact_lock(?)',[72401384]);
+      await require('./src/modules/shops/shops.migration').ensureShopLogoSchema(trx);
+    });
+    if (process.env.FILES_ENABLED === 'true') {
+      require('./src/modules/files/files.config').r2Config();
+      require('./src/modules/files/files.config').uploadConfig();
+      await db.transaction(async trx=>{
+        if(usePostgres())await trx.raw('SELECT pg_advisory_xact_lock(?)',[72401383]);
+        await require('./src/modules/files/files.migration').ensureFilesSchema(trx);
+        await require('./src/modules/announcements/announcements.migration').ensureAnnouncementArtworkSchema(trx);
+      });
+      require('./src/modules/files/files.worker').startFilesWorker(require('./src/modules/files/files.runtime').service);
+    }
     startServer();
     const inventoryAlerts = require('./services/ExpiryNotificationService');
     let inventorySyncRunning = false;

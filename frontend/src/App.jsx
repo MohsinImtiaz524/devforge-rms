@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 
+const ShopLogo = lazy(() => import('./modules/shops/ShopLogo'))
 const StaffDirectory = lazy(() => import('./modules/staff/StaffDirectory'))
 const Lobby = lazy(() => import('./modules/lobby/Lobby'))
 const ChangePassword = lazy(() => import('./modules/auth/ChangePassword'))
@@ -26,6 +27,7 @@ function RouteLoader() {
 }
 
 function App() {
+  if (window.location.pathname === '/app/shop-logo') return <Suspense fallback={<RouteLoader />}><ShopLogo /></Suspense>
   const page = window.location.pathname.startsWith('/app/change-password')
     ? <ChangePassword />
     : window.location.pathname.startsWith('/app/login') ? <LoginPage />

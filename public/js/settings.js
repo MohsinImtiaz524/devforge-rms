@@ -100,24 +100,24 @@ function renderReceiptPreview() {
   // Build header
   let headerHtml = "";
   if (useLogo && hasLogo) {
-    headerHtml += `<div style="margin-bottom: ${headerSpacing}px;"><img src="${logoUrl}" style="max-width: 60mm; max-height: 22mm; margin: 0 auto; display: block;" alt="${headerText}"></div>`;
+    headerHtml += `<div style="margin-bottom: ${headerSpacing}px;"><img src="${RmsImageSafety.attribute(logoUrl)}" style="max-width: ${Math.min(70, Math.max(10, Number(document.getElementById("logo-print-width")?.value || settings.logo_print_width_mm) || 60))}mm; max-height: ${Math.min(70, Math.max(10, Number(document.getElementById("logo-print-width")?.value || settings.logo_print_width_mm) || 60))*22/60}mm; width: auto; height: auto; margin: 0 auto; display: block;" alt="${RmsImageSafety.escape(headerText)}"></div>`;
   }
 
   if (useText) {
-    headerHtml += `<h1 style="font-size: ${headerFontSize}px; font-weight: ${headerFontWeight}; margin: 0; text-transform: uppercase; text-align: center;">${headerText}</h1>`;
+    headerHtml += `<h1 style="font-size: ${headerFontSize}px; font-weight: ${headerFontWeight}; margin: 0; text-transform: uppercase; text-align: center;">${RmsImageSafety.escape(headerText)}</h1>`;
   }
 
   // Tagline/Extended info (shown if either is selected or both)
   if (extendedName) {
-    headerHtml += `<div style="font-size: ${extendedNameFontSize}px; font-weight: ${extendedNameFontWeight}; margin-top: ${extendedNameSpacing}px; text-align: center; text-transform: none; margin-bottom: ${headerSpacing}px;">${extendedName}</div>`;
+    headerHtml += `<div style="font-size: ${extendedNameFontSize}px; font-weight: ${extendedNameFontWeight}; margin-top: ${extendedNameSpacing}px; text-align: center; text-transform: none; margin-bottom: ${headerSpacing}px;">${RmsImageSafety.escape(extendedName)}</div>`;
   }
 
   // Build contact
   let contactHtml = "";
   if (phone || address) {
     contactHtml = `<div style="font-size: ${contactFontSize}px; margin-top: 5px; text-align: ${contactAlign}; border-bottom: ${dividerCss}; padding-bottom: ${contactPadding}px;">`;
-    if (phone) contactHtml += `<div style="display: flex; align-items: center; justify-content: ${contactAlign}; gap: 4px;"><svg width="${parseInt(contactFontSize) + 2}" height="${parseInt(contactFontSize) + 2}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg> ${phone}</div>`;
-    if (address) contactHtml += `<div style="display: flex; align-items: center; justify-content: ${contactAlign}; gap: 4px;"><svg width="${parseInt(contactFontSize) + 2}" height="${parseInt(contactFontSize) + 2}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> ${address}</div>`;
+    if (phone) contactHtml += `<div style="display: flex; align-items: center; justify-content: ${contactAlign}; gap: 4px;"><svg width="${parseInt(contactFontSize) + 2}" height="${parseInt(contactFontSize) + 2}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg> ${RmsImageSafety.escape(phone)}</div>`;
+    if (address) contactHtml += `<div style="display: flex; align-items: center; justify-content: ${contactAlign}; gap: 4px;"><svg width="${parseInt(contactFontSize) + 2}" height="${parseInt(contactFontSize) + 2}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> ${RmsImageSafety.escape(address)}</div>`;
     contactHtml += `</div>`;
   }
 
@@ -126,9 +126,9 @@ function renderReceiptPreview() {
   if (images.length > 0) {
     promoHtml = `<div style="margin-top: ${sectionGap}px; border-top: ${dividerCss}; padding-top: ${sectionGap}px;">`;
     images.forEach((img) => {
-      promoHtml += `<img src="${img.path}" style="max-width: 70mm; max-height: 25mm; margin: 5px auto; display: block;" alt="${img.description || ""}">`;
+      promoHtml += `<img src="${RmsImageSafety.attribute(img.path)}" style="max-width: 70mm; max-height: 25mm; margin: 5px auto; display: block;" alt="${RmsImageSafety.escape(img.description || "")}">`;
       if (img.description) {
-        promoHtml += `<div style="font-size: ${footerFontSize}px; text-align: center; margin-top: 2px;">${img.description}</div>`;
+        promoHtml += `<div style="font-size: ${footerFontSize}px; text-align: center; margin-top: 2px;">${RmsImageSafety.escape(img.description)}</div>`;
       }
     });
     promoHtml += `</div>`;
@@ -137,7 +137,7 @@ function renderReceiptPreview() {
   // Build footer
   let footerHtml = "";
   if (policies) {
-    footerHtml += `<div style="font-size: ${footerFontSize}px; font-style: ${footerFontStyle}; margin: ${footerMargin}px 0; text-align: center; white-space: pre-wrap; border-top: ${dividerCss}; padding-top: ${footerMargin}px;">${policies.replace(/\n/g, "<br>")}</div>`;
+    footerHtml += `<div style="font-size: ${footerFontSize}px; font-style: ${footerFontStyle}; margin: ${footerMargin}px 0; text-align: center; white-space: pre-wrap; border-top: ${dividerCss}; padding-top: ${footerMargin}px;">${RmsImageSafety.escape(policies).replace(/\n/g, "<br>")}</div>`;
   }
   footerHtml += `<div style="font-size: ${parseInt(footerFontSize) + 1}px; text-align: center; margin-top: ${footerMargin}px;">Thank you for your purchase!</div>`;
 
@@ -291,15 +291,16 @@ function renderReceiptSettings() {
                 </div>
               </div>
               
+              <label for="logo-print-width" class="block text-sm font-semibold">Printed logo size (width limit, 10-70 mm)</label>
+              <input id="logo-print-width" type="number" min="10" max="70" step="1" value="${Number(settings.logo_print_width_mm) || 60}" oninput="updateReceiptPreview()" class="w-full rounded-xl border p-3 dark:bg-slate-800" />
               <div id="logo-upload-input" class="${!settings.use_logo_on_receipt ? "hidden" : ""}">
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Logo Image</label>
                 <div class="flex flex-col gap-4">
                   <div id="logo-preview-container" class="${hasLogo ? "" : "hidden"}">
-                    ${hasLogo ? `<img id="logo-preview-img" src="${logoUrl}" class="w-24 h-24 object-contain rounded-xl border border-slate-200 dark:border-slate-700 bg-white">` : `<img id="logo-preview-img" class="w-24 h-24 object-contain rounded-xl border border-slate-200 dark:border-slate-700 bg-white hidden">`}
+                    ${hasLogo ? `<img id="logo-preview-img" src="${RmsImageSafety.attribute(logoUrl)}" class="w-24 h-24 object-contain rounded-xl border border-slate-200 dark:border-slate-700 bg-white">` : `<img id="logo-preview-img" class="w-24 h-24 object-contain rounded-xl border border-slate-200 dark:border-slate-700 bg-white hidden">`}
                   </div>
                   <div class="flex-1">
-                    <input type="file" id="logo-file" accept="image/*" onchange="previewLogoFile(this)" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900/30 dark:file:text-indigo-300">
-                    <button type="button" id="remove-logo-btn" onclick="deleteLogo()" class="mt-2 text-xs text-rose-500 hover:text-rose-600 font-medium ${hasLogo ? "" : "hidden"}">Remove Logo</button>
+                    <button type="button" onclick="renderSettings('profile')" class="text-sm font-semibold text-indigo-600 dark:text-indigo-400">Manage shop logo in Account Profile</button>
                   </div>
                 </div>
               </div>
@@ -350,11 +351,11 @@ function renderReceiptSettings() {
           <div id="receipt-images-list" class="grid grid-cols-2 md:grid-cols-4 gap-4">
             ${images.map(img => `
               <div class="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white">
-                <img src="${img.path}" class="w-full h-24 object-contain">
+                <img src="${RmsImageSafety.attribute(img.path)}" class="w-full h-24 object-contain">
                 <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <button type="button" onclick="deleteReceiptImage('${img.id}')" class="text-white text-xs font-bold bg-rose-500 hover:bg-rose-600 px-3 py-1 rounded-lg">Remove</button>
                 </div>
-                <p class="text-[10px] text-center text-slate-500 p-2 truncate">${img.description || ""}</p>
+                <p class="text-[10px] text-center text-slate-500 p-2 truncate">${RmsImageSafety.escape(img.description || "")}</p>
               </div>
             `).join("")}
           </div>
@@ -628,6 +629,7 @@ function toggleLogoType(type) {
 async function saveReceiptSettings() {
   try {
     const formData = new FormData();
+    formData.append("logo_print_width_mm", document.getElementById("logo-print-width")?.value || "60");
     formData.append("use_logo_on_receipt", document.getElementById("use-logo-on-receipt")?.checked ? "true" : "false");
     formData.append("use_text_on_receipt", document.getElementById("use-text-on-receipt")?.checked ? "true" : "false");
 
@@ -663,11 +665,7 @@ async function saveReceiptSettings() {
     formData.append("section_gap", document.getElementById("section-gap")?.value || "10");
 
     // Logo file
-    const logoFile = document.getElementById("logo-file")?.files[0];
-    if (logoFile) {
-      const compressedData = await compressImage(logoFile, 400, 400, 0.7);
-      formData.append("logo_data", compressedData);
-    }
+
 
     const res = await fetch("/api/shop-settings", {
       method: "POST",
