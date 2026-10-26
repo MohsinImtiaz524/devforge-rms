@@ -1265,6 +1265,7 @@ async function renderActiveSettingsContent() {
         </div>
 
         ${renderSubscriptionQuotaCard()}
+        ${currentUser.role === 'admin' && currentUser.shop_id ? await renderShopProfileDetails() : ''}
         ${currentUser.role === 'admin' && currentUser.shop_id ? `<iframe src="/app/shop-logo" title="Manage shop logo" class="w-full mb-10 rounded-2xl border border-slate-200 dark:border-slate-800" style="height:580px" loading="lazy"></iframe>` : ''}
         ${currentUser.role === 'admin' ? `
           <section class="mb-10 rounded-[2rem] border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
@@ -8528,6 +8529,8 @@ async function printBill(saleId, isUnpaid = false) {
     });
     promoImagesHtml += `</div>`;
   }
+
+  promoImagesHtml += globalThis.ShopMapsQr?.render(shop?.google_maps_url) || "";
 
   // Build footer/policies section
   let footerHtml = `<div class="footer text-center">`;

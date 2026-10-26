@@ -45,6 +45,67 @@ async function compressImage(file, maxWidth = 600, maxHeight = 600, quality = 0.
 
 let _receiptSettings = null;
 
+async function renderShopProfileDetails() {
+  const settings = await fetchReceiptSettings();
+  if (!settings) return '<p role="alert">Unable to load shop details. Reopen Account Profile to retry.</p>';
+  const fields = [
+    ['name', 'Shop name', settings.receipt_header_text || settings.name || '', 'text', 200],
+    ['receipt_extended_name', 'Extended name / Tagline', settings.receipt_extended_name || '', 'text', 300],
+    ['receipt_phone', 'Shop phone number', settings.receipt_phone || '', 'tel', 80],
+    ['receipt_address', 'Shop address', settings.receipt_address || '', 'text', 1000],
+    ['google_maps_url', 'Google Maps link', settings.google_maps_url || '', 'url', 2048]
+  ];
+  return `<section class="mb-10 rounded-2xl border border-slate-200 p-8 dark:border-slate-800">
+    <h4 class="text-xl font-bold">Shop details</h4>
+    <p class="mt-2 text-sm text-slate-500">Used throughout your shop and on receipts. Google Maps QR codes are generated on this device.</p>
+    <form onsubmit="event.preventDefault(); saveShopProfileDetails(this)" class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+      ${fields.map(([key,label,value,type,max]) => `<div><label for="profile-${key}" class="block text-sm font-semibold">${label}</label><input id="profile-${key}" name="${key}" type="${type}" maxlength="${max}" ${key === 'name' ? 'required' : ''} value="${RmsImageSafety.escape(value)}" class="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800" /></div>`).join('')}
+      <div id="profile-maps-qr" class="md:col-span-2">
+        ${globalThis.ShopMapsQr?.render(settings.google_maps_url) || ''}
+        ${settings.google_maps_url ? '<button type="button" onclick="removeShopMapsQr(this)" class="mt-3 rounded-xl border border-rose-300 px-4 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950">Remove Google Maps QR</button>' : ''}
+      </div>
+      <button type="submit" class="rounded-xl bg-indigo-600 px-6 py-3 font-bold text-white">Save shop details</button>
+    </form>
+  </section>`;
+}
+
+async function removeShopMapsQr(button) {
+  button.disabled = true;
+  try {
+    const body = new FormData();
+    body.append('google_maps_url', '');
+    const res = await fetch('/api/shop-settings', {method:'POST', body});
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Failed to remove Google Maps QR');
+    if (_receiptSettings) _receiptSettings.google_maps_url = '';
+    const input = document.getElementById('profile-google_maps_url');
+    if (input) input.value = '';
+    const preview = document.getElementById('profile-maps-qr');
+    if (preview) preview.replaceChildren();
+    toast('Google Maps QR removed from receipts', 'success');
+  } catch (e) { toast(e.message, 'error'); }
+  finally { button.disabled = false; }
+}
+
+async function saveShopProfileDetails(form) {
+  const button = form.querySelector('button[type="submit"]');
+  button.disabled = true;
+  try {
+    const res = await fetch('/api/shop-settings', {method:'POST', body:new FormData(form)});
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Failed to save shop details');
+    const shop = await fetchReceiptSettings();
+    if (shop) {
+      currentUser.shop_name = shop.name;
+      currentUser.shop_phone = shop.receipt_phone || '';
+      currentUser.shop_address = shop.receipt_address || '';
+    }
+    toast('Shop details saved', 'success');
+    await renderSettings('profile');
+  } catch (e) { toast(e.message, 'error'); }
+  finally { button.disabled = false; }
+}
+
 async function fetchReceiptSettings() {
   try {
     const res = await fetch("/api/shop-settings");
@@ -182,6 +243,7 @@ function renderReceiptPreview() {
         <div style="font-weight: bold;"><strong>Change:</strong> ${shopCurrencyCode()} 0</div>
       </div>
 
+      ${globalThis.ShopMapsQr?.render(settings.google_maps_url) || ""}
       ${promoHtml}
       ${footerHtml}
     </div>
@@ -276,21 +338,8 @@ function renderReceiptSettings() {
                 </label>
               </div>
               
-              <div id="text-header-input" class="${settings.use_text_on_receipt === false ? "hidden" : "space-y-4 mb-6"}">
-                <div>
-                  <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Restaurant Name on Receipt</label>
-                  <input type="text" id="receipt-header-text" value="${settings.receipt_header_text || settings.name || ""}" 
-                         placeholder="Your Restaurant Name" oninput="updateReceiptPreview()"
-                         class="w-full px-6 py-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 transition-all">
-                </div>
-                <div>
-                  <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Extended Name / Tagline</label>
-                  <input type="text" id="receipt-extended-name" value="${settings.receipt_extended_name || ""}" 
-                         placeholder="e.g. Fine Dining Restaurant" oninput="updateReceiptPreview()"
-                         class="w-full px-6 py-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 transition-all">
-                </div>
-              </div>
-              
+              <div id="text-header-input" class="mb-6 text-sm text-slate-500">Shop name and tagline are managed in Account Profile.</div>
+              <button type="button" onclick="renderSettings('profile')" class="mb-4 text-sm font-semibold text-indigo-600">Manage shop details in Account Profile</button>
               <label for="logo-print-width" class="block text-sm font-semibold">Printed logo size (width limit, 10-70 mm)</label>
               <input id="logo-print-width" type="number" min="10" max="70" step="1" value="${Number(settings.logo_print_width_mm) || 60}" oninput="updateReceiptPreview()" class="w-full rounded-xl border p-3 dark:bg-slate-800" />
               <div id="logo-upload-input" class="${!settings.use_logo_on_receipt ? "hidden" : ""}">
@@ -308,29 +357,7 @@ function renderReceiptSettings() {
           </div>
         </div>
 
-        <!-- Contact Details -->
-        <div class="bg-slate-50 dark:bg-slate-900/50 rounded-[2rem] p-8 border border-slate-200 dark:border-slate-800">
-          <h4 class="text-lg font-black text-slate-900 dark:text-white mb-6 flex items-center gap-3">
-            <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            Contact Details
-          </h4>
-          
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Phone Number</label>
-              <input type="text" id="receipt-phone" value="${settings.receipt_phone || ""}" 
-                     placeholder="+92 300 1234567" oninput="updateReceiptPreview()"
-                     class="w-full px-6 py-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 transition-all">
-            </div>
-            <div>
-              <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Address</label>
-              <input type="text" id="receipt-address" value="${settings.receipt_address || ""}" 
-                     placeholder="123 Main Street, City" oninput="updateReceiptPreview()"
-                     class="w-full px-6 py-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 transition-all">
-            </div>
-          </div>
-        </div>
-
+        <div class="rounded-2xl border border-slate-200 p-6 dark:border-slate-800"><h4 class="font-bold">Contact Details / Google Maps</h4><p class="mt-2 text-sm text-slate-500">Phone, address and Google Maps are managed in Account Profile. A location QR code is generated automatically when a Maps link is saved.</p><button type="button" onclick="renderSettings('profile')" class="mt-3 text-sm font-semibold text-indigo-600">Manage business details</button></div>
         <!-- Promotional Images -->
         <div class="bg-slate-50 dark:bg-slate-900/50 rounded-[2rem] p-8 border border-slate-200 dark:border-slate-800">
           <h4 class="text-lg font-black text-slate-900 dark:text-white mb-6 flex items-center gap-3">
@@ -634,16 +661,8 @@ async function saveReceiptSettings() {
     formData.append("use_text_on_receipt", document.getElementById("use-text-on-receipt")?.checked ? "true" : "false");
 
     // Text fields
-    const headerText = document.getElementById("receipt-header-text")?.value || "";
-    const extendedName = document.getElementById("receipt-extended-name")?.value || "";
-    const phone = document.getElementById("receipt-phone")?.value || "";
-    const address = document.getElementById("receipt-address")?.value || "";
     const policies = document.getElementById("receipt-policies")?.value || "";
 
-    formData.append("receipt_header_text", headerText);
-    formData.append("receipt_extended_name", extendedName);
-    formData.append("receipt_phone", phone);
-    formData.append("receipt_address", address);
     formData.append("receipt_policies", policies);
 
     // Typography settings

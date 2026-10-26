@@ -31,7 +31,7 @@ router.get("/", requireAuth, async (req, res) => {
     if (!shopId) return res.status(403).json({ error: "No shop assigned" });
 
     const isPostgres = usePostgres();
-    const query = `SELECT id, name, currency, logo_path, logo_data, logo_print_width_mm, receipt_header_text, receipt_extended_name, receipt_phone, receipt_address,
+    const query = `SELECT id, name, currency, google_maps_url, logo_path, logo_data, logo_print_width_mm, receipt_header_text, receipt_extended_name, receipt_phone, receipt_address,
                 receipt_images_json, receipt_policies, use_logo_on_receipt, use_text_on_receipt, receipt_font_family,
                 header_font_size, header_font_weight, header_spacing,
                 extended_name_font_size, extended_name_font_weight, extended_name_spacing,
@@ -75,13 +75,16 @@ router.post("/", requireAuth, requireAdmin, require("multer")({limits:{fields:10
     const isPostgres = usePostgres();
     if (!shopId) return res.status(403).json({ error: "No shop assigned" });
 
+    const profile = require('../src/modules/shops/shops.profile').validateProfile(req.body);
+    if (profile.error) return res.status(400).json({error:profile.error});
+    Object.assign(req.body, profile.values);
     if(req.body.logo_print_width_mm!==undefined){
       const width=Number(req.body.logo_print_width_mm);
       if(!Number.isFinite(width)||width<10||width>70)return res.status(400).json({error:'Logo width must be between 10 and 70 mm.'});
       req.body.logo_print_width_mm=width;
     }
     const fields = [
-      "receipt_header_text", "receipt_extended_name", "receipt_phone", "receipt_address", "receipt_policies",
+      "name", "google_maps_url", "receipt_header_text", "receipt_extended_name", "receipt_phone", "receipt_address", "receipt_policies",
       "use_logo_on_receipt", "use_text_on_receipt", "receipt_font_family", "header_font_size", "header_font_weight",
       "header_spacing", "extended_name_font_size", "extended_name_font_weight", "extended_name_spacing",
       "contact_font_size", "contact_align", "contact_padding", "footer_font_size", "footer_font_style",

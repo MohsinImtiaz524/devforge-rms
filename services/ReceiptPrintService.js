@@ -136,7 +136,7 @@ function renderFooter(shop, baseUrl, isUnpaid) {
   const dividerCss = dividerStyle === "none" ? "none" : `${dividerWidth}px ${dividerStyle} #111827`;
   const images = Array.isArray(shop?.receipt_images) ? shop.receipt_images : [];
 
-  let html = "";
+  let html = shop?.google_maps_url ? `<div data-shop-maps="${escapeHtml(shop.google_maps_url)}"></div>` : "";
   if (images.length > 0) {
     html += `<div style="margin-top: ${sectionGap}px; border-top: ${dividerCss}; padding-top: ${sectionGap}px;">`;
     images.forEach((img) => {
@@ -421,6 +421,13 @@ function renderSaleReceiptPage(details, options = {}) {
 </head>
 <body>
   ${body}
+  <script src="${escapeHtml(assetUrl('/js/vendor/qrcode.js?v=2', options.baseUrl))}"></script>
+  <script src="${escapeHtml(assetUrl('/js/shop-maps-qr.js?v=1', options.baseUrl))}"></script>
+  <script>
+    document.querySelectorAll('[data-shop-maps]').forEach(function(node) {
+      node.innerHTML = window.ShopMapsQr ? window.ShopMapsQr.render(node.dataset.shopMaps) : '';
+    });
+  </script>
   <script>
     (function() {
       function waitForImages() {
