@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS shops (
   unpaid_bill_printer TEXT,
   table_visibility_mode TEXT NOT NULL DEFAULT 'all',
   logo_data TEXT,
+  receipt_print_assets_json TEXT,
   user_count INTEGER DEFAULT 0,
   product_count INTEGER DEFAULT 0,
   realtime_printing_enabled INTEGER NOT NULL DEFAULT 0

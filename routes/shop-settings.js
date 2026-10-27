@@ -6,6 +6,8 @@ const path = require("path");
 const fs = require("fs");
 const { toDatabaseBoolean } = require("../utils/form-values");
 const router = express.Router();
+const printImageDb = require('../db/knex');
+const { refreshShopImages } = require('../services/ReceiptImageService');
 
 const upload=createVerifiedImageUpload({directory:path.join(__dirname,'..','public','uploads','receipt-assets'),prefix:'shop',maxBytes:5*1024*1024,allowGif:true});
 
@@ -161,6 +163,7 @@ router.post("/images", requireAuth, requireAdmin, upload.single("image"), async 
     if (isPostgres) await getPostgres().query("UPDATE shops SET receipt_images_json = $1 WHERE id = $2", [JSON.stringify(images), shopId]);
     else getSqlite().prepare("UPDATE shops SET receipt_images_json = ? WHERE id = ?").run(JSON.stringify(images), shopId);
 
+    await refreshShopImages(printImageDb, shopId).catch(() => {});
     res.json({ ok: true, image: newImg });
   } catch (e) {
     console.error("Image upload error:", e);
@@ -198,6 +201,7 @@ router.delete("/images/:id", requireAuth, requireAdmin, async (req, res) => {
     if (isPostgres) await getPostgres().query("UPDATE shops SET receipt_images_json = $1 WHERE id = $2", [JSON.stringify(images), shopId]);
     else getSqlite().prepare("UPDATE shops SET receipt_images_json = ? WHERE id = ?").run(JSON.stringify(images), shopId);
 
+    await refreshShopImages(printImageDb, shopId).catch(() => {});
     res.json({ ok: true });
   } catch (e) {
     console.error("Image delete error:", e);

@@ -4,6 +4,7 @@ const { requireAuth } = require('../middleware/auth');
 const salesService = require("../services/SalesService");
 const { renderSaleReceiptPage, renderTipReceiptPage } = require("../services/ReceiptPrintService");
 const shiftService = require('../services/ShiftService');
+const { prepareShopImages } = require('../services/ReceiptImageService');
 const { renderShiftReceiptPage } = require('../services/ShiftReceiptService');
 
 const router = express.Router();
@@ -93,6 +94,7 @@ router.get("/jobs/:id", async (req, res) => {
     details.is_update = !!content.is_update;
   }
 
+  if (format !== 'kitchen') details.shop = await prepareShopImages(db, details.shop);
   const html = renderSaleReceiptPage(details, {
     format,
     baseUrl: getRequestBaseUrl(req),
@@ -121,6 +123,7 @@ router.get("/sales/:id", async (req, res) => {
     details = await filterKitchenItemsByStation(details, shopId, req.query.station);
   }
 
+  if (format !== 'kitchen') details.shop = await prepareShopImages(db, details.shop);
   const html = renderSaleReceiptPage(details, {
     format,
     baseUrl: getRequestBaseUrl(req),

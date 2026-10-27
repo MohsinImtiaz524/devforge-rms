@@ -20,6 +20,7 @@ function createLogoService({db,files}){
     await db.transaction(async trx=>{
       await files.syncAttachments(trx,user,{type:'shop.logo',id:user.shop_id,purpose:'company.logo'},id?[id]:[]);
       await trx('shops').where({id:Number(user.shop_id)}).update({logo_data:image?`data:${image.mime};base64,${image.bytes.toString('base64')}`:null,logo_path:null});
+      await require('../../../services/ReceiptImageService').refreshShopImages(trx,user.shop_id);
     });return {file:meta,legacy_url:null};
   }
   return {get,save};
