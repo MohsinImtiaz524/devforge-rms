@@ -67,6 +67,8 @@ export default function StockProductRow({
   product,
   canAdjust,
   canEdit,
+  canArchive,
+  onArchive,
   canPrintBarcode,
   onRestock,
   onEdit,
@@ -125,6 +127,7 @@ export default function StockProductRow({
         </td>
         <td>
           <div className="ingredient-actions">
+            {canArchive && <InventoryActionButton onClick={() => onArchive(product)} label={`Archive product ${product.name}`}>Archive</InventoryActionButton>}
             {canAdjust && (
               <InventoryActionButton
                 tone="primary"

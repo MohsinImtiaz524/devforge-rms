@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "api/index.js": {
-      "includeFiles": "{public/**,db/postgres-schema.sql,print-agent.js}"
+      "includeFiles": "{public/**,db/postgres-schema.sql,print-agent.js,escpos-print-agent.js,src/modules/escpos-print/escpos-encoder.js,src/modules/escpos-print/escpos-agent-ui.js,src/modules/escpos-print/receipt-templates.json}"
     }
   },
   "rewrites": [

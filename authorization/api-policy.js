@@ -107,6 +107,13 @@ function enforceApiPermissions(req, res, next) {
   // Print agents authenticate using per-job tokens rather than employee sessions.
   if (req.path.startsWith('/api/print-jobs/') || req.path === '/api/download-print-agent') return next();
   const resource = req.path.split('/')[2];
+  // Archive routes declare their exact view/archive/restore permission.
+  if (resource === 'inventory-archives') return next();
+  if (resource === 'products' && req.method === 'DELETE' && /^\/api\/products\/\d+$/.test(req.path)) {
+    // The route selects archive permission for inventory products and preserves
+    // the existing delete permission for recipe-based menu products.
+    return next();
+  }
   const module = RESOURCE_MODULE[resource];
   if (!module) return next();
   // Sales history is permissioned separately from live POS/order operations.

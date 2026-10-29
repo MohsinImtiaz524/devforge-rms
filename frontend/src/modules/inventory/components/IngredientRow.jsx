@@ -1,7 +1,7 @@
 import InventoryActionButton from './InventoryActionButton'
 import { activeBatches, automaticCode, dateOnly, nearestExpiry, number } from '../inventory.utils'
 
-export default function IngredientRow({ stock, canAdjust, onRestock, onEdit, onView }) {
+export default function IngredientRow({ stock, canAdjust, canArchive, onArchive, onRestock, onEdit, onView }) {
   const batches = activeBatches(stock)
   const expiry = nearestExpiry(stock)
   const expired = expiry && expiry <= dateOnly(new Date().toISOString())
@@ -13,6 +13,6 @@ export default function IngredientRow({ stock, canAdjust, onRestock, onEdit, onV
     <td className="table-emphasis">{Number(stock.min_stock_level)} {stock.unit}</td>
     <td><span className="batch-count">{batches.length}</span></td>
     <td className={expired ? 'expiry-expired' : 'table-emphasis'}>{expiry || 'Not set'}</td>
-    <td><div className="ingredient-actions">{canAdjust && <><InventoryActionButton onClick={() => onRestock(stock)}>Restock</InventoryActionButton><InventoryActionButton tone="indigo" onClick={() => onEdit(stock)}>Edit</InventoryActionButton></>}<InventoryActionButton onClick={() => onView(stock)} label={`View ${stock.name} batch details`}>View</InventoryActionButton></div></td>
+    <td><div className="ingredient-actions">{canAdjust && <><InventoryActionButton onClick={() => onRestock(stock)}>Restock</InventoryActionButton><InventoryActionButton tone="indigo" onClick={() => onEdit(stock)}>Edit</InventoryActionButton></>}<InventoryActionButton onClick={() => onView(stock)} label={`View ${stock.name} batch details`}>View</InventoryActionButton>{canArchive && <InventoryActionButton onClick={() => onArchive(stock)} label={`Archive ingredient ${stock.name}`}>Archive</InventoryActionButton>}</div></td>
   </tr>
 }

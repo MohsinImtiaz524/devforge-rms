@@ -439,9 +439,12 @@ class ProductService {
       await this.validateMenuOptions(trx, variants, addons, shopId);
       if (variants !== undefined) productData.variants_config = JSON.stringify(variants || []);
       if (addons !== undefined) productData.addons_config = JSON.stringify(addons || []);
-      const product = await trx('products').where({ id: productId, shop_id: shopId }).first();
+      const product = await trx('products').where({ id: productId, shop_id: shopId, is_deleted: 0 }).forUpdate().first();
       if (!product) throw new Error('Product not found');
       if (productData.product_type === 'recipe_based') {
+        const held = await trx('inventory_archives as a').leftJoin('inventory_archive_restores as r','r.archive_id','a.id')
+          .where({ 'a.shop_id':shopId,'a.product_id':Number(productId) }).whereNull('r.id').first('a.id');
+        if (held) throw new Error('Restore archived variants and quantities before changing this product type.');
         if (!variants?.length) throw new Error('Recipe-based products require at least one variant');
         productData.buying_price = 0;
         productData.stock = 0;
@@ -452,6 +455,14 @@ class ProductService {
       if (productData.product_type === 'stock_based' && stock_variants !== undefined && !stock_variants.length) throw new Error('Stock-based products require at least one variant');
       if (productData.product_type === 'stock_based' && stock_variants !== undefined) {
         if (!stock_variants.length) throw new Error('Stock-based products require at least one variant');
+        const activeIds = await trx('product_stock_variants').where({ product_id:productId,shop_id:shopId,is_active:true }).pluck('id');
+        if (activeIds.some(id => !stock_variants.some(v => Number(v.id) === Number(id)))) throw new Error('Use Inventory Archive to remove a variant, with a reason and audit history.');
+        const heldStock = await trx('inventory_archives as a').leftJoin('inventory_archive_restores as r','r.archive_id','a.id')
+          .where({ 'a.shop_id':shopId,'a.product_id':Number(productId),'a.kind':'quantity' }).whereNull('r.id').first('a.id');
+        if (heldStock) {
+          const current = await trx('product_stock_variants').where({product_id:productId,shop_id:shopId,is_active:true}).select('id','stock');
+          if (stock_variants.some(v => v.id && current.some(c => Number(c.id) === Number(v.id) && Number(c.stock) !== Number(v.stock)))) throw new Error('Stock changed or is held in the archive. Refresh this form and use Add Stock for quantity changes.');
+        }
         const defaultIndex = Math.max(stock_variants.findIndex(v => v.is_default), 0);
         const retainedIds = [];
         const reservedBarcodes = new Set();
@@ -467,7 +478,7 @@ class ProductService {
             is_active: true, updated_at: db.fn.now()
           };
           if (variant.id) {
-            const affected = await trx('product_stock_variants').where({ id: variant.id, product_id: productId, shop_id: shopId }).update(values);
+            const affected = await trx('product_stock_variants').where({ id: variant.id, product_id: productId, shop_id: shopId, is_active:true }).update(values);
             if (!affected) throw new Error('Invalid stock variant');
             retainedIds.push(variant.id);
           } else {
@@ -548,7 +559,7 @@ class ProductService {
    */
   async adjustStock(productId, shopId, { delta, buying_price }) {
     return await db.transaction(async (trx) => {
-      const product = await trx('products').where({ id: productId, shop_id: shopId }).first();
+      const product = await trx('products').where({ id: productId, shop_id: shopId, is_deleted:0 }).forUpdate().first();
       if (!product) throw new Error('Product not found');
 
       const diff = parseInt(delta || 0);
@@ -579,6 +590,8 @@ class ProductService {
 
   async adjustStockVariant(productId, variantId, shopId, { delta, buying_price }) {
     return db.transaction(async (trx) => {
+      const parent = await trx('products').where({ id:productId,shop_id:shopId,is_deleted:0 }).forUpdate().first('id');
+      if (!parent) throw new Error('Product is archived or unavailable.');
       const variant = await trx('product_stock_variants').where({ id: variantId, product_id: productId, shop_id: shopId, is_active: true }).forUpdate().first();
       if (!variant) throw new Error('Stock variant not found');
       const adjustment = Number(delta);

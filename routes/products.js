@@ -267,8 +267,16 @@ router.delete('/menu-addons/:addonId', requireAuth, async (req, res) => {
 
 // DELETE /api/products/:id
 router.delete('/:id', requireAuth, async (req, res) => {
-  await productService.setDeleted(req.params.id, req.session.user.shop_id);
-  res.json({ ok: true });
+  const product = await db('products').where({ id:req.params.id,shop_id:req.session.user.shop_id }).first('product_type');
+  if (!product) return res.status(404).json({error:'Product not found.'});
+  const permission = product.product_type === 'stock_based' ? 'inventory_archive.archive' : 'products.delete';
+  return require('../authorization/middleware').requirePermission(permission)(req,res,async () => {
+    if (product.product_type === 'stock_based') await require('../src/modules/inventory/archive.service').createArchiveService(db).archive(req.session.user, {
+      entity:'product', entityId:Number(req.params.id), kind:'item', reason:req.body.reason, requestId:req.body.requestId,
+    });
+    else await productService.setDeleted(req.params.id,req.session.user.shop_id);
+    res.json({ ok:true });
+  });
 });
 
 // PUT /api/products/:id

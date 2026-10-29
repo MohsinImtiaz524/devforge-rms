@@ -29,7 +29,7 @@ const MODULES = [
 const PLATFORM_OWNER_PANELS = new Set(['dashboard', 'hierarchy', 'subscriptions', 'notifications', 'settings', 'users', 'logs']);
 const PANEL_MODULES = {
   dashboard: ['dashboard'], pos: ['orders'], delivery: ['delivery'], 'sales-history': ['sales'], customers: ['customers'],
-  products: ['products'], brands: ['brands'], 'raw-stock': ['raw_stock', 'recipes'], 'waste-management': ['waste'],
+  products: ['products'], brands: ['brands'], 'raw-stock': ['raw_stock', 'recipes', 'inventory_archive'], 'waste-management': ['waste'],
   kds: ['kitchen_orders'], expenses: ['expenses'], tables: ['tables'], analytics: ['analytics'], reports: ['reports'], register: ['register'],
   logs: ['activity_logs'], settings: ['settings'], users: ['users', 'roles'], notifications: ['notifications'],
 };

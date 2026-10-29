@@ -642,7 +642,7 @@ function isPanelAllowedForCurrentUser(panelId) {
   if (currentUser.role === "superadmin") return PLATFORM_OWNER_PANELS.includes(panelId);
   const permissionModules = {
     dashboard: ['dashboard'], pos: ['orders'], delivery: ['delivery'], 'sales-history': ['sales'],
-    customers: ['customers'], products: ['products'], brands: ['brands'], 'raw-stock': ['raw_stock', 'recipes'],
+    customers: ['customers'], products: ['products'], brands: ['brands'], 'raw-stock': ['raw_stock', 'recipes', 'inventory_archive'],
     'waste-management': ['waste'], kds: ['kitchen_orders'], expenses: ['expenses'], tables: ['tables'],
     analytics: ['analytics'], register: ['register'], logs: ['activity_logs'], settings: ['settings'],
     users: ['users', 'roles'], notifications: ['notifications']
@@ -11935,11 +11935,17 @@ async function renderPrinterRouting() {
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
             Download Print Agent
           </a>
+          <button type="button" onclick="downloadEscposPrintAgent(this)" class="inline-flex shrink-0 items-center gap-2 px-6 py-3 rounded-2xl bg-sky-600 hover:bg-sky-500 text-white font-black text-sm uppercase tracking-widest shadow-xl shadow-sky-600/20 active:scale-95 transition-all disabled:opacity-50">Download ESC/POS Agent</button>
           ${Number(settings?.realtime_printing_enabled) ? `<a href="/api/realtime-print-jobs/download" download class="inline-flex shrink-0 items-center gap-2 px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm uppercase tracking-widest shadow-xl shadow-emerald-600/20 active:scale-95 transition-all">Download Realtime Print Agent</a>` : ''}
         </div>
       </header>
 
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
+        <div class="lg:col-span-12 rounded-3xl border border-sky-200 bg-sky-50/70 p-5 dark:border-sky-900/50 dark:bg-sky-950/20">
+          <strong class="block text-sm font-black text-slate-900 dark:text-white">Direct ESC/POS printing</strong>
+          <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">Download the ESC/POS agent. Install Node.js 22, run <code>npm install socket.io-client</code> in its folder, then run the downloaded file with <code>node</code>. It uses WebSockets without periodic polling and caches your Receipt Settings, logo, and promotional artwork. Open <a href="http://localhost:3000" target="_blank" rel="noopener noreferrer" class="font-bold text-sky-700 dark:text-sky-300 underline">localhost:3000</a> on the printer computer for troubleshooting. Settings and artwork sync automatically; Refresh Cache is optional. No browser print dialog or PDF is needed.</p>
+          <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Run one agent per physical printer. Stop its existing agent when switching to ESC/POS. Customer, unpaid, and kitchen receipts are supported; other documents retain the existing print workflow. Native text supports ASCII; artwork prints in monochrome.</p>
+        </div>
         <div class="lg:col-span-12 rounded-3xl border border-emerald-200 bg-emerald-50/70 p-5 dark:border-emerald-900/50 dark:bg-emerald-950/20">
           <label class="flex cursor-pointer items-center justify-between gap-5">
             <span><strong class="block text-sm font-black text-slate-900 dark:text-white">Realtime Print Agent</strong><small class="mt-1 block text-xs text-slate-500 dark:text-slate-400">Runs beside the existing polling agent. Enable it to reveal the separate download button.</small></span>
@@ -12290,6 +12296,40 @@ async function saveDefaultPrinters() {
     if (list) list.innerHTML = renderPrintersListHtml();
   } catch(e) {
     toast("Failed to save default printers", "error");
+  }
+}
+
+async function downloadEscposPrintAgent(button) {
+  if (button) button.disabled = true;
+  let objectUrl;
+  try {
+    const response = await fetch('/api/escpos-print/download', { credentials: 'same-origin', cache: 'no-store' });
+    const contentType = response.headers.get('content-type') || '';
+    if (!response.ok || !/^(application|text)\/javascript\b/i.test(contentType)) {
+      const data = await response.json().catch(() => null);
+      const fallback = response.status === 404
+        ? 'ESC/POS download is not available on this server. Deploy the updated RMS backend and try again.'
+        : response.status === 401 ? 'Your session expired. Sign in again to download the agent.'
+        : `Could not download the ESC/POS agent (HTTP ${response.status}).`;
+      throw new Error(data?.error || fallback);
+    }
+    const source = await response.text();
+    if (!source.includes('RMS ESC/POS agent') || !source.includes('const PROFILE =')) {
+      throw new Error('The server returned an invalid print agent. No file was downloaded.');
+    }
+    const disposition = response.headers.get('content-disposition') || '';
+    const suppliedName = /filename="([^"]+)"/i.exec(disposition)?.[1];
+    const filename = suppliedName && /^[a-z0-9_.-]+\.js$/i.test(suppliedName) ? suppliedName : 'agent.js';
+    objectUrl = URL.createObjectURL(new Blob([source], { type: 'application/javascript' }));
+    const link = document.createElement('a');
+    link.href = objectUrl; link.download = filename;
+    document.body.appendChild(link); link.click(); link.remove();
+    toast('ESC/POS agent downloaded.');
+  } catch (error) {
+    toast(error.message === 'Failed to fetch' ? 'Cannot reach RMS. Check the connection and try again.' : error.message || 'Could not download the ESC/POS agent.', 'error');
+  } finally {
+    if (objectUrl) setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    if (button) button.disabled = false;
   }
 }
 

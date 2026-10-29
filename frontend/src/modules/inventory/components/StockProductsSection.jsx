@@ -7,6 +7,8 @@ export default function StockProductsSection({
   pagination,
   canAdjust,
   canEdit,
+  canArchive,
+  onArchive,
   canPrintBarcode,
   onPageChange,
   onRestock,
@@ -45,6 +47,8 @@ export default function StockProductsSection({
                 product={product}
                 canAdjust={canAdjust}
                 canEdit={canEdit}
+                canArchive={canArchive}
+                onArchive={onArchive}
                 canPrintBarcode={canPrintBarcode}
                 onRestock={onRestock}
                 onEdit={onEdit}

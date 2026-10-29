@@ -854,7 +854,8 @@ class SalesService {
       for (const item of data.items) {
         if (item.product_id) {
           const product = await trx('products')
-            .where({ id: item.product_id, shop_id: shopId })
+            .where({ id: item.product_id, shop_id: shopId, is_deleted:0 })
+            .forUpdate()
             .first();
 
           if (!product) throw new Error(`Product ${item.product_id} not found`);
@@ -1381,7 +1382,7 @@ class SalesService {
 
       for (const item of data.items) {
         if (item.product_id) {
-          const product = await trx('products').where({ id: item.product_id, shop_id: shopId }).first();
+          const product = await trx('products').where({ id: item.product_id, shop_id: shopId, is_deleted:0 }).forUpdate().first();
           if (!product) throw new Error(`Product ${item.product_id} not found`);
 
           const menuSelection = await this.resolveMenuSelection(trx, product, item, shopId);
@@ -2156,8 +2157,10 @@ class SalesService {
             if (original.batch_id) await trx('product_batches').where({ id: original.batch_id }).update({ damaged_quantity: db.raw('damaged_quantity + ?', [item.quantity]) });
           } else {
             if (original.stock_variant_id) {
-              await trx('product_stock_variants').where({ id: original.stock_variant_id }).increment('stock', item.quantity);
-              await trx('products').where({ id: item.product_id }).increment('stock', item.quantity);
+              const variant = await trx('product_stock_variants').where({ id:original.stock_variant_id,shop_id:shopId }).forUpdate().first();
+              await trx('product_stock_variants').where({ id: original.stock_variant_id,shop_id:shopId }).increment('stock', item.quantity);
+              // A return to an archived variant remains held, outside the active product balance.
+              if (variant?.is_active) await trx('products').where({ id: item.product_id,shop_id:shopId }).increment('stock', item.quantity);
               continue;
             }
             let batchRestored = false;

@@ -6,6 +6,7 @@ const MODULES = {
   kitchen_orders: ['view', 'update_status', 'complete'],
   products: ['view', 'create', 'update', 'delete', 'adjust_stock', 'manage_damage'],
   raw_stock: ['view', 'create', 'adjust', 'record_waste'],
+  inventory_archive: ['view', 'archive', 'restore'],
   recipes: ['view', 'create', 'update', 'delete', 'link_product'],
   brands: ['view', 'create', 'update', 'delete', 'manage_payments'],
   customers: ['view', 'create', 'update', 'delete', 'manage_ledger'],
@@ -58,7 +59,7 @@ const STANDARD_ROLES = {
 const PANEL_MODULES = {
   dashboard: ['dashboard'], pos: ['orders'], 'sales-history': ['sales'], delivery: ['delivery'],
   kds: ['kitchen_orders'], products: ['products'], brands: ['brands'], 'raw-stock': ['raw_stock'],
-  'waste-management': ['waste'], 'raw-stock': ['raw_stock', 'recipes'], customers: ['customers'], expenses: ['expenses'], tables: ['tables'],
+  'waste-management': ['waste'], 'raw-stock': ['raw_stock', 'recipes', 'inventory_archive'], customers: ['customers'], expenses: ['expenses'], tables: ['tables'],
   analytics: ['analytics'], reports: ['reports'], register: ['register'], logs: ['activity_logs'], settings: ['settings'],
   users: ['users', 'staff', 'roles', 'attendance', 'leave', 'payroll', 'documents', 'staff_activity'], notifications: ['notifications'],
 };

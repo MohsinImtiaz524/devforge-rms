@@ -7,6 +7,8 @@ import IngredientTable from "./components/IngredientTable";
 import StockProductsSection from "./components/StockProductsSection";
 import InventoryToast from "./components/InventoryToast";
 import InventorySkeleton from "./components/InventorySkeleton";
+import InventoryArchive from "./components/InventoryArchive";
+import ArchiveForm from "./components/ArchiveForm";
 import useInventory from "./hooks/useInventory";
 import { expiryWarnings } from "./inventory.utils";
 import "./inventory.css";
@@ -38,8 +40,9 @@ export default function InventoryPage() {
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState(null);
   const [toast, setToast] = useState(null);
-  const [view, setView] = useState(() => new URLSearchParams(window.location.search).get("view") === "categories" ? "categories" : "inventory");
-  const inventory = useInventory(activeTab, search);
+  const [archiveTarget,setArchiveTarget] = useState(null);
+  const [view, setView] = useState(() => ['categories','archive'].includes(new URLSearchParams(window.location.search).get('view')) ? new URLSearchParams(window.location.search).get('view') : 'inventory');
+  const inventory = useInventory(activeTab, search, session?.permissions);
   const has = useCallback(
     (permission) =>
       session?.role === "superadmin" ||
@@ -54,11 +57,17 @@ export default function InventoryPage() {
           user.role === "superadmin" ||
           user.permissions?.some(
             (permission) =>
-              permission === "raw_stock.view" || permission === "products.view",
+              permission === "raw_stock.view" || permission === "products.view" || permission.startsWith('inventory_archive.'),
           );
         if (!allowed)
           setAuthError("You do not have permission to view Inventory.");
-        else setSession(user);
+        else {
+          setSession(user);
+          if (!user.permissions?.some(key => key === 'raw_stock.view' || key === 'products.view')) {
+            const url = new URL(window.location.href); url.searchParams.set('view','archive');
+            window.history.replaceState({},'',url); setView('archive');
+          }
+        }
       })
       .catch((error) => {
         if (error.status === 401) window.location.replace(legacyUrl("/"));
@@ -72,21 +81,31 @@ export default function InventoryPage() {
     return () => window.clearTimeout(timer);
   }, [toast]);
   useEffect(() => {
-    const syncView = () => setView(new URLSearchParams(window.location.search).get("view") === "categories" ? "categories" : "inventory");
+    const syncView = () => {setArchiveTarget(null);setView(['categories','archive'].includes(new URLSearchParams(window.location.search).get('view')) ? new URLSearchParams(window.location.search).get('view') : 'inventory')};
     window.addEventListener("popstate", syncView);
     return () => window.removeEventListener("popstate", syncView);
   }, []);
 
   function changeView(nextView) {
+    setArchiveTarget(null);
     const url = new URL(window.location.href);
-    if (nextView === "categories") url.searchParams.set("view", "categories");
+    if (nextView === "categories" || nextView === 'archive') url.searchParams.set("view", nextView);
     else url.searchParams.delete("view");
+    if (nextView !== 'archive') {url.searchParams.delete('archive_kind');url.searchParams.delete('archive_id')}
     window.history.pushState({}, "", url);
     setView(nextView);
   }
 
   function notify(message, type = "success") {
     setToast({ message, type });
+  }
+  function archiveRow(entity,item) {
+    setArchiveTarget({entity,id:item.id,name:item.name,unit:entity === 'ingredient' ? item.unit : 'units',available:entity === 'ingredient' ? item.current_stock : item.stock,variants:item.stock_variants || [],requestId:crypto.randomUUID()});
+  }
+  function archiveSaved() {
+    setArchiveTarget(null);
+    notify('Archived successfully. Audit record saved.');
+    inventory.refresh().catch(() => notify('Archived successfully. Refresh Inventory to see the updated stock.','error'));
   }
   async function createIngredient(payload) {
     await api("/api/raw-stock", { method: "POST", body: payload });
@@ -169,6 +188,7 @@ export default function InventoryPage() {
         </div>
       </nav>
       <section className="inventory-shell">
+        <div className="archive-controls"><button type="button" className="inventory-product-button" onClick={() => changeView('inventory')}>Active inventory</button>{['view','archive','restore'].some(action => has(`inventory_archive.${action}`)) && <button type="button" className="inventory-product-button" onClick={() => changeView('archive')}>Archive</button>}</div>
         {inventory.error && (
           <div className="inventory-page-error">
             <span>{inventory.error}</span>
@@ -181,7 +201,7 @@ export default function InventoryPage() {
             </button>
           </div>
         )}
-        {view === "categories" ? <Suspense fallback={<div className="inventory-content-loader"><span />Loading categories…</div>}><ProductCategoriesView canCreate={has("products.create")} canUpdate={has("products.update")} canDelete={has("products.delete")} onBack={() => changeView("inventory")} notify={notify} /></Suspense> : <><InventoryHeader
+        {view === 'archive' ? <InventoryArchive has={has} notify={notify} onChanged={() => inventory.refresh().catch(() => {})} /> : view === "categories" ? <Suspense fallback={<div className="inventory-content-loader"><span />Loading categories…</div>}><ProductCategoriesView canCreate={has("products.create")} canUpdate={has("products.update")} canDelete={has("products.delete")} onBack={() => changeView("inventory")} notify={notify} /></Suspense> : <><InventoryHeader
           canCreateIngredient={has("raw_stock.create")}
           canCreateProduct={has("products.create")}
           canManageCategories={has("products.view")}
@@ -208,6 +228,8 @@ export default function InventoryPage() {
                 stocks={ingredients}
                 pagination={inventory.ingredients.pagination}
                 canAdjust={has("raw_stock.adjust")}
+                canArchive={has('inventory_archive.archive')}
+                onArchive={(stock) => archiveRow('ingredient',stock)}
                 onPageChange={inventory.changeIngredientPage}
                 onRestock={(stock) =>
                   setModal({ type: "restock-ingredient", stock })
@@ -224,6 +246,8 @@ export default function InventoryPage() {
                 canPrintBarcode={session.shop_type === "retail"}
                 canAdjust={has("products.adjust_stock")}
                 canEdit={has("products.update")}
+                canArchive={has('inventory_archive.archive')}
+                onArchive={(product) => archiveRow('product',product)}
                 onPageChange={inventory.changeProductPage}
                 onRestock={(product) =>
                   setModal({ type: "restock-product", product })
@@ -241,6 +265,7 @@ export default function InventoryPage() {
           </>
         )}</>}
       </section>
+      {archiveTarget && <ArchiveForm key={archiveTarget.requestId} target={archiveTarget} onClose={() => setArchiveTarget(null)} onSaved={archiveSaved} />}
       <Suspense
         fallback={
           <div className="inventory-modal-loading" role="status">

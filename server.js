@@ -158,7 +158,9 @@ app.use((req, res, next) => {
 
 const { enforceApiPermissions } = require('./authorization/api-policy');
 app.use(enforceApiPermissions);
+app.use(require('./src/modules/escpos-print/escpos-print.changes').configurationChanges());
 app.use('/api/tips', require('./src/modules/tips/tips.routes'));
+app.use('/api/inventory-archives', require('./src/modules/inventory/archive.routes').createArchiveRouter(db));
 
 // API Routes
 app.use('/api/admin/print-analytics', require('./src/modules/print-analytics/print-analytics.routes'));
@@ -199,6 +201,7 @@ app.use("/api/tables", require("./routes/tables"));
 app.use("/api/kds", require("./routes/kds"));
 app.use("/api/print-jobs", require("./routes/print-jobs"));
 app.use("/api/realtime-print-jobs", require("./routes/realtime-print-jobs"));
+app.use("/api/escpos-print", require("./src/modules/escpos-print/escpos-print.routes"));
 app.use("/api/printers", require("./routes/printers"));
 app.use("/api/shifts", require("./routes/shifts"));
 app.use("/api/activity-logs", require("./routes/activity-logs"));
@@ -291,6 +294,7 @@ function startServer(port = PORT) {
   const server = http.createServer(app);
   const realtimeIo = require('./services/OrderRealtimeService').initialize(server, sessionMiddleware);
   require('./services/RealtimePrintService').initialize(realtimeIo);
+  require('./src/modules/escpos-print/escpos-print.realtime').initialize(realtimeIo, require('./services/RealtimePrintService').jobNotifications);
   const listener = server.listen(port, () => {
     console.log(`✅ POS System running at http://localhost:${port}`);
     console.log("   Login: admin / admin123");
@@ -325,6 +329,10 @@ if (require.main === module) {
       require("./db/db");
     }
     await require('./src/modules/tips/tips.migration').ensureTipsSchema(require('./db/knex'));
+    if (usePostgres()) await db.transaction(async trx => {
+      await trx.raw('SELECT pg_advisory_xact_lock(?)', [72401390]);
+      await require('./src/modules/inventory/archive.migration').ensureInventoryArchiveSchema(trx);
+    });
     if (!usePostgres()) await require('./src/modules/expenses/expenses.migration').ensureExpensesKnexSchema(require('./db/knex'));
     if (!usePostgres()) await require('./src/modules/announcements/announcements.migration').ensureAnnouncementsKnexSchema(require('./db/knex'));
     await require('./authorization/service').ensureAuthorizationSchema();

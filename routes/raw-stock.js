@@ -221,7 +221,7 @@ router.patch('/:id/details', requireAuth, async (req, res) => {
                 const existingName = await client.query('SELECT id FROM raw_stocks WHERE shop_id = $1 AND id <> $2 AND is_deleted = 0 AND LOWER(BTRIM(name)) = LOWER(BTRIM($3)) LIMIT 1', [shopId, stockId, name]);
                 if (existingName.rowCount) throw new Error('An ingredient with this name already exists.');
                 const updated = await client.query(
-                    'UPDATE raw_stocks SET ingredient_code = $1, name = $2, unit = $3, usage_unit = $4, conversion_factor = $5, min_stock_level = $6 WHERE id = $7 AND shop_id = $8',
+                    'UPDATE raw_stocks SET ingredient_code = $1, name = $2, unit = $3, usage_unit = $4, conversion_factor = $5, min_stock_level = $6 WHERE id = $7 AND shop_id = $8 AND is_deleted = 0',
                     [requestedCode, name.trim(), unit.trim(), usage_unit?.trim() || null, factor, minimum, stockId, shopId]
                 );
                 if (!updated.rowCount) throw new Error('Ingredient not found.');
@@ -268,7 +268,7 @@ router.patch('/:id/stock', requireAuth, async (req, res) => {
         const performUpdate = async (client) => {
             let stock;
             if (isPostgres) {
-                const { rows } = await client.query('SELECT current_stock, unit, usage_unit, conversion_factor FROM raw_stocks WHERE id = $1 AND shop_id = $2 FOR UPDATE', [stockId, shopId]);
+                const { rows } = await client.query('SELECT current_stock, unit, usage_unit, conversion_factor FROM raw_stocks WHERE id = $1 AND shop_id = $2 AND is_deleted = 0 FOR UPDATE', [stockId, shopId]);
                 stock = rows[0];
             } else {
                 stock = client.prepare('SELECT current_stock, unit, usage_unit, conversion_factor FROM raw_stocks WHERE id = ? AND shop_id = ?').get(stockId, shopId);

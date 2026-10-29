@@ -1,0 +1,146 @@
+// Shared with the single-file download. Only Node built-ins may be used here.
+function clean(value) {
+  return String(value ?? '').replace(/[\x00-\x09\x0b-\x1f\x7f]/g, '').replace(/[–—]/g, '-').replace(/×/g, 'x');
+}
+function wrap(value, width) {
+  return clean(value).split('\n').flatMap(line => {
+    const result = [];
+    while (line.length > width) {
+      const space = line.lastIndexOf(' ', width);
+      const end = space > 0 ? space : width;
+      result.push(line.slice(0, end)); line = line.slice(end).trimStart();
+    }
+    return [...result, line];
+  });
+}
+function encode(document, config, columns = 48) {
+  if (![32, 48].includes(columns)) throw new Error('Select 58mm or 80mm paper');
+  if (document.type === 'CASH_DRAWER') return Buffer.from([0x1b, 0x70, 0, 25, 250]);
+  const chunks = [Buffer.from([0x1b, 0x40])];
+  const s = config.receipt;
+  function text(value, align = 'left', bold = false, large = false) {
+    const lines = wrap(value, large ? Math.floor(columns / 2) : columns).join('\n');
+    // Never silently corrupt non-Latin text or allow receipt data to inject commands.
+    if (/[^\x20-\x7e\n\r]/.test(lines)) throw new Error('Native ESC/POS text currently supports ASCII. Use the existing agent for other scripts.');
+    chunks.push(Buffer.from([0x1b, 0x61, { left: 0, center: 1, right: 2 }[align] || 0,
+      0x1b, 0x45, bold ? 1 : 0, 0x1d, 0x21, large ? 0x11 : 0]));
+    chunks.push(Buffer.from(lines + '\n', 'ascii'));
+    chunks.push(Buffer.from([0x1d, 0x21, 0, 0x1b, 0x45, 0]));
+  }
+  function gap(pixels) {
+    const dots = Math.max(0, Math.min(255, Math.round((Number(pixels) || 0) * 203 / 96)));
+    if (dots) chunks.push(Buffer.from([0x1b, 0x4a, dots]));
+  }
+  function rule() { if (s.divider_style !== 'none') text((s.divider_style === 'solid' ? '=' : '-').repeat(columns)); }
+  function row(label, value, bold = false) {
+    const right = clean(value);
+    const left = wrap(label, Math.max(8, columns - Math.min(right.length, columns - 8) - 1));
+    left.slice(0, -1).forEach(line => text(line));
+    const last = left.at(-1);
+    text(last + ' '.repeat(Math.max(1, columns - last.length - right.length)) + right, 'left', bold);
+  }
+  function tableRow(cells, widths, aligns, bold = false) {
+    const lines = cells.map((cell, i) => wrap(cell, widths[i]));
+    for (let line = 0; line < Math.max(...lines.map(parts => parts.length)); line++) {
+      text(lines.map((parts, i) => {
+        const value = parts[line] || '';
+        const padding = widths[i] - value.length;
+        return aligns[i] === 'right' ? ' '.repeat(padding) + value
+          : aligns[i] === 'center' ? ' '.repeat(Math.floor(padding / 2)) + value + ' '.repeat(Math.ceil(padding / 2))
+          : value + ' '.repeat(padding);
+      }).join(' '), 'left', bold);
+    }
+  }
+  function image(asset) {
+    const data = asset.data_by_width?.[columns] || asset.data;
+    if (!data) return;
+    chunks.push(Buffer.from([0x1b, 0x61, 1]), Buffer.from(data, 'base64'), Buffer.from('\n'));
+  }
+  function qr(value) {
+    const bytes = Buffer.from(String(value), 'utf8');
+    if (!bytes.length || bytes.length > 2048) throw new Error('QR link is too long');
+    const n = bytes.length + 3;
+    chunks.push(Buffer.from([0x1b, 0x61, 1, 0x1d, 0x28, 0x6b, 4, 0, 49, 65, 50, 0,
+      0x1d, 0x28, 0x6b, 3, 0, 49, 67, columns === 32 ? 4 : 6,
+      0x1d, 0x28, 0x6b, 3, 0, 49, 69, 49,
+      0x1d, 0x28, 0x6b, n & 255, n >> 8, 49, 80, 48]), bytes,
+    Buffer.from([0x1d, 0x28, 0x6b, 3, 0, 49, 81, 48, 10]));
+  }
+
+  validateTemplates(config.templates);
+  const template = config.templates.formats[document.format];
+  if (!template) throw new Error('RMS receipt template is missing for this document');
+  const context = { receipt: config.receipt, data: document.data || {}, assets: config.assets || [] };
+  // Cached presentation values always come from the same RMS configuration as the template.
+  context.data = { ...context.data, header: s.receipt_header_text || s.name || 'STORE',
+    headerBold: s.header_font_weight === 'bold', headerLarge: Number(s.header_font_size) >= 18,
+    extendedBold: s.extended_name_font_weight === 'bold', contactAlign: s.contact_align || 'center',
+    footerShopName: Boolean(s.name && !s.use_logo_on_receipt),
+    logos: s.use_logo_on_receipt ? context.assets.filter(a => a.kind === 'logo') : [],
+    promotions: context.assets.filter(a => a.kind === 'promotion') };
+  function value(input, scope) {
+    if (input && typeof input === 'object' && !Array.isArray(input)) {
+      if (input.path) return input.path.split('.').reduce((result, key) => result != null && Object.hasOwn(result, key) ? result[key] : undefined, scope);
+      return input;
+    }
+    if (typeof input !== 'string') return input;
+    return input.replace(/\{\{([a-zA-Z0-9_.]+)\}\}/g, (_, key) => String(value({ path: key }, scope) ?? ''));
+  }
+  function run(nodes, scope) {
+    for (const node of nodes) {
+      if (node.when && !value(node.when, scope)) continue;
+      const align = value(node.align, scope) || 'left';
+      const bold = Boolean(value(node.bold, scope));
+      switch (node.type) {
+        case 'text': text(value(node.value, scope), align, bold, Boolean(value(node.large, scope))); break;
+        case 'row': row(value(node.label, scope), value(node.value, scope), bold); break;
+        case 'divider': rule(); break;
+        case 'gap': gap(value(node.value, scope)); break;
+        case 'qr': { const content = value(node.value, scope); if (content) qr(content); break; }
+        case 'image': { const asset = value(node.value, scope); if (asset) image(asset); break; }
+        case 'each': {
+          const list = value(node.value, scope);
+          if (!Array.isArray(list) || list.length > 2000) throw new Error('Invalid template list');
+          for (const entry of list) run(node.nodes, { ...scope, item: entry });
+          break;
+        }
+        case 'table': {
+          const widths = node.widths[columns];
+          if (!widths || widths.reduce((a,b) => a+b, 0) + widths.length - 1 > columns) throw new Error('Template table exceeds paper width');
+          tableRow(node.headers, widths, node.aligns, true);
+          const list = value(node.value, scope);
+          if (!Array.isArray(list) || list.length > 2000) throw new Error('Invalid template table data');
+          for (const entry of list) tableRow(node.cells.map(cell => value(cell, { ...scope, item: entry })), widths, node.aligns, bold);
+          break;
+        }
+      }
+    }
+  }
+  run(template.nodes, context);
+  chunks.push(Buffer.from([0x1b, 0x64, 4, 0x1d, 0x56, 0]));
+  return Buffer.concat(chunks);
+}
+function validateTemplates(bundle) {
+  if (!bundle || bundle.schema !== 1 || typeof bundle.version !== 'string' || !bundle.formats) throw new Error('Unsupported RMS template schema. Download the latest agent.');
+  let count = 0;
+  function check(nodes, depth = 0) {
+    if (!Array.isArray(nodes) || depth > 6) throw new Error('Invalid RMS template structure');
+    for (const node of nodes) {
+      if (++count > 500 || !node || !['text','row','divider','gap','qr','image','each','table'].includes(node.type)) throw new Error('Unsupported RMS template operation');
+      if (node.type === 'each') check(node.nodes, depth + 1);
+      if (node.type === 'table') {
+        if (!Array.isArray(node.headers) || node.headers.length < 1 || node.headers.length > 8 || !Array.isArray(node.cells) || node.cells.length !== node.headers.length || !Array.isArray(node.aligns) || node.aligns.length !== node.headers.length) throw new Error('Invalid RMS table template');
+        for (const columns of [32,48]) {
+          const widths = node.widths?.[columns];
+          if (!Array.isArray(widths) || widths.length !== node.headers.length || widths.some(n => !Number.isInteger(n) || n < 1) || widths.reduce((a,b)=>a+b,0)+widths.length-1>columns) throw new Error('Invalid RMS table widths');
+        }
+      }
+    }
+  }
+  for (const format of ['customer','unpaid','kitchen']) {
+    if (!bundle.formats[format]) throw new Error('Missing RMS receipt template: '+format);
+    check(bundle.formats[format].nodes);
+  }
+  return true;
+}
+module.exports = { encode, clean, wrap, validateTemplates };

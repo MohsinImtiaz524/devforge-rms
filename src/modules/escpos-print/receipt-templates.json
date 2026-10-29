@@ -1,0 +1,772 @@
+{
+  "schema": 1,
+  "version": "1.0.0",
+  "formats": {
+    "customer": {
+      "nodes": [
+        {
+          "type": "each",
+          "value": {
+            "path": "data.logos"
+          },
+          "nodes": [
+            {
+              "type": "image",
+              "value": {
+                "path": "item"
+              }
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": {
+            "path": "data.header"
+          },
+          "when": {
+            "path": "receipt.use_text_on_receipt"
+          },
+          "align": "center",
+          "bold": {
+            "path": "data.headerBold"
+          },
+          "large": {
+            "path": "data.headerLarge"
+          }
+        },
+        {
+          "type": "gap",
+          "value": {
+            "path": "receipt.header_spacing"
+          }
+        },
+        {
+          "type": "text",
+          "value": {
+            "path": "receipt.receipt_extended_name"
+          },
+          "when": {
+            "path": "receipt.receipt_extended_name"
+          },
+          "align": "center",
+          "bold": {
+            "path": "data.extendedBold"
+          }
+        },
+        {
+          "type": "gap",
+          "value": {
+            "path": "receipt.extended_name_spacing"
+          }
+        },
+        {
+          "type": "text",
+          "value": {
+            "path": "receipt.receipt_phone"
+          },
+          "when": {
+            "path": "receipt.receipt_phone"
+          },
+          "align": {
+            "path": "data.contactAlign"
+          }
+        },
+        {
+          "type": "text",
+          "value": {
+            "path": "receipt.receipt_address"
+          },
+          "when": {
+            "path": "receipt.receipt_address"
+          },
+          "align": {
+            "path": "data.contactAlign"
+          }
+        },
+        {
+          "type": "gap",
+          "value": {
+            "path": "receipt.contact_padding"
+          }
+        },
+        {
+          "type": "text",
+          "value": "Customer Bill",
+          "align": "center",
+          "bold": true
+        },
+        {
+          "type": "divider"
+        },
+        {
+          "type": "text",
+          "value": "Bill #: {{data.number}}"
+        },
+        {
+          "type": "text",
+          "value": "Date: {{data.date}}",
+          "when": {
+            "path": "data.date"
+          }
+        },
+        {
+          "type": "text",
+          "value": "Staff: {{data.staff}}"
+        },
+        {
+          "type": "text",
+          "value": "Customer: {{data.customer}}"
+        },
+        {
+          "type": "text",
+          "value": "Phone: {{data.phone}}",
+          "when": {
+            "path": "data.phone"
+          }
+        },
+        {
+          "type": "text",
+          "value": "Type: {{data.orderType}}"
+        },
+        {
+          "type": "text",
+          "value": "Payment: {{data.method}}"
+        },
+        {
+          "type": "divider"
+        },
+        {
+          "type": "table",
+          "value": {
+            "path": "data.items"
+          },
+          "headers": [
+            "Item",
+            "Qty",
+            "Price",
+            "Total"
+          ],
+          "widths": {
+            "32": [
+              13,
+              3,
+              6,
+              7
+            ],
+            "48": [
+              24,
+              4,
+              8,
+              9
+            ]
+          },
+          "aligns": [
+            "left",
+            "center",
+            "right",
+            "right"
+          ],
+          "cells": [
+            {
+              "path": "item.name"
+            },
+            {
+              "path": "item.quantity"
+            },
+            {
+              "path": "item.price"
+            },
+            {
+              "path": "item.total"
+            }
+          ]
+        },
+        {
+          "type": "divider"
+        },
+        {
+          "type": "row",
+          "label": "Subtotal",
+          "value": "{{data.currency}} {{data.subtotal}}"
+        },
+        {
+          "type": "row",
+          "label": "Discount",
+          "value": "-{{data.currency}} {{data.discount}}",
+          "when": {
+            "path": "data.hasDiscount"
+          }
+        },
+        {
+          "type": "row",
+          "label": "Tax ({{data.taxPercentage}}%)",
+          "value": "{{data.currency}} {{data.tax}}",
+          "when": {
+            "path": "data.hasTax"
+          }
+        },
+        {
+          "type": "row",
+          "label": "GRAND TOTAL",
+          "value": "{{data.currency}} {{data.total}}",
+          "bold": true
+        },
+        {
+          "type": "divider"
+        },
+        {
+          "type": "text",
+          "value": "Method: {{data.method}}"
+        },
+        {
+          "type": "row",
+          "label": "Tip received ({{data.tipMethod}})",
+          "value": "{{data.currency}} {{data.tip}}",
+          "when": {
+            "path": "data.hasTip"
+          }
+        },
+        {
+          "type": "row",
+          "label": "Received",
+          "value": "{{data.currency}} {{data.received}}"
+        },
+        {
+          "type": "row",
+          "label": "Total collected",
+          "value": "{{data.currency}} {{data.collected}}",
+          "when": {
+            "path": "data.standaloneTip"
+          }
+        },
+        {
+          "type": "row",
+          "label": "Due",
+          "value": "{{data.currency}} {{data.due}}",
+          "when": {
+            "path": "data.hasDue"
+          },
+          "bold": true
+        },
+        {
+          "type": "row",
+          "label": "Change",
+          "value": "{{data.currency}} {{data.change}}",
+          "when": {
+            "path": "data.hasChange"
+          },
+          "bold": true
+        },
+        {
+          "type": "divider"
+        },
+        {
+          "type": "gap",
+          "value": {
+            "path": "receipt.section_gap"
+          }
+        },
+        {
+          "type": "qr",
+          "value": {
+            "path": "receipt.google_maps_url"
+          },
+          "when": {
+            "path": "receipt.google_maps_url"
+          }
+        },
+        {
+          "type": "each",
+          "value": {
+            "path": "data.promotions"
+          },
+          "nodes": [
+            {
+              "type": "image",
+              "value": {
+                "path": "item"
+              }
+            },
+            {
+              "type": "text",
+              "value": {
+                "path": "item.description"
+              },
+              "when": {
+                "path": "item.description"
+              },
+              "align": "center"
+            }
+          ]
+        },
+        {
+          "type": "gap",
+          "value": {
+            "path": "receipt.footer_margin"
+          }
+        },
+        {
+          "type": "text",
+          "value": {
+            "path": "receipt.receipt_policies"
+          },
+          "when": {
+            "path": "receipt.receipt_policies"
+          },
+          "align": "center"
+        },
+        {
+          "type": "text",
+          "value": "Thank you for your purchase!",
+          "align": "center"
+        },
+        {
+          "type": "text",
+          "value": {
+            "path": "receipt.name"
+          },
+          "when": {
+            "path": "data.footerShopName"
+          },
+          "align": "center"
+        },
+        {
+          "type": "text",
+          "value": "Software by DEVFORGE - 03226155209",
+          "align": "center",
+          "bold": true
+        }
+      ]
+    },
+    "unpaid": {
+      "nodes": [
+        {
+          "type": "each",
+          "value": {
+            "path": "data.logos"
+          },
+          "nodes": [
+            {
+              "type": "image",
+              "value": {
+                "path": "item"
+              }
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "value": {
+            "path": "data.header"
+          },
+          "when": {
+            "path": "receipt.use_text_on_receipt"
+          },
+          "align": "center",
+          "bold": {
+            "path": "data.headerBold"
+          },
+          "large": {
+            "path": "data.headerLarge"
+          }
+        },
+        {
+          "type": "gap",
+          "value": {
+            "path": "receipt.header_spacing"
+          }
+        },
+        {
+          "type": "text",
+          "value": {
+            "path": "receipt.receipt_extended_name"
+          },
+          "when": {
+            "path": "receipt.receipt_extended_name"
+          },
+          "align": "center",
+          "bold": {
+            "path": "data.extendedBold"
+          }
+        },
+        {
+          "type": "gap",
+          "value": {
+            "path": "receipt.extended_name_spacing"
+          }
+        },
+        {
+          "type": "text",
+          "value": {
+            "path": "receipt.receipt_phone"
+          },
+          "when": {
+            "path": "receipt.receipt_phone"
+          },
+          "align": {
+            "path": "data.contactAlign"
+          }
+        },
+        {
+          "type": "text",
+          "value": {
+            "path": "receipt.receipt_address"
+          },
+          "when": {
+            "path": "receipt.receipt_address"
+          },
+          "align": {
+            "path": "data.contactAlign"
+          }
+        },
+        {
+          "type": "gap",
+          "value": {
+            "path": "receipt.contact_padding"
+          }
+        },
+        {
+          "type": "text",
+          "value": "Unpaid Bill",
+          "align": "center",
+          "bold": true
+        },
+        {
+          "type": "divider"
+        },
+        {
+          "type": "text",
+          "value": "Bill #: {{data.number}}"
+        },
+        {
+          "type": "text",
+          "value": "Date: {{data.date}}",
+          "when": {
+            "path": "data.date"
+          }
+        },
+        {
+          "type": "text",
+          "value": "Staff: {{data.staff}}"
+        },
+        {
+          "type": "text",
+          "value": "Customer: {{data.customer}}"
+        },
+        {
+          "type": "text",
+          "value": "Phone: {{data.phone}}",
+          "when": {
+            "path": "data.phone"
+          }
+        },
+        {
+          "type": "text",
+          "value": "Type: {{data.orderType}}"
+        },
+        {
+          "type": "text",
+          "value": "Payment: {{data.method}}"
+        },
+        {
+          "type": "divider"
+        },
+        {
+          "type": "table",
+          "value": {
+            "path": "data.items"
+          },
+          "headers": [
+            "Item",
+            "Qty",
+            "Price",
+            "Total"
+          ],
+          "widths": {
+            "32": [
+              13,
+              3,
+              6,
+              7
+            ],
+            "48": [
+              24,
+              4,
+              8,
+              9
+            ]
+          },
+          "aligns": [
+            "left",
+            "center",
+            "right",
+            "right"
+          ],
+          "cells": [
+            {
+              "path": "item.name"
+            },
+            {
+              "path": "item.quantity"
+            },
+            {
+              "path": "item.price"
+            },
+            {
+              "path": "item.total"
+            }
+          ]
+        },
+        {
+          "type": "divider"
+        },
+        {
+          "type": "row",
+          "label": "Subtotal",
+          "value": "{{data.currency}} {{data.subtotal}}"
+        },
+        {
+          "type": "row",
+          "label": "Discount",
+          "value": "-{{data.currency}} {{data.discount}}",
+          "when": {
+            "path": "data.hasDiscount"
+          }
+        },
+        {
+          "type": "row",
+          "label": "Tax ({{data.taxPercentage}}%)",
+          "value": "{{data.currency}} {{data.tax}}",
+          "when": {
+            "path": "data.hasTax"
+          }
+        },
+        {
+          "type": "row",
+          "label": "GRAND TOTAL",
+          "value": "{{data.currency}} {{data.total}}",
+          "bold": true
+        },
+        {
+          "type": "divider"
+        },
+        {
+          "type": "text",
+          "value": "*** UNPAID BILL ***",
+          "align": "center",
+          "bold": true
+        },
+        {
+          "type": "text",
+          "value": "Total: {{data.currency}} {{data.total}}",
+          "align": "center",
+          "bold": true
+        },
+        {
+          "type": "text",
+          "value": "Amount Paid: {{data.currency}} {{data.amountPaid}}",
+          "align": "center",
+          "bold": true
+        },
+        {
+          "type": "text",
+          "value": "Balance Due: {{data.currency}} {{data.due}}",
+          "align": "center",
+          "bold": true
+        },
+        {
+          "type": "divider"
+        },
+        {
+          "type": "gap",
+          "value": {
+            "path": "receipt.section_gap"
+          }
+        },
+        {
+          "type": "qr",
+          "value": {
+            "path": "receipt.google_maps_url"
+          },
+          "when": {
+            "path": "receipt.google_maps_url"
+          }
+        },
+        {
+          "type": "each",
+          "value": {
+            "path": "data.promotions"
+          },
+          "nodes": [
+            {
+              "type": "image",
+              "value": {
+                "path": "item"
+              }
+            },
+            {
+              "type": "text",
+              "value": {
+                "path": "item.description"
+              },
+              "when": {
+                "path": "item.description"
+              },
+              "align": "center"
+            }
+          ]
+        },
+        {
+          "type": "gap",
+          "value": {
+            "path": "receipt.footer_margin"
+          }
+        },
+        {
+          "type": "text",
+          "value": {
+            "path": "receipt.receipt_policies"
+          },
+          "when": {
+            "path": "receipt.receipt_policies"
+          },
+          "align": "center"
+        },
+        {
+          "type": "text",
+          "value": "Payment pending. Please keep this bill for counter settlement.",
+          "align": "center"
+        },
+        {
+          "type": "text",
+          "value": {
+            "path": "receipt.name"
+          },
+          "when": {
+            "path": "data.footerShopName"
+          },
+          "align": "center"
+        },
+        {
+          "type": "text",
+          "value": "Software by DEVFORGE - 03226155209",
+          "align": "center",
+          "bold": true
+        }
+      ]
+    },
+    "kitchen": {
+      "nodes": [
+        {
+          "type": "text",
+          "value": {
+            "path": "data.kitchenName"
+          },
+          "align": "center",
+          "bold": true
+        },
+        {
+          "type": "text",
+          "value": "KITCHEN ORDER",
+          "align": "center",
+          "bold": true
+        },
+        {
+          "type": "text",
+          "value": "#{{data.number}}{{data.updateLabel}}",
+          "align": "center",
+          "bold": true,
+          "large": true
+        },
+        {
+          "type": "text",
+          "value": {
+            "path": "data.upperOrderType"
+          },
+          "bold": true
+        },
+        {
+          "type": "text",
+          "value": "TABLE: {{data.table}}",
+          "when": {
+            "path": "data.hasTable"
+          },
+          "bold": true
+        },
+        {
+          "type": "text",
+          "value": "TOKEN: {{data.token}}",
+          "when": {
+            "path": "data.token"
+          },
+          "bold": true
+        },
+        {
+          "type": "text",
+          "value": "Time: {{data.time}}",
+          "when": {
+            "path": "data.time"
+          }
+        },
+        {
+          "type": "divider"
+        },
+        {
+          "type": "table",
+          "value": {
+            "path": "data.items"
+          },
+          "headers": [
+            "Qty",
+            "Item Description"
+          ],
+          "widths": {
+            "32": [
+              6,
+              25
+            ],
+            "48": [
+              9,
+              38
+            ]
+          },
+          "aligns": [
+            "center",
+            "left"
+          ],
+          "cells": [
+            "x{{item.quantity}}",
+            {
+              "path": "item.kitchenDescription"
+            }
+          ],
+          "bold": true
+        },
+        {
+          "type": "divider"
+        },
+        {
+          "type": "text",
+          "value": "Order Note:",
+          "when": {
+            "path": "data.note"
+          },
+          "bold": true
+        },
+        {
+          "type": "text",
+          "value": {
+            "path": "data.note"
+          },
+          "when": {
+            "path": "data.note"
+          }
+        },
+        {
+          "type": "text",
+          "value": "Generated at {{data.generatedTime}}"
+        }
+      ]
+    }
+  }
+}

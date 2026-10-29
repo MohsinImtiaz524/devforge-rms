@@ -12,6 +12,7 @@ class RealtimePrintService {
     this.agentState = new Map();
     this.retryTimer = null;
     this.retryDueAt = null;
+    this.jobNotifications = new (require('node:events').EventEmitter)();
   }
 
   stationRoom(shopId, stationName) {
@@ -59,6 +60,11 @@ class RealtimePrintService {
   }
 
   publish(payload) {
+    if (payload?.kind === 'configuration' && payload?.shop_id) {
+      this.jobNotifications.emit('configuration', payload);
+      return true;
+    }
+    if (payload?.shop_id && payload?.station_name) this.jobNotifications.emit('available', payload);
     if (!this.namespace || !payload?.shop_id || !payload?.station_name) return false;
     this.lastNotificationAt = new Date().toISOString();
     this.namespace.to(this.stationRoom(payload.shop_id, payload.station_name)).emit('print:available', {
@@ -82,6 +88,7 @@ class RealtimePrintService {
       this.reconnect();
     });
     await client.query('LISTEN rms_print_jobs');
+    this.jobNotifications.emit('reconnected');
     console.log('[Realtime Print] PostgreSQL listener active.');
     await this.reconcilePendingJobs();
     await this.scheduleNextRetry();

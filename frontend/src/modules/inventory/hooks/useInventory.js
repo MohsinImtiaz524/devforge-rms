@@ -18,7 +18,9 @@ function matchesStock(item, filter, stockKey = 'current_stock') {
   return filter === 'out-of-stock' ? stock <= 0 : stock > 0 && stock <= minimum
 }
 
-export default function useInventory(activeTab, search) {
+export default function useInventory(activeTab, search, permissions) {
+  const canIngredients = permissions?.includes('raw_stock.view') || false
+  const canProducts = permissions?.includes('products.view') || false
   const [ingredients, setIngredients] = useState(EMPTY_PAGE)
   const [products, setProducts] = useState(EMPTY_PAGE)
   const [ingredientPage, setIngredientPage] = useState(1)
@@ -38,14 +40,14 @@ export default function useInventory(activeTab, search) {
     const productParams = new URLSearchParams({ ...common, page: String(nextProductPage), product_type: 'stock_based', exclude_components: '1' })
     if (search.trim()) { ingredientParams.set('search', search.trim()); productParams.set('search', search.trim()) }
     try {
-      const ingredientRequest = activeTab !== 'stock' ? api(`/api/raw-stock?${ingredientParams}`) : Promise.resolve(null)
-      const productRequest = activeTab !== 'ingredients' ? api(`/api/products?${productParams}`) : Promise.resolve(null)
+      const ingredientRequest = canIngredients && activeTab !== 'stock' ? api(`/api/raw-stock?${ingredientParams}`) : Promise.resolve(EMPTY_PAGE)
+      const productRequest = canProducts && activeTab !== 'ingredients' ? api(`/api/products?${productParams}`) : Promise.resolve(EMPTY_PAGE)
       const [ingredientResult, productResult] = await Promise.all([ingredientRequest, productRequest])
       if (id !== requestId.current) return
       if (ingredientResult) { setIngredients(ingredientResult); setIngredientPage(Number(ingredientResult.pagination?.page || 1)) }
       if (productResult) { setProducts(productResult); setProductPage(Number(productResult.pagination?.page || 1)) }
     } catch (requestError) { if (id === requestId.current) setError(requestError.message); throw requestError } finally { if (id === requestId.current) { setLoading(false); setRefreshing(false) } }
-  }, [activeTab, alertFilter, ingredientPage, productPage, search])
+  }, [activeTab, alertFilter, ingredientPage, productPage, search, canIngredients, canProducts])
 
   useEffect(() => {
     const update = (event) => setAlertFilter(String(event.detail || ''))
@@ -56,7 +58,7 @@ export default function useInventory(activeTab, search) {
   useEffect(() => {
     const timer = window.setTimeout(() => { setIngredientPage(1); setProductPage(1); load({ nextIngredientPage: 1, nextProductPage: 1 }).catch(() => {}) }, 200)
     return () => window.clearTimeout(timer)
-  }, [activeTab, alertFilter, search]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeTab, alertFilter, search, canIngredients, canProducts]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const changeIngredientPage = useCallback((page) => { setIngredientPage(page); load({ quiet: true, nextIngredientPage: page }).catch(() => {}) }, [load])
   const changeProductPage = useCallback((page) => { setProductPage(page); load({ quiet: true, nextProductPage: page }).catch(() => {}) }, [load])
