@@ -610,6 +610,21 @@
   gap: 16px;
 }
 
+.sales-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.sales-form-grid > label {
+  min-width: 0;
+}
+
+.sales-form .sales-primary:disabled {
+  opacity: .6;
+  cursor: wait;
+}
+
 .sales-form p {
   margin: 0;
   color: #64748b;

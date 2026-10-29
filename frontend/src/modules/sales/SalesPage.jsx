@@ -4,6 +4,7 @@ import { formatShopCurrency } from "../../currency";
 import { AnalyticsTopbar } from "../analytics/AnalyticsTopbar";
 import "../analytics/analytics.generated.css";
 import "./sales.css";
+import { UnpaidBillOptions } from './UnpaidBillOptions';
 
 const PAGE_SIZE = 25;
 const emptyPage = { page: 1, total_records: 0, total_pages: 1 };
@@ -724,7 +725,7 @@ export default function SalesPage() {
     }
   }
 
-  async function openPrint(saleId, format) {
+  async function openPrint(saleId, format, propagateError = false) {
     try {
       const result = await api("/api/print-jobs/queue", {
         method: "POST",
@@ -750,6 +751,7 @@ export default function SalesPage() {
       );
       setModal(null);
     } catch (requestError) {
+      if (propagateError) throw requestError;
       notify(requestError.message || "Print failed", "error");
     }
   }
@@ -1191,12 +1193,17 @@ export default function SalesPage() {
             </button>
             <button
               className="unpaid"
-              onClick={() => openPrint(modal.sale.id, "unpaid")}
+              onClick={() => billFor(modal.sale, "unpaid-options")}
             >
               <strong>Unpaid Bill</strong>
               <span>Pending-payment copy for the customer.</span>
             </button>
           </div>
+        </Modal>
+      )}
+      {modal?.kind === "unpaid-options" && (
+        <Modal title="Unpaid Bill Options" onClose={() => setModal(null)}>
+          <UnpaidBillOptions data={modal.data} onPrint={async (id, format) => { await openPrint(id, format, true); await load(); }} />
         </Modal>
       )}
       {toast && (
