@@ -11960,7 +11960,7 @@ async function renderPrinterRouting() {
                 <span>Waiting retry: ${Number(realtimeStatus?.queue?.retry_wait || 0)}</span>
                 <span>Failed: ${Number(realtimeStatus?.queue?.failed || 0)}</span>
               </div>
-              ${failedRealtimeJobs.length ? `<div class="mt-3 space-y-2">${failedRealtimeJobs.map(job => `<div class="flex items-center justify-between gap-3 rounded-xl bg-white/70 px-3 py-2 dark:bg-slate-900/60"><span class="truncate">Job #${job.id} · ${escapeHtml(job.station_name || 'Unknown printer')} · ${escapeHtml(job.last_error || 'Printing failed')}</span><button onclick="retryRealtimePrintJob(${Number(job.id)})" class="shrink-0 font-black uppercase tracking-wider text-emerald-700 hover:text-emerald-600">Retry</button></div>`).join('')}</div>` : ''}
+              ${failedRealtimeJobs.length ? `<div class="mt-3 space-y-2">${failedRealtimeJobs.map(job => `<div class="flex items-center justify-between gap-3 rounded-xl bg-white/70 px-3 py-2 dark:bg-slate-900/60"><span class="truncate">Job #${Number(job.id)} · ${RmsImageSafety.escape(job.station_name || 'Unknown printer')} · ${RmsImageSafety.escape(job.last_error || 'Printing failed')}</span><button onclick="retryRealtimePrintJob(${Number(job.id)})" class="shrink-0 font-black uppercase tracking-wider text-emerald-700 hover:text-emerald-600">Retry</button></div>`).join('')}</div>` : ''}
             </div>` : ''}
         </div>
         <!-- Left: Registered Printers -->
