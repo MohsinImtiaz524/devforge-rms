@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "1.1.0",
+  "version": "1.2.0",
   "formats": {
     "customer": {
       "nodes": [
@@ -485,7 +485,8 @@
           "type": "gap",
           "value": 2
         }
-      ]
+      ],
+      "blankLinesAfterTextLine": 1
     },
     "unpaid": {
       "nodes": [
@@ -931,7 +932,8 @@
           "type": "gap",
           "value": 2
         }
-      ]
+      ],
+      "blankLinesAfterTextLine": 1
     },
     "kitchen": {
       "nodes": [
@@ -1120,7 +1122,8 @@
           "type": "gap",
           "value": 2
         }
-      ]
+      ],
+      "blankLinesAfterTextLine": 1
     }
   }
 }

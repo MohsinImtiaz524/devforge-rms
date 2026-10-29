@@ -31,7 +31,9 @@ function encode(document, config, columns = 48) {
     }
     chunks.push(Buffer.from([0x1b, 0x61, { left: 0, center: 1, right: 2 }[align] || 0,
       0x1b, 0x45, bold ? 1 : 0, 0x1d, 0x21, large ? 0x11 : 0]));
-    chunks.push(Buffer.from(lines + '\n', 'ascii'));
+    const blankLines = config.templates?.formats?.[document.format]?.blankLinesAfterTextLine ?? 0;
+    const feed = '\n'.repeat(1 + blankLines);
+    chunks.push(Buffer.from(lines.split('\n').join(feed) + feed, 'ascii'));
     chunks.push(Buffer.from([0x1d, 0x21, 0, 0x1b, 0x45, 0]));
   }
   function gap(pixels) {
@@ -151,6 +153,8 @@ function validateTemplates(bundle) {
   }
   for (const format of ['customer','unpaid','kitchen']) {
     if (!bundle.formats[format]) throw new Error('Missing RMS receipt template: '+format);
+    const spacing = bundle.formats[format].blankLinesAfterTextLine ?? 0;
+    if (!Number.isInteger(spacing) || spacing < 0 || spacing > 3) throw new Error('Invalid RMS receipt line spacing');
     check(bundle.formats[format].nodes);
   }
   return true;
