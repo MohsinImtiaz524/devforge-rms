@@ -1675,7 +1675,7 @@ class SalesService {
         },
       };
     });
-    await this.notifyUpdatedOrder({
+    const notification = {
       saleId,
       orderNumber: result.orderNumber,
       shopId,
@@ -1683,7 +1683,9 @@ class SalesService {
       recipientIds: result._notification.recipientIds,
       kitchenIds: result._notification.kitchenIds,
       changes: result._notification.changes,
-    });
+    };
+    if (options.onCommittedNotification) options.onCommittedNotification(notification);
+    else await this.notifyUpdatedOrder(notification);
     delete result._notification;
     return result;
   }

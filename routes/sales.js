@@ -23,7 +23,20 @@ router.post("/", requireAuth, async (req, res) => {
 // PUT /api/sales/:id/items — update an existing sale items/details
 router.put("/:id/items", requireAuth, async (req, res) => {
   const canRemoveItems = (req.permissions || []).includes('orders.remove_items');
-  const result = await salesService.updateSaleItems(req.params.id, req.body, req.session.user.shop_id, req.session.user.id, { canRemoveItems });
+  const started = performance.now();
+  const result = await salesService.updateSaleItems(req.params.id, req.body, req.session.user.shop_id, req.session.user.id, {
+    canRemoveItems,
+    onCommittedNotification: notification => {
+      // Only delivery is deferred. Stock, kitchen updates and print jobs have committed.
+      res.once('finish', () => {
+        Promise.resolve().then(() => salesService.notifyUpdatedOrder(notification))
+          .catch(error => console.error('[Order update] Notification delivery failed:', error.message));
+      });
+    }
+  });
+  const elapsed = Math.round(performance.now() - started);
+  res.set('Server-Timing', `order-save;dur=${elapsed}`);
+  if (elapsed >= 1000) console.log(`[Order update #${req.params.id}] committed in ${elapsed}ms`);
   void publishOrderChange('order.updated', req.params.id, req.session.user.shop_id);
   res.json({ ok: true, ...result });
 });
