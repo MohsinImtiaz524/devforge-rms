@@ -17,6 +17,49 @@ const { prepareData } = require('../src/modules/escpos-print/escpos-print.data')
 const encode = (document, config, columns) => encoder.encode({ ...document, data: document.data || prepareData(document, config.receipt, config.timeZone) }, { ...config, templates: config.templates || templates }, columns);
 const { createAgent } = require('../escpos-print-agent');
 
+test('paid receipt punctuation is normalized and drawer pulses bypass all text/template rendering', () => {
+  const document = { format: 'customer', sale: { id: 1, customer_name: 'Ali\u2019s order\u00a0\u2014 takeaway' }, items: [{ name: 'Tea \u2022 Large', quantity: 1, price_at_sale: 100 }] };
+  const output = encode(document, { receipt: { name: 'Shop\u2019s receipt', use_text_on_receipt: true }, assets: [] }).toString();
+  assert.match(output, /Ali's order - takeaway/);
+  assert.match(output, /Tea - Large/);
+  assert.deepEqual(encoder.encode({ type: 'CASH_DRAWER' }, {}), Buffer.from([27,112,0,25,250]));
+  assert.throws(() => encode({ ...document, sale: { customer_name: '\u0627' } }, { receipt: {}, assets: [] }), /U\+0627.*receipt text/);
+});
+
+test('slow dashboard status never delays printing and jobs queued during cache refresh resume without a page', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'escpos-fast-'));
+  const socket = new EventEmitter(); socket.connected = true; socket.disconnect = () => {};
+  let releaseStatus, releaseConfig, claims = 0, prints = 0;
+  const statusWait = new Promise(resolve => releaseStatus = resolve);
+  const configWait = new Promise(resolve => releaseConfig = resolve);
+  let holdConfig = false;
+  const config = { schema: 1, shopId: 1, receipt: {}, printers: [{ system_name: 'Counter' }], assets: [] };
+  const agent = createAgent({ shopId: 1, serverUrl: 'https://rms.test' }, { encode }, {
+    directory, connect: () => socket, print: async () => { prints++; },
+    fetch: async url => {
+      if (url.endsWith('/config')) { if (holdConfig) await configWait; return new Response(JSON.stringify(config)); }
+      if (url.endsWith('/status')) { await statusWait; return new Response('{}'); }
+      if (url.endsWith('/outstanding')) return new Response('[]');
+      if (url.endsWith('/claim')) { claims++; return new Response(JSON.stringify(claims === 1 || claims === 3 ? { id: claims, document: { type: 'CASH_DRAWER' } } : null)); }
+      return new Response('{}');
+    }
+  });
+  const wait = async fn => { const deadline = Date.now() + 2000; while (!fn()) { if (Date.now() > deadline) throw new Error('Print waited for dashboard/page refresh'); await new Promise(resolve => setTimeout(resolve, 5)); } };
+  try {
+    await agent.start(0);
+    socket.emit('print:ready', { printers: ['Counter'] });
+    await wait(() => prints === 1);
+    await wait(() => claims === 2);
+    holdConfig = true;
+    const refresh = agent.refresh();
+    await agent.drain('Counter');
+    assert.equal(claims, 2);
+    releaseConfig(); await refresh;
+    await wait(() => prints === 2);
+    assert.equal(prints, 2, 'No browser page or manual refresh was needed');
+  } finally { releaseStatus(); releaseConfig(); await agent.stop(); fs.rmSync(directory, { recursive: true, force: true }); }
+});
+
 test('RMS JSON layout changes alter output without agent changes and invalid templates are rejected', () => {
   const custom = structuredClone(templates);
   custom.version = '1.0.1';

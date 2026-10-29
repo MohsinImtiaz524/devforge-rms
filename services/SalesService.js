@@ -2034,7 +2034,7 @@ class SalesService {
     });
   }
 
-  async getBill(saleId, shopId) {
+  async getBill(saleId, shopId, options = {}) {
     const sale = await db('sales as s')
       .select('s.*', 'r.name as rider_name', 'k.name as kitchen_name', 't.table_number')
       .select(db.raw("COALESCE(w.name, CASE WHEN LOWER(u.role) IN ('waiter', 'order_taker') THEN COALESCE(u.name, u.username) END) as waiter_name"))
@@ -2070,13 +2070,13 @@ class SalesService {
       .leftJoin('brands as b', 'p.brand_id', 'b.id')
       .where('si.sale_id', saleId);
 
-    const payments = await db('customer_ledger')
+    const payments = options.receiptOnly ? [] : await db('customer_ledger')
       .where({ sale_id: saleId, type: 'payment' })
       .orderBy('created_at', 'desc');
 
     const seller = await db('users').select('name').where({ id: sale.user_id }).first();
     const shop = await db('shops').where({ id: sale.shop_id }).first();
-    const kitchenStatuses = await db.schema.hasTable('kitchen_order_statuses')
+    const kitchenStatuses = !options.receiptOnly && await db.schema.hasTable('kitchen_order_statuses')
       ? await db('kitchen_order_statuses as kos')
         .leftJoin('users as k', 'kos.kitchen_id', 'k.id')
         .where({ 'kos.sale_id': saleId, 'kos.shop_id': shopId })

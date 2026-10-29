@@ -1,6 +1,9 @@
 // Shared with the single-file download. Only Node built-ins may be used here.
 function clean(value) {
-  return String(value ?? '').replace(/[\x00-\x09\x0b-\x1f\x7f]/g, '').replace(/[–—]/g, '-').replace(/×/g, 'x');
+  return String(value ?? '').replace(/[\x00-\x09\x0b-\x1f\x7f]/g, '')
+    .replace(/[\u2010-\u2015\u2212]/g, '-').replace(/\u00d7/g, 'x')
+    .replace(/[\u2018\u2019\u2032]/g, "'").replace(/[\u201c\u201d\u2033]/g, '"')
+    .replace(/[\u00a0\u202f]/g, ' ').replace(/\u2026/g, '...').replace(/[\u2022\u00b7]/g, '-');
 }
 function wrap(value, width) {
   return clean(value).split('\n').flatMap(line => {
@@ -21,7 +24,11 @@ function encode(document, config, columns = 48) {
   function text(value, align = 'left', bold = false, large = false) {
     const lines = wrap(value, large ? Math.floor(columns / 2) : columns).join('\n');
     // Never silently corrupt non-Latin text or allow receipt data to inject commands.
-    if (/[^\x20-\x7e\n\r]/.test(lines)) throw new Error('Native ESC/POS text currently supports ASCII. Use the existing agent for other scripts.');
+    const unsupported = /[^\x20-\x7e\n\r]/u.exec(lines);
+    if (unsupported) {
+      const code = unsupported[0].codePointAt(0).toString(16).toUpperCase().padStart(4, '0');
+      throw new Error(`Native ESC/POS text currently supports ASCII. Unsupported character ${JSON.stringify(unsupported[0])} (U+${code}) in receipt text: ${lines.slice(0, 100)}. Cash drawer pulses are separate jobs. Use the existing agent for other scripts.`);
+    }
     chunks.push(Buffer.from([0x1b, 0x61, { left: 0, center: 1, right: 2 }[align] || 0,
       0x1b, 0x45, bold ? 1 : 0, 0x1d, 0x21, large ? 0x11 : 0]));
     chunks.push(Buffer.from(lines + '\n', 'ascii'));

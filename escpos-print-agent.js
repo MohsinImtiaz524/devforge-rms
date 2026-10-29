@@ -39,6 +39,7 @@ function createAgent(profile, encoder, options = {}) {
   const startedAt = new Date().toISOString();
   const clients = new Set();
   let publishing = false;
+  let statusRequest = null;
   const busy = new Set();
   const requested = new Set();
   const recoveryTimers = new Map();
@@ -80,9 +81,13 @@ function createAgent(profile, encoder, options = {}) {
     return data;
   }
   async function loadQueueStatus() {
+    if (statusRequest) return statusRequest;
+    statusRequest = (async () => {
     try { queue = await api('/status'); queueError = ''; return true; }
     catch (error) { queueError = error.message; return false; }
     finally { publish(); }
+    })();
+    try { return await statusRequest; } finally { statusRequest = null; }
   }
   function clearRecovery() {
     for (const timer of recoveryTimers.values()) clearTimeout(timer);
@@ -114,7 +119,7 @@ function createAgent(profile, encoder, options = {}) {
     }
     persistJournal();
     recoveryAttempts.delete('*');
-    await loadQueueStatus();
+    void loadQueueStatus();
     for (const printer of printers.length ? printers : config.printers.map(p => p.system_name)) {
       if (config?.printers.some(p => p.system_name === printer)) void drain(printer);
     }
@@ -146,7 +151,12 @@ function createAgent(profile, encoder, options = {}) {
     })();
     publish();
     try { await refreshing; } catch (error) { lastError = error.message; errorStage = 'RMS configuration / artwork'; throw error; }
-    finally { refreshing = null; publish(); }
+    finally {
+      refreshing = null; publish();
+      if (!configSync) for (const printer of [...requested]) {
+        requested.delete(printer); setImmediate(() => void drain(printer));
+      }
+    }
   }
   async function syncConfiguration() {
     if (configSync) return configSync;
@@ -154,7 +164,10 @@ function createAgent(profile, encoder, options = {}) {
       do { const epoch = configEpoch; await refresh(); loadedConfigEpoch = epoch; }
       while (!stopping && loadedConfigEpoch < configEpoch);
     })();
-    try { await configSync; } finally { configSync = null; }
+    try { await configSync; } finally {
+      configSync = null;
+      for (const printer of [...requested]) { requested.delete(printer); setImmediate(() => void drain(printer)); }
+    }
   }
   async function rawPrint(printer, data) {
     if (options.print) return options.print(printer, data);
@@ -204,12 +217,14 @@ finally { [RmsRawPrinter]::ClosePrinter($handle)|Out-Null }`;
     publish();
   }
   async function drain(printer) {
-    if (stopping || paused || !config || refreshing) return;
+    if (stopping || paused) return;
+    if (!config || refreshing || configSync) { requested.add(printer); return; }
     if (busy.has(printer)) { requested.add(printer); return; }
     if (Object.values(journal).some(j => j.printer === printer && ['submitting', 'review'].includes(j.state))) return;
     busy.add(printer);
     publish();
     let stage = 'RMS job claim';
+    const timing = { started: Date.now() };
     try {
       // A successful spool submission is retried only for RMS confirmation.
       for (const [id, entry] of Object.entries(journal)) if (entry.printer === printer && entry.state === 'failed' && !entry.failureReported) {
@@ -223,6 +238,7 @@ finally { [RmsRawPrinter]::ClosePrinter($handle)|Out-Null }`;
       }
       stage = 'RMS job claim';
       const job = await api('/claim', { station_name: printer });
+      timing.claimed = Date.now();
       lastPoll = new Date().toISOString();
       if (!job) { recoveryAttempts.delete(printer); return; }
       if (journal[job.id]?.state === 'confirmed') { await api(`/${job.id}/confirm`, {}); return; }
@@ -230,9 +246,13 @@ finally { [RmsRawPrinter]::ClosePrinter($handle)|Out-Null }`;
       try {
         stage = 'Receipt formatting';
         const data = encoder.encode(job.document, config, paper[printer] === '58' ? 32 : 48);
+        timing.formatted = Date.now();
         journal[job.id].state = 'submitting'; persistJournal();
         stage = 'Local printer / spooler';
         await rawPrint(printer, data);
+        timing.spooled = Date.now();
+        journal[job.id].timing = { claimMs: timing.claimed - timing.started, formatMs: timing.formatted - timing.claimed, spoolMs: timing.spooled - timing.formatted };
+        console.log(`[Print #${job.id}] ${printer}: claim ${timing.claimed - timing.started}ms, format ${timing.formatted - timing.claimed}ms, spool ${timing.spooled - timing.formatted}ms`);
         journal[job.id].state = 'submitted'; persistJournal();
       } catch (error) {
         const entry = journal[job.id];
@@ -255,8 +275,8 @@ finally { [RmsRawPrinter]::ClosePrinter($handle)|Out-Null }`;
     }
     finally {
       busy.delete(printer); publish();
-      if (socket?.connected) await loadQueueStatus();
       if (requested.delete(printer)) setImmediate(() => void drain(printer));
+      if (socket?.connected && clients.size) void loadQueueStatus();
     }
   }
   function page() { return ui.render(state(), controlToken); }
@@ -327,7 +347,9 @@ finally { [RmsRawPrinter]::ClosePrinter($handle)|Out-Null }`;
       });
       socket.on('print:available', async event => {
         try {
-          if (!config?.printers.some(p => p.system_name === event?.stationName)) return;
+          if (!event?.stationName) return;
+          if (!config || refreshing || configSync) { requested.add(event.stationName); return; }
+          if (!config.printers.some(p => p.system_name === event.stationName)) return;
           if (loadedConfigEpoch < configEpoch) await recoverPrinters([event.stationName]);
           else await drain(event.stationName);
         } catch (error) { lastError = error.message; errorStage = 'RMS automatic configuration sync'; publish(); scheduleRecovery('*', error); }

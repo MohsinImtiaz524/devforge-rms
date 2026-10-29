@@ -84,7 +84,7 @@ async function documentFor(job, shopId) {
   if (!['customer', 'unpaid', 'kitchen'].includes(content.format) || !content.sale_id) {
     throw new Error('This job is not a supported sale receipt. Use the existing agent for other document types.');
   }
-  const bill = await sales.getBill(content.sale_id, shopId);
+  const bill = await sales.getBill(content.sale_id, shopId, { receiptOnly: true });
   if (!bill) throw new Error('Sale not found');
   // Kitchen jobs contain the exact routed lines, including add/remove updates.
   if (content.format === 'kitchen' && !Array.isArray(content.items)) throw new Error('Kitchen job has no routed item snapshot');
