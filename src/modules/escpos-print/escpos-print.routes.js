@@ -57,34 +57,8 @@ router.get('/outstanding', asyncRoute(async (req, res) => {
     .whereIn('station_name', req.printers).select('id', 'station_name').limit(100));
 }));
 router.post('/claim', asyncRoute(async (req, res) => {
-  const station = String(req.body?.station_name || '');
-  if (!req.printers.includes(station)) return res.status(403).json({ error: 'Printer is not registered for this shop' });
-  const job = await db.transaction(async trx => {
-    let query = trx('print_queue').where({ shop_id: req.agent.shopId, station_name: station, status: 'pending' })
-      .where(function () {
-        this.where('content_json', 'like', '%"type":"CASH_DRAWER"%')
-          .orWhere(function () {
-            this.where('content_json', 'like', '%"sale_id":%').where(function () {
-              for (const format of ['customer', 'unpaid', 'kitchen']) this.orWhere('content_json', 'like', `%"format":"${format}"%`);
-            });
-          });
-      }).orderByRaw('CASE WHEN content_json LIKE ? THEN 0 ELSE 1 END', ['%"type":"CASH_DRAWER"%'])
-      .orderBy('created_at').orderBy('id').first();
-    if (trx.client.config.client === 'pg') query = query.forUpdate().skipLocked();
-    const row = await query;
-    if (!row) return null;
-    const changed = await trx('print_queue').where({ id: row.id, shop_id: req.agent.shopId, status: 'pending' })
-      .update({ status: 'printing', claimed_at: trx.fn.now(), updated_at: trx.fn.now(), attempts: trx.raw('COALESCE(attempts, 0) + 1'), last_error: null });
-    return changed ? row : null;
-  });
-  if (!job) return res.json(null);
-  try {
-    res.json({ id: job.id, station_name: job.station_name, created_at: job.created_at, document: await service.documentFor(job, req.agent.shopId) });
-  } catch (error) {
-    await db('print_queue').where({ id: job.id, shop_id: req.agent.shopId, status: 'printing' })
-      .update({ status: 'failed', last_error: error.message.slice(0, 1000), updated_at: db.fn.now() });
-    throw error;
-  }
+  if (!req.printers.includes(String(req.body?.station_name || ''))) return res.status(403).json({ error: 'Printer is not registered for this shop' });
+  res.json(await require('./escpos-print.queue').claim(req.agent.shopId, req.printers, req.body?.station_name));
 }));
 router.post('/:id/:action', asyncRoute(async (req, res) => {
   const id = Number(req.params.id);

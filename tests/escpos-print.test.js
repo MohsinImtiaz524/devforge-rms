@@ -270,9 +270,10 @@ test('HTTP and WebSocket workflow scopes jobs, refreshes artwork, preserves old 
   const shiftJob = await insert(1, 'Printer A', 'shift_close');
   const prints = [];
   let claims = 0;
+  let httpPrintCalls = 0;
   agent = createAgent({ shopId: 1, shopName: 'Test Shop', serverUrl: base, token }, { encode }, {
-    directory, connect: io, print: async (printer, data) => prints.push({ printer, data }),
-    fetch: async (url, options) => { if (url.endsWith('/claim')) claims++; return fetch(url, options); }
+    directory, connect: (...args) => { const socket = io(...args); socket.onAnyOutgoing(event => { if (event === 'print:claim') claims++; }); return socket; }, print: async (printer, data) => prints.push({ printer, data }),
+    fetch: async (url, options) => { if (url.endsWith('/claim')) claims++; if (/\/claim$|\/confirm$/.test(url)) httpPrintCalls++; return fetch(url, options); }
   });
   await agent.start(0);
   const wait = async predicate => { const end = Date.now() + 5000; while (!await predicate()) { if (Date.now() > end) throw new Error('Timed out'); await new Promise(resolve => setTimeout(resolve, 20)); } };
@@ -286,6 +287,7 @@ test('HTTP and WebSocket workflow scopes jobs, refreshes artwork, preserves old 
   notifications.emit('available', { shop_id: 1, station_name: 'Printer A' });
   await wait(async () => (await db('print_queue').where({ id: jobId }).first()).status === 'printed');
   assert.equal(prints.length, 1); assert.equal(prints[0].printer, 'Printer A'); assert.match(prints[0].data.toString(), /Shop 1 tea/);
+  assert.equal(httpPrintCalls, 0, 'Job JSON and confirmation use WebSockets, not HTTP');
   assert.equal((await db('print_queue').where({ id: otherJob }).first()).status, 'pending');
   assert.equal((await db('print_queue').where({ id: shiftJob }).first()).status, 'pending');
   const status = await (await api('/status')).json();

@@ -13,7 +13,8 @@ const os = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
 const crypto = require('node:crypto');
-const { execFile } = require('node:child_process');
+const { execFile, spawn } = require('node:child_process');
+const readline = require('node:readline');
 const { promisify } = require('node:util');
 const exec = promisify(execFile);
 
@@ -45,6 +46,50 @@ function createAgent(profile, encoder, options = {}) {
   const recoveryTimers = new Map();
   const recoveryAttempts = new Map();
   let stopping = false;
+  let socketDelivery = false;
+  const rawWorkers = new Map();
+  function workerPrint(printer, script, data) {
+    return new Promise((resolve, reject) => {
+      let worker = rawWorkers.get(printer);
+      if (!worker) {
+        const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+        worker = { child, pending: null, stderr: '' }; rawWorkers.set(printer, worker);
+        const fail = error => {
+          if (rawWorkers.get(printer) === worker) rawWorkers.delete(printer);
+          if (worker.pending) { clearTimeout(worker.pending.timer); worker.pending.reject(error); worker.pending = null; }
+        };
+        child.on('error', fail);
+        child.on('exit', code => fail(new Error(`RAW worker exited (${code}): ${worker.stderr.slice(-500)}`)));
+        child.stdin.on('error', fail);
+        child.stderr.on('data', bytes => { worker.stderr = (worker.stderr + bytes).slice(-2000); });
+        readline.createInterface({ input: child.stdout }).on('line', line => {
+          if (!line.startsWith('RMS:')) return;
+          const pending = worker.pending;
+          if (!pending) return;
+          worker.pending = null; clearTimeout(pending.timer);
+          if (line === 'RMS:OK') pending.resolve();
+          else pending.reject(new Error(Buffer.from(line.slice(4), 'base64').toString('utf8')));
+        });
+      }
+      if (worker.pending) return reject(new Error('Printer worker already has a pending submission'));
+      const timer = setTimeout(() => {
+        worker.pending = null; rawWorkers.delete(printer); worker.child.kill();
+        reject(new Error('RAW submission timed out; check the physical receipt before retrying'));
+      }, 30000);
+      worker.pending = { resolve, reject, timer };
+      worker.child.stdin.write(JSON.stringify({ printer, data: data.toString('base64') }) + '\n');
+    });
+  }
+  function socketRequest(event, data) {
+    return new Promise((resolve, reject) => {
+      if (!socket?.connected) return reject(Object.assign(new Error('WebSocket disconnected'), { retryable: true }));
+      socket.timeout(20000).emit(event, data, (error, result) => {
+        if (error) return reject(Object.assign(new Error(`${event} response interrupted; reconciling before retry`), { retryable: true }));
+        if (!result?.ok) return reject(Object.assign(new Error(result?.error || 'RMS rejected print request'), { retryable: Boolean(result?.retryable) }));
+        resolve(result.data);
+      });
+    });
+  }
   let configEpoch = 0, loadedConfigEpoch = -1, configSync = null;
   const controlToken = crypto.randomBytes(24).toString('hex');
   const fetchImpl = options.fetch || fetch;
@@ -66,6 +111,9 @@ function createAgent(profile, encoder, options = {}) {
     });
   }
   async function api(endpoint, body) {
+    if (socketDelivery && endpoint === '/claim') return socketRequest('print:claim', body);
+    const confirmation = /^\/(\d+)\/confirm$/.exec(endpoint);
+    if (socketDelivery && confirmation) return socketRequest('print:confirm', { id: Number(confirmation[1]) });
     const response = await fetchImpl(`${profile.serverUrl}/api/escpos-print${endpoint}`, {
       method: body === undefined ? 'GET' : 'POST', redirect: 'error', signal: AbortSignal.timeout(20000),
       headers: { Authorization: `Bearer ${profile.token}`, 'Content-Type': 'application/json' },
@@ -190,17 +238,24 @@ public class RmsRawPrinter {
  [DllImport("winspool.drv")] public static extern bool ClosePrinter(IntPtr h);
 }
 '@; Add-Type -TypeDefinition $src
-$printer=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${Buffer.from(printer).toString('base64')}'))
-$file=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${Buffer.from(file).toString('base64')}'))
-$bytes=[IO.File]::ReadAllBytes($file); $handle=[IntPtr]::Zero
+$ErrorActionPreference='Stop'
+while($null -ne ($line=[Console]::ReadLine())) {
+try {
+$request=$line | ConvertFrom-Json
+$printer=[string]$request.printer
+$bytes=[Convert]::FromBase64String([string]$request.data); $handle=[IntPtr]::Zero
 if(-not [RmsRawPrinter]::Open($printer,[ref]$handle,[IntPtr]::Zero)){throw 'Cannot open printer'}
 try { if([RmsRawPrinter]::Start($handle,1,(New-Object RmsRawPrinter+Doc)) -eq 0){throw 'Cannot start RAW spool job'}
  try { if(-not [RmsRawPrinter]::StartPagePrinter($handle)){throw 'Cannot start page'}
  try { $written=0; if(-not [RmsRawPrinter]::WritePrinter($handle,$bytes,$bytes.Length,[ref]$written) -or $written -ne $bytes.Length){throw 'Incomplete RAW write'} }
  finally { [RmsRawPrinter]::EndPagePrinter($handle)|Out-Null } }
  finally { [RmsRawPrinter]::EndDocPrinter($handle)|Out-Null } }
-finally { [RmsRawPrinter]::ClosePrinter($handle)|Out-Null }`;
-        await exec('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')], { timeout: 30000, windowsHide: true });
+finally { [RmsRawPrinter]::ClosePrinter($handle)|Out-Null }
+[Console]::WriteLine('RMS:OK')
+} catch { [Console]::WriteLine('RMS:'+ [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($_.Exception.Message))) }
+[Console]::Out.Flush()
+}`;
+        await workerPrint(printer, script, data);
       } else {
         await exec('lp', ['-d', printer, '-o', 'raw', file], { timeout: 30000 });
       }
@@ -301,7 +356,7 @@ finally { [RmsRawPrinter]::ClosePrinter($handle)|Out-Null }`;
       const form = new URLSearchParams(body);
       if (form.get('token') !== controlToken) { res.writeHead(403); return res.end('Invalid control token'); }
       if (req.url === '/refresh') { configEpoch++; await syncConfiguration(); socket?.emit('print:sync'); }
-      else if (req.url === '/status') { if (!await loadQueueStatus()) throw new Error(queueError); clearRecovery(); socket?.emit('print:sync'); }
+      else if (req.url === '/status') { if (!await loadQueueStatus()) throw new Error(queueError); }
       else if (req.url === '/detect') { await inspectPrinters(); if (detectionError) throw new Error(detectionError); }
       else if (req.url === '/reconnect') { if (!socket) throw new Error('WebSocket has not started'); clearRecovery(); socket.disconnect(); socket.connect(); }
       else if (req.url === '/pause') { paused = !paused; clearRecovery(); if (!paused) socket?.emit('print:sync'); }
@@ -340,6 +395,7 @@ finally { [RmsRawPrinter]::ClosePrinter($handle)|Out-Null }`;
         auth: { token: profile.token }, transports: ['websocket'], reconnection: true
       });
       socket.on('print:ready', async event => {
+        socketDelivery = event?.delivery === 'websocket-v1';
         configEpoch++;
         try {
           await recoverPrinters(event?.printers || []);
@@ -359,7 +415,7 @@ finally { [RmsRawPrinter]::ClosePrinter($handle)|Out-Null }`;
       socket.on('disconnect', reason => { clearRecovery(); if (reason === 'io server disconnect') { lastError = 'RMS closed the connection. Use Reconnect RMS; if access was revoked or the credential expired, download a new agent.'; errorStage = 'WebSocket authorization / server disconnect'; } publish(); });
       socket.on('connect_error', error => { lastError = error.message; errorStage = 'WebSocket connection to RMS'; console.error(lastError); publish(); });
     },
-    async stop() { stopping = true; clearRecovery(); socket?.disconnect(); for (const client of clients) client.end(); clients.clear(); await new Promise(resolve => server.close(resolve)); }
+    async stop() { stopping = true; clearRecovery(); socket?.disconnect(); for (const worker of rawWorkers.values()) worker.child.kill(); rawWorkers.clear(); for (const client of clients) client.end(); clients.clear(); await new Promise(resolve => server.close(resolve)); }
   };
 }
 if (require.main === module) {

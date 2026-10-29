@@ -1,5 +1,21 @@
 # ESC/POS printing
 
+## Fast delivery
+
+New agents negotiate `websocket-v1`: job-ready events trigger an atomic claim
+over Socket.IO, which returns the complete routed JSON job on the same connection.
+Confirmations also use Socket.IO. HTTP claims remain for older agents only.
+Each printer has a separate serialized lane, so different printers run concurrently.
+Dashboard Refresh status only loads status; it cannot start or recover printing.
+Connection, job, and configuration events drive automatic recovery without the UI.
+
+Windows uses one persistent PowerShell RAW worker per active printer. The helper
+compiles once and accepts newline-delimited JSON on stdin; later receipts reuse
+it. A failed/timed-out write is held for review, never blindly replayed. Workers
+are stopped with the agent and recreated after exit. Linux/macOS retain CUPS.
+Timing logs separate claim, formatting, and spool submission. The first Windows
+submission includes worker startup; actual hardware speed is not guaranteed.
+
 ## RMS-owned formats
 
 `receipt-templates.json` contains the versioned kitchen, customer (paid), and
