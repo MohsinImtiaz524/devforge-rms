@@ -17,6 +17,25 @@ const { prepareData } = require('../src/modules/escpos-print/escpos-print.data')
 const encode = (document, config, columns) => encoder.encode({ ...document, data: document.data || prepareData(document, config.receipt, config.timeZone) }, { ...config, templates: config.templates || templates }, columns);
 const { createAgent } = require('../escpos-print-agent');
 
+test('queue wake-up runs after successful order commit and never for status reads or agent claims', async () => {
+  const notified = [];
+  const middleware = require('../src/modules/escpos-print/escpos-print.changes').queueChanges(async id => notified.push(id));
+  for (const [path, method, status, expected] of [
+    ['/api/sales', 'POST', 200, true], ['/api/sales/2/pay', 'PATCH', 200, true],
+    ['/api/print-jobs/queue', 'POST', 200, true], ['/api/sales', 'POST', 500, false],
+    ['/api/sales', 'GET', 200, false], ['/api/escpos-print/claim', 'POST', 200, false],
+    ['/api/escpos-print/status', 'GET', 200, false]
+  ]) {
+    const res = new EventEmitter(); res.statusCode = status;
+    const before = notified.length;
+    middleware({ originalUrl: path, method, session: { user: { shop_id: 4 } } }, res, () => {});
+    assert.equal(notified.length, before);
+    res.emit('finish'); await new Promise(resolve => setImmediate(resolve));
+    assert.equal(notified.length, before + Number(expected));
+    if (expected) assert.equal(notified.at(-1), 4);
+  }
+});
+
 test('paid receipt punctuation is normalized and drawer pulses bypass all text/template rendering', () => {
   const document = { format: 'customer', sale: { id: 1, customer_name: 'Ali\u2019s order\u00a0\u2014 takeaway' }, items: [{ name: 'Tea \u2022 Large', quantity: 1, price_at_sale: 100 }] };
   const output = encode(document, { receipt: { name: 'Shop\u2019s receipt', use_text_on_receipt: true }, assets: [] }).toString();
@@ -237,10 +256,19 @@ test('HTTP and WebSocket workflow scopes jobs, refreshes artwork, preserves old 
   const router = require('../src/modules/escpos-print/escpos-print.routes');
   const app = express(); app.use(express.json());
   app.use((req, res, next) => { if (req.get('x-test-user')) { req.session = { user: { shop_id: 1, role: 'admin' } }; req.permissions = req.get('x-test-user') === 'admin' ? ['settings.update'] : []; } next(); });
+  const notifications = new EventEmitter();
+  app.use(require('../src/modules/escpos-print/escpos-print.changes').queueChanges(async shopId => {
+    const pending = await db('print_queue').where({ shop_id: shopId, status: 'pending' }).distinct('station_name');
+    for (const row of pending) notifications.emit('available', { shop_id: shopId, station_name: row.station_name });
+  }));
+  app.post('/api/sales/test-print', async (req, res) => {
+    const [id] = await db('print_queue').insert({ shop_id: req.session.user.shop_id, station_name: 'Printer A',
+      status: 'pending', created_at: new Date().toISOString(), content_json: JSON.stringify({ type: 'PRINT_URL', format: 'customer', sale_id: 123 }) });
+    res.json({ id });
+  });
   app.use('/api/escpos-print', router);
   app.use((error, req, res, next) => res.status(500).json({ error: error.message }));
   const server = http.createServer(app); const sockets = new Server(server);
-  const notifications = new EventEmitter();
   require('../src/modules/escpos-print/escpos-print.realtime').initialize(sockets, notifications);
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -288,10 +316,18 @@ test('HTTP and WebSocket workflow scopes jobs, refreshes artwork, preserves old 
   await wait(async () => (await db('print_queue').where({ id: jobId }).first()).status === 'printed');
   assert.equal(prints.length, 1); assert.equal(prints[0].printer, 'Printer A'); assert.match(prints[0].data.toString(), /Shop 1 tea/);
   assert.equal(httpPrintCalls, 0, 'Job JSON and confirmation use WebSockets, not HTTP');
+  // No manual notification, pause/resume, browser page or database trigger:
+  // each completed order must wake the idle printer again.
+  for (let order = 0; order < 3; order++) {
+    const response = await fetch(base + '/api/sales/test-print', { method: 'POST', headers: { 'x-test-user': 'admin' } });
+    const queued = await response.json();
+    await wait(async () => (await db('print_queue').where({ id: queued.id }).first()).status === 'printed');
+  }
+  assert.equal(prints.length, 4, 'Consecutive orders wake without pause/resume');
   assert.equal((await db('print_queue').where({ id: otherJob }).first()).status, 'pending');
   assert.equal((await db('print_queue').where({ id: shiftJob }).first()).status, 'pending');
   const status = await (await api('/status')).json();
-  assert.equal(status.counts.printed, 1);
+  assert.equal(status.counts.printed, 4);
   assert.ok(status.jobs.every(job => job.station_name === 'Printer A'));
   assert.ok(!JSON.stringify(status).includes('Printer B'));
   assert.ok(!status.jobs.some(job => Object.hasOwn(job, 'content_json')), 'Status does not expose raw receipt payloads');

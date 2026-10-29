@@ -9,6 +9,13 @@ Each printer has a separate serialized lane, so different printers run concurren
 Dashboard Refresh status only loads status; it cannot start or recover printing.
 Connection, job, and configuration events drive automatic recovery without the UI.
 
+Successful order/payment/explicit print-queue writes also send an after-response
+wake-up for pending printer stations. This is independent of the database trigger:
+local agents wake directly and PostgreSQL forwards the signal across instances.
+Failed writes, status reads and claims do not send wake-ups. The PostgreSQL listener
+reconnects after both startup failures and a closed LISTEN connection. No scheduled
+polling or localhost pause/resume is needed to receive the next order.
+
 Windows uses one persistent PowerShell RAW worker per active printer. The helper
 compiles once and accepts newline-delimited JSON on stdin; later receipts reuse
 it. A failed/timed-out write is held for review, never blindly replayed. Workers

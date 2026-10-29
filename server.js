@@ -159,6 +159,7 @@ app.use((req, res, next) => {
 const { enforceApiPermissions } = require('./authorization/api-policy');
 app.use(enforceApiPermissions);
 app.use(require('./src/modules/escpos-print/escpos-print.changes').configurationChanges());
+app.use(require('./src/modules/escpos-print/escpos-print.changes').queueChanges());
 app.use('/api/tips', require('./src/modules/tips/tips.routes'));
 app.use('/api/inventory-archives', require('./src/modules/inventory/archive.routes').createArchiveRouter(db));
 

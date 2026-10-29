@@ -55,7 +55,7 @@ class RealtimePrintService {
       });
       socket.emit('print:ready', { printers: identity.printers });
     });
-    this.connectPostgresListener().catch(error => console.error('[Realtime Print] Listener startup failed:', error.message));
+    this.connectPostgresListener().catch(error => { console.error('[Realtime Print] Listener startup failed:', error.message); this.reconnect(); });
     return this.namespace;
   }
 
@@ -86,6 +86,9 @@ class RealtimePrintService {
     client.on('error', error => {
       console.error('[Realtime Print] PostgreSQL listener error:', error.message);
       this.reconnect();
+    });
+    client.on('end', () => {
+      if (this.listener === client && !this.stopping) this.reconnect();
     });
     await client.query('LISTEN rms_print_jobs');
     this.jobNotifications.emit('reconnected');
