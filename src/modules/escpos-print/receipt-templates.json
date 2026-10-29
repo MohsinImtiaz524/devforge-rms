@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "formats": {
     "customer": {
       "nodes": [
@@ -36,6 +36,13 @@
         },
         {
           "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "receipt.use_text_on_receipt"
+          }
+        },
+        {
+          "type": "gap",
           "value": {
             "path": "receipt.header_spacing"
           }
@@ -51,6 +58,13 @@
           "align": "center",
           "bold": {
             "path": "data.extendedBold"
+          }
+        },
+        {
+          "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "receipt.receipt_extended_name"
           }
         },
         {
@@ -72,6 +86,13 @@
           }
         },
         {
+          "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "receipt.receipt_phone"
+          }
+        },
+        {
           "type": "text",
           "value": {
             "path": "receipt.receipt_address"
@@ -81,6 +102,13 @@
           },
           "align": {
             "path": "data.contactAlign"
+          }
+        },
+        {
+          "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "receipt.receipt_address"
           }
         },
         {
@@ -96,11 +124,19 @@
           "bold": true
         },
         {
+          "type": "gap",
+          "value": 2
+        },
+        {
           "type": "divider"
         },
         {
           "type": "text",
           "value": "Bill #: {{data.number}}"
+        },
+        {
+          "type": "gap",
+          "value": 2
         },
         {
           "type": "text",
@@ -110,12 +146,27 @@
           }
         },
         {
+          "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "data.date"
+          }
+        },
+        {
           "type": "text",
           "value": "Staff: {{data.staff}}"
         },
         {
+          "type": "gap",
+          "value": 2
+        },
+        {
           "type": "text",
           "value": "Customer: {{data.customer}}"
+        },
+        {
+          "type": "gap",
+          "value": 2
         },
         {
           "type": "text",
@@ -125,12 +176,27 @@
           }
         },
         {
+          "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "data.phone"
+          }
+        },
+        {
           "type": "text",
           "value": "Type: {{data.orderType}}"
         },
         {
+          "type": "gap",
+          "value": 2
+        },
+        {
           "type": "text",
           "value": "Payment: {{data.method}}"
+        },
+        {
+          "type": "gap",
+          "value": 2
         },
         {
           "type": "divider"
@@ -179,7 +245,10 @@
             {
               "path": "item.total"
             }
-          ]
+          ],
+          "headerDivider": true,
+          "headerGap": 2,
+          "rowGap": 3
         },
         {
           "type": "divider"
@@ -190,9 +259,20 @@
           "value": "{{data.currency}} {{data.subtotal}}"
         },
         {
+          "type": "gap",
+          "value": 2
+        },
+        {
           "type": "row",
           "label": "Discount",
           "value": "-{{data.currency}} {{data.discount}}",
+          "when": {
+            "path": "data.hasDiscount"
+          }
+        },
+        {
+          "type": "gap",
+          "value": 2,
           "when": {
             "path": "data.hasDiscount"
           }
@@ -206,10 +286,21 @@
           }
         },
         {
+          "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "data.hasTax"
+          }
+        },
+        {
           "type": "row",
           "label": "GRAND TOTAL",
           "value": "{{data.currency}} {{data.total}}",
           "bold": true
+        },
+        {
+          "type": "gap",
+          "value": 2
         },
         {
           "type": "divider"
@@ -217,6 +308,10 @@
         {
           "type": "text",
           "value": "Method: {{data.method}}"
+        },
+        {
+          "type": "gap",
+          "value": 2
         },
         {
           "type": "row",
@@ -227,14 +322,32 @@
           }
         },
         {
+          "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "data.hasTip"
+          }
+        },
+        {
           "type": "row",
           "label": "Received",
           "value": "{{data.currency}} {{data.received}}"
         },
         {
+          "type": "gap",
+          "value": 2
+        },
+        {
           "type": "row",
           "label": "Total collected",
           "value": "{{data.currency}} {{data.collected}}",
+          "when": {
+            "path": "data.standaloneTip"
+          }
+        },
+        {
+          "type": "gap",
+          "value": 2,
           "when": {
             "path": "data.standaloneTip"
           }
@@ -249,6 +362,13 @@
           "bold": true
         },
         {
+          "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "data.hasDue"
+          }
+        },
+        {
           "type": "row",
           "label": "Change",
           "value": "{{data.currency}} {{data.change}}",
@@ -256,6 +376,13 @@
             "path": "data.hasChange"
           },
           "bold": true
+        },
+        {
+          "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "data.hasChange"
+          }
         },
         {
           "type": "divider"
@@ -316,9 +443,20 @@
           "align": "center"
         },
         {
+          "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "receipt.receipt_policies"
+          }
+        },
+        {
           "type": "text",
           "value": "Thank you for your purchase!",
           "align": "center"
+        },
+        {
+          "type": "gap",
+          "value": 2
         },
         {
           "type": "text",
@@ -331,10 +469,21 @@
           "align": "center"
         },
         {
+          "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "data.footerShopName"
+          }
+        },
+        {
           "type": "text",
           "value": "Software by DEVFORGE - 03226155209",
           "align": "center",
           "bold": true
+        },
+        {
+          "type": "gap",
+          "value": 2
         }
       ]
     },
@@ -372,6 +521,13 @@
         },
         {
           "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "receipt.use_text_on_receipt"
+          }
+        },
+        {
+          "type": "gap",
           "value": {
             "path": "receipt.header_spacing"
           }
@@ -387,6 +543,13 @@
           "align": "center",
           "bold": {
             "path": "data.extendedBold"
+          }
+        },
+        {
+          "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "receipt.receipt_extended_name"
           }
         },
         {
@@ -408,6 +571,13 @@
           }
         },
         {
+          "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "receipt.receipt_phone"
+          }
+        },
+        {
           "type": "text",
           "value": {
             "path": "receipt.receipt_address"
@@ -417,6 +587,13 @@
           },
           "align": {
             "path": "data.contactAlign"
+          }
+        },
+        {
+          "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "receipt.receipt_address"
           }
         },
         {
@@ -432,11 +609,19 @@
           "bold": true
         },
         {
+          "type": "gap",
+          "value": 2
+        },
+        {
           "type": "divider"
         },
         {
           "type": "text",
           "value": "Bill #: {{data.number}}"
+        },
+        {
+          "type": "gap",
+          "value": 2
         },
         {
           "type": "text",
@@ -446,12 +631,27 @@
           }
         },
         {
+          "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "data.date"
+          }
+        },
+        {
           "type": "text",
           "value": "Staff: {{data.staff}}"
         },
         {
+          "type": "gap",
+          "value": 2
+        },
+        {
           "type": "text",
           "value": "Customer: {{data.customer}}"
+        },
+        {
+          "type": "gap",
+          "value": 2
         },
         {
           "type": "text",
@@ -461,12 +661,27 @@
           }
         },
         {
+          "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "data.phone"
+          }
+        },
+        {
           "type": "text",
           "value": "Type: {{data.orderType}}"
         },
         {
+          "type": "gap",
+          "value": 2
+        },
+        {
           "type": "text",
           "value": "Payment: {{data.method}}"
+        },
+        {
+          "type": "gap",
+          "value": 2
         },
         {
           "type": "divider"
@@ -515,7 +730,10 @@
             {
               "path": "item.total"
             }
-          ]
+          ],
+          "headerDivider": true,
+          "headerGap": 2,
+          "rowGap": 3
         },
         {
           "type": "divider"
@@ -526,9 +744,20 @@
           "value": "{{data.currency}} {{data.subtotal}}"
         },
         {
+          "type": "gap",
+          "value": 2
+        },
+        {
           "type": "row",
           "label": "Discount",
           "value": "-{{data.currency}} {{data.discount}}",
+          "when": {
+            "path": "data.hasDiscount"
+          }
+        },
+        {
+          "type": "gap",
+          "value": 2,
           "when": {
             "path": "data.hasDiscount"
           }
@@ -542,10 +771,21 @@
           }
         },
         {
+          "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "data.hasTax"
+          }
+        },
+        {
           "type": "row",
           "label": "GRAND TOTAL",
           "value": "{{data.currency}} {{data.total}}",
           "bold": true
+        },
+        {
+          "type": "gap",
+          "value": 2
         },
         {
           "type": "divider"
@@ -557,10 +797,18 @@
           "bold": true
         },
         {
+          "type": "gap",
+          "value": 2
+        },
+        {
           "type": "text",
           "value": "Total: {{data.currency}} {{data.total}}",
           "align": "center",
           "bold": true
+        },
+        {
+          "type": "gap",
+          "value": 2
         },
         {
           "type": "text",
@@ -569,10 +817,18 @@
           "bold": true
         },
         {
+          "type": "gap",
+          "value": 2
+        },
+        {
           "type": "text",
           "value": "Balance Due: {{data.currency}} {{data.due}}",
           "align": "center",
           "bold": true
+        },
+        {
+          "type": "gap",
+          "value": 2
         },
         {
           "type": "divider"
@@ -633,9 +889,20 @@
           "align": "center"
         },
         {
+          "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "receipt.receipt_policies"
+          }
+        },
+        {
           "type": "text",
           "value": "Payment pending. Please keep this bill for counter settlement.",
           "align": "center"
+        },
+        {
+          "type": "gap",
+          "value": 2
         },
         {
           "type": "text",
@@ -648,10 +915,21 @@
           "align": "center"
         },
         {
+          "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "data.footerShopName"
+          }
+        },
+        {
           "type": "text",
           "value": "Software by DEVFORGE - 03226155209",
           "align": "center",
           "bold": true
+        },
+        {
+          "type": "gap",
+          "value": 2
         }
       ]
     },
@@ -666,10 +944,25 @@
           "bold": true
         },
         {
+          "type": "gap",
+          "value": 2
+        },
+        {
+          "type": "divider"
+        },
+        {
+          "type": "gap",
+          "value": 3
+        },
+        {
           "type": "text",
           "value": "KITCHEN ORDER",
           "align": "center",
           "bold": true
+        },
+        {
+          "type": "gap",
+          "value": 2
         },
         {
           "type": "text",
@@ -679,11 +972,23 @@
           "large": true
         },
         {
+          "type": "gap",
+          "value": 2
+        },
+        {
+          "type": "gap",
+          "value": 4
+        },
+        {
           "type": "text",
           "value": {
             "path": "data.upperOrderType"
           },
           "bold": true
+        },
+        {
+          "type": "gap",
+          "value": 2
         },
         {
           "type": "text",
@@ -694,6 +999,20 @@
           "bold": true
         },
         {
+          "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "data.hasTable"
+          }
+        },
+        {
+          "type": "gap",
+          "value": 3,
+          "when": {
+            "path": "data.hasTable"
+          }
+        },
+        {
           "type": "text",
           "value": "TOKEN: {{data.token}}",
           "when": {
@@ -702,8 +1021,22 @@
           "bold": true
         },
         {
+          "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "data.token"
+          }
+        },
+        {
           "type": "text",
           "value": "Time: {{data.time}}",
+          "when": {
+            "path": "data.time"
+          }
+        },
+        {
+          "type": "gap",
+          "value": 2,
           "when": {
             "path": "data.time"
           }
@@ -740,7 +1073,10 @@
               "path": "item.kitchenDescription"
             }
           ],
-          "bold": true
+          "bold": true,
+          "headerDivider": true,
+          "headerGap": 2,
+          "rowGap": 3
         },
         {
           "type": "divider"
@@ -754,6 +1090,13 @@
           "bold": true
         },
         {
+          "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "data.note"
+          }
+        },
+        {
           "type": "text",
           "value": {
             "path": "data.note"
@@ -763,8 +1106,19 @@
           }
         },
         {
+          "type": "gap",
+          "value": 2,
+          "when": {
+            "path": "data.note"
+          }
+        },
+        {
           "type": "text",
           "value": "Generated at {{data.generatedTime}}"
+        },
+        {
+          "type": "gap",
+          "value": 2
         }
       ]
     }

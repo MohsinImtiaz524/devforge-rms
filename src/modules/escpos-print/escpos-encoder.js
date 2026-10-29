@@ -115,9 +115,14 @@ function encode(document, config, columns = 48) {
           const widths = node.widths[columns];
           if (!widths || widths.reduce((a,b) => a+b, 0) + widths.length - 1 > columns) throw new Error('Template table exceeds paper width');
           tableRow(node.headers, widths, node.aligns, true);
+          if (node.headerGap) gap(node.headerGap);
+          if (node.headerDivider) rule();
           const list = value(node.value, scope);
           if (!Array.isArray(list) || list.length > 2000) throw new Error('Invalid template table data');
-          for (const entry of list) tableRow(node.cells.map(cell => value(cell, { ...scope, item: entry })), widths, node.aligns, bold);
+          for (const entry of list) {
+            tableRow(node.cells.map(cell => value(cell, { ...scope, item: entry })), widths, node.aligns, bold);
+            if (node.rowGap) gap(node.rowGap);
+          }
           break;
         }
       }
