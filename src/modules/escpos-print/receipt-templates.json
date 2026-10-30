@@ -887,16 +887,7 @@
           "when": {
             "path": "receipt.receipt_policies"
           }
-        },
-        {
-          "type": "text",
-          "value": "Payment pending. Please keep this bill for counter settlement.",
-          "align": "center"
-        },
-        {
-          "type": "gap",
-          "value": 2
-        },
+        }, 
         {
           "type": "text",
           "value": {
@@ -909,21 +900,12 @@
         },
         {
           "type": "gap",
-          "value": 2,
+          "value": 1,
           "when": {
             "path": "data.footerShopName"
           }
-        },
-        {
-          "type": "text",
-          "value": "Software by DEVFORGE - 03226155209",
-          "align": "center",
-          "bold": true
-        },
-        {
-          "type": "gap",
-          "value": 2
         }
+        
       ],
       "blankLinesAfterTextLine": 0,
       "lineSpacingMultiplier": 2,
