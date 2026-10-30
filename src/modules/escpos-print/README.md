@@ -114,7 +114,7 @@ refresh, but live notification delivery requires PostgreSQL.
 
 Run only one agent for each printer. Existing downloads and receipt endpoints
 are unchanged. The new agent claims only customer, unpaid, kitchen, and drawer
-jobs; shift reports and other documents stay with the existing workflow.
+jobs plus shift-register summaries; other documents stay with the existing workflow.
 Native text currently supports ASCII; non-ASCII text fails explicitly rather
 than printing corrupt names. Images are monochrome and fonts, weights, spacing,
 and dividers map to the printer's supported commands; CSS fonts/italics are not

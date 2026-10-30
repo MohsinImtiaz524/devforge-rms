@@ -17,6 +17,19 @@ const { prepareData } = require('../src/modules/escpos-print/escpos-print.data')
 const encode = (document, config, columns) => encoder.encode({ ...document, data: document.data || prepareData(document, config.receipt, config.timeZone) }, { ...config, templates: config.templates || templates }, columns);
 const { createAgent } = require('../escpos-print-agent');
 
+test('shift register summary renders totals, pending bills, cash difference and notes on both paper widths', () => {
+  const { prepareShiftData } = require('../src/modules/escpos-print/escpos-shift.data');
+  const details = { shift: { id: 8, user_id: 2, cashier_name: 'Ali', status: 'closed', start_time: '2026-10-30T10:00:00Z', end_time: '2026-10-30T12:00:00Z', expected_balance: 1200, closing_balance: 1180, note: 'Closing note', shortage_reason: 'Cash short' },
+    shop: { name: 'Test Shop', currency: 'PKR' }, summary: { opening_balance: 200, net_cash_sales: 1000, total_orders: 4, total_tips: 25, total_expenses: 50 },
+    sales: [{ id: 1, order_number: 101, total: 300, amount_received: 100, order_status: 'payment_pending' }], ledgerEntries: [{ sale_id: 1, type: 'payment', amount: 50 }] };
+  const data = prepareShiftData(details);
+  for (const columns of [32, 48]) {
+    const output = encoder.encode({ type: 'RECEIPT', format: 'shift_close', data }, { receipt: {}, assets: [], templates }, columns).toString('latin1');
+    for (const label of ['CASHIER SHIFT SUMMARY', 'ORDERS & SALES', 'CASH DRAWER', 'SHORT -Rs. 20.00', 'CLOSING NOTE', 'Cash short', 'End of shift report']) assert.ok(output.includes(label), label);
+    assert.match(output, /150.00/);
+  }
+});
+
 test('superscript item digits print as ordinary ASCII digits', () => {
   assert.equal(encoder.clean('Quadrant \u00b2 \u00b3 \u00b9 \u2070 \u2074\u2075\u2076\u2077\u2078\u2079'), 'Quadrant 2 3 1 0 456789');
   const document = { format: 'customer', sale: { id: 1, total: 2100 }, items: [{ name: 'Quadrant \u00b2', quantity: 2, price_at_sale: 1050 }] };
@@ -289,6 +302,16 @@ test('HTTP and WebSocket workflow scopes jobs, refreshes artwork, preserves old 
   await db('shops').insert([{ id: 1, name: 'Test Shop', use_text_on_receipt: true, use_logo_on_receipt: true, logo_data: logo, receipt_images_json: '[]' }, { id: 2, name: 'Other Shop' }]);
   await db('printers').insert([{ shop_id: 1, system_name: 'Printer A', display_name: 'Counter' }, { shop_id: 2, system_name: 'Printer B', display_name: 'Other' }]);
   const service = require('../src/modules/escpos-print/escpos-print.service');
+  const shiftPath = require.resolve('../services/ShiftService');
+  require.cache[shiftPath] = { id: shiftPath, filename: shiftPath, loaded: true, exports: {
+    getShiftDetails: async (shopId, shiftId) => {
+      assert.equal(shopId, 1); assert.equal(shiftId, 55);
+      return { shift: { id: 55, status: 'closed', start_time: '2026-10-30T10:00:00Z', end_time: '2026-10-30T12:00:00Z', closing_balance: 100, expected_balance: 100 }, summary: {}, shop: { name: 'Shift shop' } };
+    }
+  } };
+  const shiftDocument = await service.documentFor({ content_json: JSON.stringify({ format: 'shift_close', shift_id: 55 }) }, 1);
+  assert.equal(shiftDocument.format, 'shift_close');
+  assert.equal(shiftDocument.data.shopName, 'Shift shop');
   const savedSnapshot = { id: 999, order_number: 1009, order_type: 'dine_in', table_id: 3, table_number: 'T3', created_at: '2026-10-30T10:00:00Z', special_instructions: 'Serve together' };
   const snapshotDocument = await service.documentFor({ content_json: JSON.stringify({
     format: 'kitchen', sale_id: 999, sale_snapshot: savedSnapshot, items: [{ name: 'Snapshot rice', quantity: 2 }], route_label: 'Hot kitchen', is_update: true
@@ -339,7 +362,7 @@ test('HTTP and WebSocket workflow scopes jobs, refreshes artwork, preserves old 
     const [id] = await db('print_queue').insert({ shop_id: shopId, station_name: station, status: 'pending', created_at: '2026-10-29', content_json: JSON.stringify({ type: 'PRINT_URL', format, sale_id: 123, items: format === 'kitchen' ? [{ name: 'Routed rice', quantity: 2 }] : undefined }, null, 2) }); return id;
   };
   const otherJob = await insert(2, 'Printer B');
-  const shiftJob = await insert(1, 'Printer A', 'shift_close');
+  const shiftJob = await insert(1, 'Printer A', 'unsupported_document');
   const prints = [];
   let claims = 0;
   let httpPrintCalls = 0;

@@ -81,6 +81,13 @@ async function configuration(shopId) {
 async function documentFor(job, shopId) {
   const content = JSON.parse(job.content_json);
   if (content.type === 'CASH_DRAWER') return { type: 'CASH_DRAWER' };
+  if (content.format === 'shift_close') {
+    const shiftId = Number(content.shift_id);
+    if (!Number.isSafeInteger(shiftId) || shiftId <= 0) throw new Error('Invalid shift summary job');
+    const details = await require('../../../services/ShiftService').getShiftDetails(shopId, shiftId);
+    if (!details?.shift || details.shift.status !== 'closed') throw new Error('Closed shift not found');
+    return { type: 'RECEIPT', format: 'shift_close', data: require('./escpos-shift.data').prepareShiftData(details) };
+  }
   if (!['customer', 'unpaid', 'kitchen'].includes(content.format) || !content.sale_id) {
     throw new Error('This job is not a supported sale receipt. Use the existing agent for other document types.');
   }

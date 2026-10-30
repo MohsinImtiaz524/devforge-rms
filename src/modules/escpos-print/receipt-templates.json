@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "1.2.0",
+  "version": "1.4.0",
   "formats": {
     "customer": {
       "nodes": [
@@ -486,7 +486,8 @@
           "value": 2
         }
       ],
-      "blankLinesAfterTextLine": 1
+      "blankLinesAfterTextLine": 0,
+      "lineSpacingMultiplier": 1.5
     },
     "unpaid": {
       "nodes": [
@@ -933,7 +934,8 @@
           "value": 2
         }
       ],
-      "blankLinesAfterTextLine": 1
+      "blankLinesAfterTextLine": 0,
+      "lineSpacingMultiplier": 1.5
     },
     "kitchen": {
       "nodes": [
@@ -1123,7 +1125,84 @@
           "value": 2
         }
       ],
-      "blankLinesAfterTextLine": 1
+      "blankLinesAfterTextLine": 0,
+      "lineSpacingMultiplier": 1.5
+    },
+    "shift_close": {
+      "blankLinesAfterTextLine": 0,
+      "lineSpacingMultiplier": 1.5,
+      "nodes": [
+        {
+          "type": "text",
+          "value": {
+            "path": "data.shopName"
+          },
+          "align": "center",
+          "bold": true
+        },
+        {
+          "type": "text",
+          "value": "CASHIER SHIFT SUMMARY",
+          "align": "center",
+          "bold": true
+        },
+        {
+          "type": "divider"
+        },
+        {
+          "type": "each",
+          "value": {
+            "path": "data.shiftRows"
+          },
+          "nodes": [
+            {
+              "type": "divider",
+              "when": {
+                "path": "item.section"
+              }
+            },
+            {
+              "type": "text",
+              "value": {
+                "path": "item.section"
+              },
+              "when": {
+                "path": "item.section"
+              },
+              "align": "center",
+              "bold": true
+            },
+            {
+              "type": "row",
+              "label": {
+                "path": "item.label"
+              },
+              "value": {
+                "path": "item.value"
+              },
+              "when": {
+                "path": "item.value"
+              },
+              "bold": {
+                "path": "item.bold"
+              }
+            }
+          ]
+        },
+        {
+          "type": "divider"
+        },
+        {
+          "type": "text",
+          "value": "Printed {{data.printedAt}}",
+          "align": "center"
+        },
+        {
+          "type": "text",
+          "value": "End of shift report",
+          "align": "center"
+        }
+      ]
     }
   }
 }

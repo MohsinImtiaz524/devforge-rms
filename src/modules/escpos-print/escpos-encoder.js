@@ -83,6 +83,8 @@ function encode(document, config, columns = 48) {
   validateTemplates(config.templates);
   const template = config.templates.formats[document.format];
   if (!template) throw new Error('RMS receipt template is missing for this document');
+  // ESC 3 sets baseline distance in printer dots (normal Font A is 30 dots).
+  if (template.lineSpacingMultiplier) chunks.push(Buffer.from([0x1b, 0x33, Math.round(30 * template.lineSpacingMultiplier)]));
   const context = { receipt: config.receipt, data: document.data || {}, assets: config.assets || [] };
   // Cached presentation values always come from the same RMS configuration as the template.
   context.data = { ...context.data, header: s.receipt_header_text || s.name || 'STORE',
@@ -155,10 +157,12 @@ function validateTemplates(bundle) {
       }
     }
   }
-  for (const format of ['customer','unpaid','kitchen']) {
+  for (const format of ['customer','unpaid','kitchen', ...('shift_close' in bundle.formats ? ['shift_close'] : [])]) {
     if (!bundle.formats[format]) throw new Error('Missing RMS receipt template: '+format);
     const spacing = bundle.formats[format].blankLinesAfterTextLine ?? 0;
     if (!Number.isInteger(spacing) || spacing < 0 || spacing > 3) throw new Error('Invalid RMS receipt line spacing');
+    const multiplier = bundle.formats[format].lineSpacingMultiplier ?? 1;
+    if (!Number.isFinite(multiplier) || multiplier < 1 || multiplier > 3) throw new Error('Invalid RMS receipt line spacing multiplier');
     check(bundle.formats[format].nodes);
   }
   return true;

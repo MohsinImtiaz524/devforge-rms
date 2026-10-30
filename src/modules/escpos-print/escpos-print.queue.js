@@ -13,7 +13,7 @@ async function claim(shopId, printers, stationName) {
         this.where(function () { matches(this, 'type', 'CASH_DRAWER'); })
           .orWhere(function () {
             this.where(function () {
-              for (const format of ['customer', 'unpaid', 'kitchen']) this.orWhere(function () { matches(this, 'format', format); });
+              for (const format of ['customer', 'unpaid', 'kitchen', 'shift_close']) this.orWhere(function () { matches(this, 'format', format); });
             });
           });
       }).orderByRaw('CASE WHEN content_json LIKE ? THEN 0 ELSE 1 END', ['%"type":"CASH_DRAWER"%'])
