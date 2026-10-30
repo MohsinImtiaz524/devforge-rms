@@ -449,7 +449,11 @@
             "path": "receipt.receipt_policies"
           }
         },
-       
+        {
+          "type": "text",
+          "value": "Thank you for your purchase!",
+          "align": "center"
+        },
         {
           "type": "gap",
           "value": 2
@@ -466,24 +470,14 @@
         },
         {
           "type": "gap",
-          "value": 0,
+          "value": 2,
           "when": {
             "path": "data.footerShopName"
           }
-        },
-        {
-          "type": "text",
-          "value": "Software by DEVFORGE - 03226155209",
-          "align": "center",
-          "bold": true
-        },
-        {
-          "type": "gap",
-          "value": 2
         }
       ],
       "blankLinesAfterTextLine": 0,
-      "lineSpacingMultiplier": 1.5,
+      "lineSpacingMultiplier": 2,
       "feedBeforeCutDots": 180
     },
     "unpaid": {
@@ -932,7 +926,7 @@
         }
       ],
       "blankLinesAfterTextLine": 0,
-      "lineSpacingMultiplier": 1.5,
+      "lineSpacingMultiplier": 2,
       "feedBeforeCutDots": 180
     },
     "kitchen": {
@@ -1124,12 +1118,12 @@
         }
       ],
       "blankLinesAfterTextLine": 0,
-      "lineSpacingMultiplier": 1.5,
+      "lineSpacingMultiplier": 2,
       "feedBeforeCutDots": 180
     },
     "shift_close": {
       "blankLinesAfterTextLine": 0,
-      "lineSpacingMultiplier": 1.5,
+      "lineSpacingMultiplier": 2,
       "nodes": [
         {
           "type": "text",
