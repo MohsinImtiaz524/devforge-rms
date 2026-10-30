@@ -4,12 +4,16 @@ async function claim(shopId, printers, stationName) {
   const station = String(stationName || '');
   if (!printers.includes(station)) throw Object.assign(new Error('Printer is not registered for this shop'), { status: 403 });
   const job = await db.transaction(async trx => {
+    const postgres = trx.client.config.client === 'pg';
+    const matches = (query, key, expected) => postgres
+      ? query.whereRaw('content_json ~ ?', [`"${key}"[[:space:]]*:[[:space:]]*"${expected}"`])
+      : query.whereRaw("json_extract(CASE WHEN json_valid(content_json) THEN content_json ELSE '{}' END, ?) = ?", [`$.${key}`, expected]);
     let query = trx('print_queue').where({ shop_id: shopId, station_name: station, status: 'pending' })
       .where(function () {
-        this.where('content_json', 'like', '%"type":"CASH_DRAWER"%')
+        this.where(function () { matches(this, 'type', 'CASH_DRAWER'); })
           .orWhere(function () {
-            this.where('content_json', 'like', '%"sale_id":%').where(function () {
-              for (const format of ['customer', 'unpaid', 'kitchen']) this.orWhere('content_json', 'like', `%"format":"${format}"%`);
+            this.where(function () {
+              for (const format of ['customer', 'unpaid', 'kitchen']) this.orWhere(function () { matches(this, 'format', format); });
             });
           });
       }).orderByRaw('CASE WHEN content_json LIKE ? THEN 0 ELSE 1 END', ['%"type":"CASH_DRAWER"%'])
@@ -27,6 +31,7 @@ async function claim(shopId, printers, stationName) {
   } catch (error) {
     await db('print_queue').where({ id: job.id, shop_id: shopId, status: 'printing' })
       .update({ status: 'failed', last_error: error.message.slice(0, 1000), updated_at: db.fn.now() });
+    error.jobFailed = true;
     throw error;
   }
 

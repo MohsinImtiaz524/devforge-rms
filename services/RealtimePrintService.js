@@ -101,7 +101,6 @@ class RealtimePrintService {
     const pending = await db('print_queue as pq')
       .join('shops as s', 's.id', 'pq.shop_id')
       .where('pq.status', 'pending')
-      .where('s.realtime_printing_enabled', 1)
       .distinct('pq.shop_id', 'pq.station_name');
     pending.forEach(row => this.publish(row));
   }

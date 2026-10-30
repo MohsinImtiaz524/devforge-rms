@@ -84,6 +84,12 @@ async function documentFor(job, shopId) {
   if (!['customer', 'unpaid', 'kitchen'].includes(content.format) || !content.sale_id) {
     throw new Error('This job is not a supported sale receipt. Use the existing agent for other document types.');
   }
+  if (content.format === 'kitchen' && content.sale_snapshot && Array.isArray(content.items)
+      && Number(content.sale_snapshot.id) === Number(content.sale_id)) {
+    const document = { type: 'RECEIPT', format: 'kitchen', sale: content.sale_snapshot,
+      items: content.items, route_label: content.route_label, is_update: Boolean(content.is_update) };
+    return { ...document, data: prepareData(document, {}, process.env.APP_TIME_ZONE || 'Asia/Karachi') };
+  }
   const bill = await sales.getBill(content.sale_id, shopId, { receiptOnly: true });
   if (!bill) throw new Error('Sale not found');
   // Kitchen jobs contain the exact routed lines, including add/remove updates.

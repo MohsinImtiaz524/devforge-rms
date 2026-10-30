@@ -679,12 +679,21 @@ class SalesService {
     }
 
     let queuedCount = 0;
+    const table = sale.table_id
+      ? await dbInstance('tables').where({ id: sale.table_id, shop_id: shopId }).first('table_number') : null;
+    const kitchenSnapshot = {
+      id: sale.id, order_number: sale.order_number || sale.id, created_at: sale.created_at,
+      order_type: sale.order_type, table_id: sale.table_id, table_number: table?.table_number || null,
+      token_number: sale.token_number, kitchen_name: sale.kitchen_name,
+      special_instructions: sale.special_instructions || null
+    };
     for (const { route, items: stationItems, routeLabels } of Object.values(jobs)) {
       const station = route.station;
       const routeLabel = Array.from(routeLabels).join(' + ') || route.label;
       const content = {
         type: 'PRINT_URL',
         format: 'kitchen',
+        sale_snapshot: kitchenSnapshot,
         sale_id: saleId,
         station_name: station,
         route_key: station,
@@ -693,7 +702,7 @@ class SalesService {
         printer_label: route.printerLabel || route.label,
         print_url: `/print/sales/${saleId}?format=kitchen&station=${encodeURIComponent(station)}&shop_id=${shopId}&autoprint=0`,
         order_type: sale.order_type,
-        table_number: sale.table_id ? (await dbInstance('tables').where({id: sale.table_id}).first())?.table_number : null,
+        table_number: kitchenSnapshot.table_number,
         token_number: sale.token_number,
         items: stationItems,
         created_at: new Date().toISOString()

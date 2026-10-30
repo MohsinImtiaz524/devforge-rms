@@ -58,7 +58,11 @@ router.get('/outstanding', asyncRoute(async (req, res) => {
 }));
 router.post('/claim', asyncRoute(async (req, res) => {
   if (!req.printers.includes(String(req.body?.station_name || ''))) return res.status(403).json({ error: 'Printer is not registered for this shop' });
-  res.json(await require('./escpos-print.queue').claim(req.agent.shopId, req.printers, req.body?.station_name));
+  try { res.json(await require('./escpos-print.queue').claim(req.agent.shopId, req.printers, req.body?.station_name)); }
+  catch (error) {
+    if (error.jobFailed) return res.status(422).json({ error: error.message, jobFailed: true });
+    throw error;
+  }
 }));
 router.post('/:id/:action', asyncRoute(async (req, res) => {
   const id = Number(req.params.id);

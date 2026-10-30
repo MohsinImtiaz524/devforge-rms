@@ -28,7 +28,7 @@ function initialize(io, notifications) {
         if (!registered) throw new Error('Printer is not registered for this shop');
         const job = await require('./escpos-print.queue').claim(identity.shopId, [station], station);
         acknowledge({ ok: true, data: job });
-      } catch (error) { acknowledge({ ok: false, error: error.message, retryable: !/credential|registered/i.test(error.message) }); }
+      } catch (error) { acknowledge({ ok: false, error: error.message, jobFailed: Boolean(error.jobFailed), retryable: !error.jobFailed && !/credential|registered/i.test(error.message) }); }
     });
     socket.on('print:confirm', async (request, acknowledge) => {
       if (typeof acknowledge !== 'function') return;
@@ -55,8 +55,20 @@ function initialize(io, notifications) {
     socket.on('print:sync', () => join().catch(() => socket.disconnect(true)));
     join().catch(() => socket.disconnect(true));
   });
-  const available = payload => namespace.to(room(Number(payload.shop_id), String(payload.station_name)))
-    .emit('print:available', { stationName: payload.station_name });
+  const available = payload => {
+    const target = room(Number(payload.shop_id), String(payload.station_name));
+    for (const socket of namespace.sockets.values()) {
+      if (!socket.rooms.has(target)) continue;
+      const send = attempt => {
+        if (!socket.connected) return;
+        socket.timeout(3000).emit('print:available', { stationName: payload.station_name }, error => {
+          // Retry a lost event, never blindly resubmit a print. Reconnect drains the queue.
+          if (error && attempt < 3 && socket.connected) send(attempt + 1);
+        });
+      };
+      send(1);
+    }
+  };
   notifications.on('available', available);
   const configuration = payload => namespace.to(`shop:${Number(payload.shop_id)}`).emit('print:config-changed');
   notifications.on('configuration', configuration);

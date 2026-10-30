@@ -85,7 +85,7 @@ function createAgent(profile, encoder, options = {}) {
       if (!socket?.connected) return reject(Object.assign(new Error('WebSocket disconnected'), { retryable: true }));
       socket.timeout(20000).emit(event, data, (error, result) => {
         if (error) return reject(Object.assign(new Error(`${event} response interrupted; reconciling before retry`), { retryable: true }));
-        if (!result?.ok) return reject(Object.assign(new Error(result?.error || 'RMS rejected print request'), { retryable: Boolean(result?.retryable) }));
+        if (!result?.ok) return reject(Object.assign(new Error(result?.error || 'RMS rejected print request'), { retryable: Boolean(result?.retryable), jobFailed: Boolean(result?.jobFailed) }));
         resolve(result.data);
       });
     });
@@ -120,7 +120,10 @@ function createAgent(profile, encoder, options = {}) {
       ...(body === undefined ? {} : { body: JSON.stringify(body) })
     }).catch(error => { error.retryable = true; throw error; });
     if (!response.ok) {
-      const error = new Error(`RMS ${response.status}: ${(await response.text()).slice(0, 250)}${[401, 403].includes(response.status) ? ' Download a new agent or check its shop/printer permissions.' : ''}`);
+      const message = await response.text();
+      let details; try { details = JSON.parse(message); } catch (_) {}
+      const error = new Error(`RMS ${response.status}: ${message.slice(0, 250)}${[401, 403].includes(response.status) ? ' Download a new agent or check its shop/printer permissions.' : ''}`);
+      error.jobFailed = details?.jobFailed === true;
       error.retryable = response.status === 408 || response.status === 429 || response.status >= 500;
       throw error;
     }
@@ -296,7 +299,7 @@ finally { [RmsRawPrinter]::ClosePrinter($handle)|Out-Null }
       timing.claimed = Date.now();
       lastPoll = new Date().toISOString();
       if (!job) { recoveryAttempts.delete(printer); return; }
-      if (journal[job.id]?.state === 'confirmed') { await api(`/${job.id}/confirm`, {}); return; }
+      if (journal[job.id]?.state === 'confirmed') { await api(`/${job.id}/confirm`, {}); requested.add(printer); return; }
       journal[job.id] = { printer, state: 'received', at: new Date().toISOString(), format: job.document.format || (job.document.type === 'CASH_DRAWER' ? 'drawer' : 'receipt'), sale_id: job.document.sale?.id }; persistJournal();
       try {
         stage = 'Receipt formatting';
@@ -316,6 +319,8 @@ finally { [RmsRawPrinter]::ClosePrinter($handle)|Out-Null }
         if (entry.state === 'failed') {
           stage = 'RMS failure report'; await api(`/${job.id}/fail`, { reason: error.message });
           entry.failureReported = true; persistJournal();
+          // A rejected receipt must not strand later jobs in this printer lane.
+          requested.add(printer);
         }
         throw error;
       }
@@ -326,6 +331,7 @@ finally { [RmsRawPrinter]::ClosePrinter($handle)|Out-Null }
       requested.add(printer);
     } catch (error) {
       lastError = `${printer}: ${error.message}`; errorStage = stage; console.error(lastError);
+      if (error.jobFailed) requested.add(printer);
       if (stage.startsWith('RMS')) scheduleRecovery(printer, error);
     }
     finally {
@@ -401,7 +407,9 @@ finally { [RmsRawPrinter]::ClosePrinter($handle)|Out-Null }
           await recoverPrinters(event?.printers || []);
         } catch (error) { lastError = error.message; errorStage = 'RMS job recovery'; console.error(lastError); publish(); scheduleRecovery('*', error); }
       });
-      socket.on('print:available', async event => {
+      socket.on('print:available', async (event, acknowledge) => {
+        // Acknowledge receipt of the wake-up, not completion of the physical print.
+        if (typeof acknowledge === 'function') acknowledge({ received: true });
         try {
           if (!event?.stationName) return;
           if (!config || refreshing || configSync) { requested.add(event.stationName); return; }

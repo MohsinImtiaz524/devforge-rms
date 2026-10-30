@@ -17,6 +17,42 @@ const { prepareData } = require('../src/modules/escpos-print/escpos-print.data')
 const encode = (document, config, columns) => encoder.encode({ ...document, data: document.data || prepareData(document, config.receipt, config.timeZone) }, { ...config, templates: config.templates || templates }, columns);
 const { createAgent } = require('../escpos-print-agent');
 
+test('superscript item digits print as ordinary ASCII digits', () => {
+  assert.equal(encoder.clean('Quadrant \u00b2 \u00b3 \u00b9 \u2070 \u2074\u2075\u2076\u2077\u2078\u2079'), 'Quadrant 2 3 1 0 456789');
+  const document = { format: 'customer', sale: { id: 1, total: 2100 }, items: [{ name: 'Quadrant \u00b2', quantity: 2, price_at_sale: 1050 }] };
+  const receipt = encode(document, { receipt: {}, assets: [] }).toString('latin1');
+  assert.match(receipt, /Quadrant 2/); assert.match(receipt, /1050/); assert.match(receipt, /2100/);
+});
+
+test('a failed receipt does not strand later queued receipts without another notification', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'escpos-continue-'));
+  let claims = 0, printed = 0, reported = 0;
+  const agent = createAgent({ shopId: 1, serverUrl: 'https://rms.test' }, {
+    encode: document => { if (document.invalid) throw new Error('Unsupported receipt text'); return Buffer.from('receipt'); }
+  }, {
+    directory, print: async () => { printed++; },
+    fetch: async url => {
+      if (url.endsWith('/config')) return new Response(JSON.stringify({ schema: 1, shopId: 1, receipt: {}, printers: [{ system_name: 'Counter' }], assets: [] }));
+      if (url.endsWith('/claim')) {
+        claims++;
+        if (claims === 1) return new Response(JSON.stringify({ id: 1, document: { invalid: true } }));
+        if (claims === 2) return new Response(JSON.stringify({ error: 'Sale missing', jobFailed: true }), { status: 422 });
+        return new Response(JSON.stringify(claims === 3 ? { id: 3, document: {} } : null));
+      }
+      if (url.endsWith('/fail')) reported++;
+      return new Response('{}');
+    }
+  });
+  try {
+    await agent.refresh(); await agent.drain('Counter');
+    const deadline = Date.now() + 2000;
+    while (claims < 4) { if (Date.now() > deadline) throw new Error('Queue stopped after a failed receipt'); await new Promise(resolve => setTimeout(resolve, 5)); }
+    assert.equal(reported, 1); assert.equal(printed, 1);
+    assert.equal(agent.state().journal[1].state, 'failed');
+    assert.equal(agent.state().journal[3].state, 'confirmed');
+  } finally { await agent.stop(); fs.rmSync(directory, { recursive: true, force: true }); }
+});
+
 test('queue wake-up runs after successful order commit and never for status reads or agent claims', async () => {
   const notified = [];
   const middleware = require('../src/modules/escpos-print/escpos-print.changes').queueChanges(async id => notified.push(id));
@@ -253,6 +289,14 @@ test('HTTP and WebSocket workflow scopes jobs, refreshes artwork, preserves old 
   await db('shops').insert([{ id: 1, name: 'Test Shop', use_text_on_receipt: true, use_logo_on_receipt: true, logo_data: logo, receipt_images_json: '[]' }, { id: 2, name: 'Other Shop' }]);
   await db('printers').insert([{ shop_id: 1, system_name: 'Printer A', display_name: 'Counter' }, { shop_id: 2, system_name: 'Printer B', display_name: 'Other' }]);
   const service = require('../src/modules/escpos-print/escpos-print.service');
+  const savedSnapshot = { id: 999, order_number: 1009, order_type: 'dine_in', table_id: 3, table_number: 'T3', created_at: '2026-10-30T10:00:00Z', special_instructions: 'Serve together' };
+  const snapshotDocument = await service.documentFor({ content_json: JSON.stringify({
+    format: 'kitchen', sale_id: 999, sale_snapshot: savedSnapshot, items: [{ name: 'Snapshot rice', quantity: 2 }], route_label: 'Hot kitchen', is_update: true
+  }) }, 1);
+  assert.equal(snapshotDocument.sale.order_number, 1009);
+  assert.equal(snapshotDocument.data.table, 'T3');
+  assert.equal(snapshotDocument.items[0].name, 'Snapshot rice');
+  assert.equal(snapshotDocument.data.note, 'Serve together');
   const router = require('../src/modules/escpos-print/escpos-print.routes');
   const app = express(); app.use(express.json());
   app.use((req, res, next) => { if (req.get('x-test-user')) { req.session = { user: { shop_id: 1, role: 'admin' } }; req.permissions = req.get('x-test-user') === 'admin' ? ['settings.update'] : []; } next(); });
@@ -292,7 +336,7 @@ test('HTTP and WebSocket workflow scopes jobs, refreshes artwork, preserves old 
   await db('shops').where({ id: 1 }).update({ receipt_policies: 'New promotion' });
   const after = await (await api('/config')).json(); assert.notEqual(after.version, before.version);
   const insert = async (shopId, station, format = 'customer') => {
-    const [id] = await db('print_queue').insert({ shop_id: shopId, station_name: station, status: 'pending', created_at: '2026-10-29', content_json: JSON.stringify({ type: 'PRINT_URL', format, sale_id: 123, items: format === 'kitchen' ? [{ name: 'Routed rice', quantity: 2 }] : undefined }) }); return id;
+    const [id] = await db('print_queue').insert({ shop_id: shopId, station_name: station, status: 'pending', created_at: '2026-10-29', content_json: JSON.stringify({ type: 'PRINT_URL', format, sale_id: 123, items: format === 'kitchen' ? [{ name: 'Routed rice', quantity: 2 }] : undefined }, null, 2) }); return id;
   };
   const otherJob = await insert(2, 'Printer B');
   const shiftJob = await insert(1, 'Printer A', 'shift_close');

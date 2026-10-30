@@ -3,6 +3,10 @@ function clean(value) {
   return String(value ?? '').replace(/[\x00-\x09\x0b-\x1f\x7f]/g, '')
     .replace(/[\u2010-\u2015\u2212]/g, '-').replace(/\u00d7/g, 'x')
     .replace(/[\u2018\u2019\u2032]/g, "'").replace(/[\u201c\u201d\u2033]/g, '"')
+    .replace(/[\u00b2\u00b3\u00b9\u2070\u2074-\u2079]/g, character => ({
+      '\u2070': '0', '\u00b9': '1', '\u00b2': '2', '\u00b3': '3',
+      '\u2074': '4', '\u2075': '5', '\u2076': '6', '\u2077': '7', '\u2078': '8', '\u2079': '9'
+    }[character]))
     .replace(/[\u00a0\u202f]/g, ' ').replace(/\u2026/g, '...').replace(/[\u2022\u00b7]/g, '-');
 }
 function wrap(value, width) {
