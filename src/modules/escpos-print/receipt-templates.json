@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "1.4.0",
+  "version": "1.4.1",
   "formats": {
     "customer": {
       "nodes": [
@@ -487,7 +487,8 @@
         }
       ],
       "blankLinesAfterTextLine": 0,
-      "lineSpacingMultiplier": 1.5
+      "lineSpacingMultiplier": 1.5,
+      "feedBeforeCutDots": 180
     },
     "unpaid": {
       "nodes": [
@@ -935,7 +936,8 @@
         }
       ],
       "blankLinesAfterTextLine": 0,
-      "lineSpacingMultiplier": 1.5
+      "lineSpacingMultiplier": 1.5,
+      "feedBeforeCutDots": 180
     },
     "kitchen": {
       "nodes": [
@@ -1126,7 +1128,8 @@
         }
       ],
       "blankLinesAfterTextLine": 0,
-      "lineSpacingMultiplier": 1.5
+      "lineSpacingMultiplier": 1.5,
+      "feedBeforeCutDots": 180
     },
     "shift_close": {
       "blankLinesAfterTextLine": 0,
@@ -1202,7 +1205,8 @@
           "value": "End of shift report",
           "align": "center"
         }
-      ]
+      ],
+      "feedBeforeCutDots": 180
     }
   }
 }
