@@ -8543,7 +8543,6 @@ async function printBill(saleId, isUnpaid = false) {
   if (shop?.name && !useLogo) {
     footerHtml += `<div style="font-size: ${parseInt(footerFontSize) + 1}px;">${shop.name}</div>`;
   }
-  footerHtml += `<div style="font-size: ${footerFontSize}px; margin-top: 5px; border-top: 1px dashed #ccc; padding-top: 5px; font-weight: bold;">Software by DEVFORGE - 03226155209</div>`;
   footerHtml += `</div>`;
 
   const html = `<!DOCTYPE html><html><head><title>${receiptTitle} #${sale.id}</title>

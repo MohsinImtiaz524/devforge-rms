@@ -449,11 +449,7 @@
             "path": "receipt.receipt_policies"
           }
         },
-        {
-          "type": "text",
-          "value": "Thank you for your purchase!",
-          "align": "center"
-        },
+       
         {
           "type": "gap",
           "value": 2
@@ -470,7 +466,7 @@
         },
         {
           "type": "gap",
-          "value": 2,
+          "value": 0,
           "when": {
             "path": "data.footerShopName"
           }
