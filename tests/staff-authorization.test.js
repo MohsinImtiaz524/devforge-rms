@@ -3,6 +3,32 @@ function req(method,path,body={}){return{method,path,body}}
 test('sensitive staff API paths map to explicit server permissions',()=>{assert.equal(RESOURCE_MODULE.staff,'staff');assert.equal(RESOURCE_MODULE.payroll,'payroll');assert.equal(RESOURCE_MODULE.documents,'documents');assert.equal(RESOURCE_MODULE['staff-activity'],'staff_activity');assert.equal(actionFor(req('POST','/organization/catalog'),'staff'),'manage_organization');assert.equal(actionFor(req('PUT','/12/assignment'),'staff'),'manage_organization');assert.equal(actionFor(req('PATCH','/runs/1/transition',{action:'finalize'}),'payroll'),'finalize');assert.equal(actionFor(req('GET','/1/download'),'documents'),'download');assert.equal(actionFor(req('GET','/export'),'staff-activity'),'export');assert.equal(actionFor(req('POST','/shift-register'),'attendance'),'mark_daily');assert.equal(actionFor(req('POST','/shift-register/1/staff/2/clock-out'),'attendance'),'mark_daily')});
 test('organization catalog creation accepts staff organization permission without users.create',async()=>{const{enforceApiPermissions}=require('../authorization/api-policy');const request={path:'/api/staff/organization/catalog',method:'POST',query:{},body:{},session:{user:{id:1,shop_id:1}},permissions:['staff.manage_organization']};await new Promise((resolve,reject)=>enforceApiPermissions(request,{status(){return this},json:reject},resolve));});
 test('representative roles separate HR administration from personal access',()=>{assert.ok(STANDARD_ROLES['Restaurant Admin'].includes('payroll.finalize'));assert.ok(STANDARD_ROLES.Manager.includes('staff_activity.manage'));assert.ok(!STANDARD_ROLES.Cashier.includes('documents.manage'));assert.ok(STANDARD_ROLES.Cashier.includes('documents.view'));assert.ok(!STANDARD_ROLES.Waiter.includes('payroll.view'));assert.ok(STANDARD_ROLES.Accountant.includes('payroll.approve'));assert.ok(STANDARD_ROLES.Receptionist.includes('attendance.clock'))});
-test('sales history has permissions independent from POS orders',()=>{const{MODULES,permissionsForPanels}=require('../authorization/catalog');assert.deepEqual(MODULES.sales,['view','take_payment','return']);assert.ok(permissionsForPanels(['sales-history']).includes('sales.view'));assert.ok(!permissionsForPanels(['sales-history']).includes('orders.view'));assert.ok(STANDARD_ROLES.Cashier.includes('sales.take_payment'));});
+test('sales history has permissions independent from POS orders',()=>{const{MODULES,permissionsForPanels}=require('../authorization/catalog');assert.deepEqual(MODULES.sales,['view','update','take_payment','return']);assert.ok(permissionsForPanels(['sales-history']).includes('sales.view'));assert.ok(!permissionsForPanels(['sales-history']).includes('orders.view'));assert.ok(STANDARD_ROLES.Cashier.includes('sales.take_payment'));});
 test('sales-panel API requests enforce sales permissions',async()=>{const{enforceApiPermissions}=require('../authorization/api-policy');const denied={path:'/api/sales',method:'GET',query:{view:'sales_panel'},session:{user:{id:1,shop_id:1}},permissions:['orders.view']};let status;let payload;await enforceApiPermissions(denied,{status(code){status=code;return this},json(body){payload=body}},()=>assert.fail('orders.view must not authorize sales history'));assert.equal(status,403);assert.deepEqual(payload.required_permissions,['sales.view']);const allowed={...denied,permissions:['sales.view']};await new Promise((resolve,reject)=>enforceApiPermissions(allowed,{status(){return this},json:reject},resolve));});
 test('React lobby does not expose Sales through order permissions',async()=>{const lobbyService=require('../services/LobbyService');const original=lobbyService.MODULES;const user={id:1,shop_id:1,role:'cashier',allowed_panels:['pos','sales-history']};const result=await lobbyService.getLobby(user,['orders.view']);assert.ok(result.modules.some(module=>module.id==='pos'));assert.ok(!result.modules.some(module=>module.id==='sales-history'));const withSales=await lobbyService.getLobby(user,['orders.view','sales.view']);assert.ok(withSales.modules.some(module=>module.id==='sales-history'));assert.equal(lobbyService.MODULES,original);});
+
+test('Sales bill changes require the assignable sales.update permission independently of POS and payment access', async () => {
+  const { enforceApiPermissions } = require('../authorization/api-policy');
+  const { PERMISSIONS, permissionsForPanels } = require('../authorization/catalog');
+  assert.ok(PERMISSIONS.some(permission => permission.key === 'sales.update' && permission.module === 'sales'));
+  assert.ok(permissionsForPanels(['sales-history']).includes('sales.update'));
+  for (const path of ['/api/sales/12/inquiry-bill', '/api/sales/12/details']) {
+    for (const permissions of [[], ['sales.view'], ['sales.take_payment'], ['orders.update'], ['sales.update']]) {
+      const request = { path, method: 'PATCH', query: { view: 'sales_panel' }, session: { user: { id: 1, shop_id: 1 } }, permissions };
+      let allowed = false;
+      let status;
+      let payload;
+      await enforceApiPermissions(request, { status(code) { status = code; return this; }, json(body) { payload = body; } }, () => { allowed = true; });
+      assert.equal(allowed, permissions.includes('sales.update'), `${path}: ${permissions}`);
+      if (!allowed) {
+        assert.equal(status, 403);
+        assert.deepEqual(payload.required_permissions, ['sales.update']);
+      }
+    }
+  }
+  // The shared POS endpoint continues to use orders.update.
+  const request = { path: '/api/sales/12/details', method: 'PATCH', query: {}, session: { user: { id: 1, shop_id: 1 } }, permissions: ['orders.update'] };
+  let allowed = false;
+  await enforceApiPermissions(request, { status() { return this; }, json() { assert.fail('POS edit should remain authorized'); } }, () => { allowed = true; });
+  assert.equal(allowed, true);
+});

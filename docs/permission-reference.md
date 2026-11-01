@@ -81,3 +81,7 @@ All catalog actions are listed below. “Linked API” identifies the endpoint f
 - Route checks: [Users](../routes/users.js), [Roles](../routes/roles.js), [Tables](../routes/tables.js), [Printers](../routes/printers.js), and module routers under [src/modules](../src/modules).
 
 This is a compact source map, not a full endpoint-by-endpoint security audit. No browser reproduction or live role inspection was performed. Permission names describe intent; the linkage table records observed differences in enforcement. Giving broader permissions can hide these differences without resolving them.
+
+### Sales bill updates (1 November 2026)
+
+`sales.update` (shown as **update sales**) allows bill-detail and inquiry-bill changes from React Sales, including payment method, tax and discount changes. Grant it through the user's assigned role under Sales; `sales.view` and `sales.take_payment` alone do not allow these changes. Existing role selections are preserved. Restart the server after deployment to synchronize the permission catalog, then grant the permission to existing roles as needed. Shared POS requests continue to use `orders.update`; bill business rules and shop scoping still apply.

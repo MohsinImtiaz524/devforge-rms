@@ -1,7 +1,7 @@
 const MODULES = {
   dashboard: ['view'],
   orders: ['view', 'create', 'update', 'remove_items', 'complete', 'take_payment', 'return'],
-  sales: ['view', 'take_payment', 'return'],
+  sales: ['view', 'update', 'take_payment', 'return'],
   delivery: ['view', 'update_status', 'take_payment'],
   kitchen_orders: ['view', 'update_status', 'complete'],
   products: ['view', 'create', 'update', 'delete', 'adjust_stock', 'manage_damage'],
