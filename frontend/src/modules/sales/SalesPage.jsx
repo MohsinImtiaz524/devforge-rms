@@ -5,6 +5,7 @@ import { AnalyticsTopbar } from "../analytics/AnalyticsTopbar";
 import "../analytics/analytics.generated.css";
 import "./sales.css";
 import { UnpaidBillOptions } from './UnpaidBillOptions';
+import { SalesActionsMenu } from './SalesActionsMenu';
 
 const PAGE_SIZE = 25;
 const emptyPage = { page: 1, total_records: 0, total_pages: 1 };
@@ -930,7 +931,7 @@ export default function SalesPage() {
                               " ",
                             )}
                           </td>
-                          <td className="sales-actions">
+                          <td className="sales-actions"><SalesActionsMenu billNumber={sale.order_number || sale.id}>
                             {sale.order_type === "takeaway" &&
                               sale.order_status === "ready" && (
                                 <button
@@ -946,7 +947,7 @@ export default function SalesPage() {
                             >
                               View Items
                             </button>
-                          </td>
+                          </SalesActionsMenu></td>
                         </tr>
                       ))
                     ) : (
@@ -1030,7 +1031,7 @@ export default function SalesPage() {
                                 "Staff"}
                             </span>
                           </td>
-                          <td className="sales-actions">
+                          <td className="sales-actions"><SalesActionsMenu billNumber={sale.order_number || sale.id}>
                             <button
                               className="view"
                               onClick={() => billFor(sale, "details")}
@@ -1045,7 +1046,7 @@ export default function SalesPage() {
                                   setModal({ kind: "collect", sale })
                                 }
                               >
-                                $
+                                Collect Payment
                               </button>
                             )}
                             <button
@@ -1053,7 +1054,7 @@ export default function SalesPage() {
                               title="Due Details"
                               onClick={() => billFor(sale, "dues")}
                             >
-                              i
+                              Due Details
                             </button>
                             {has("sales.return") && (
                               <button
@@ -1061,7 +1062,7 @@ export default function SalesPage() {
                                 title="Return Items"
                                 onClick={() => billFor(sale, "return")}
                               >
-                                ↩
+                                Return Items
                               </button>
                             )}
                             <button
@@ -1071,7 +1072,7 @@ export default function SalesPage() {
                             >
                               Print
                             </button>
-                          </td>
+                          </SalesActionsMenu></td>
                         </tr>
                       ))
                     ) : (

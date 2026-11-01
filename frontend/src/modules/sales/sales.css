@@ -998,3 +998,57 @@
     padding: 16px;
   }
 }
+
+.sales-actions .sales-actions-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  margin: 0;
+  color: #64748b;
+  background: #f1f5f9;
+  cursor: pointer;
+}
+.sales-actions .sales-actions-trigger:hover,
+.sales-actions .sales-actions-trigger[aria-expanded="true"] { color: #4338ca; background: #e0e7ff; }
+.sales-actions-trigger:focus-visible,
+.sales-action-menu button:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }
+.sales-action-menu {
+  position: fixed;
+  z-index: 90;
+  width: min(208px, calc(100vw - 16px));
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 32px #0f172a26;
+}
+.sales-action-menu button {
+  display: block;
+  width: 100%;
+  min-height: 40px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #334155;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.sales-action-menu button:hover,
+.sales-action-menu button:focus-visible { background: #f1f5f9; }
+.sales-action-menu .return { color: #be123c; }
+.dark .sales-actions .sales-actions-trigger { color: #cbd5e1; background: #1e293b; }
+.dark .sales-actions .sales-actions-trigger:hover,
+.dark .sales-actions .sales-actions-trigger[aria-expanded="true"] { color: #c7d2fe; background: #312e81; }
+.dark .sales-action-menu { border-color: #334155; background: #0f172a; }
+.dark .sales-action-menu button { color: #e2e8f0; }
+.dark .sales-action-menu button:hover,
+.dark .sales-action-menu button:focus-visible { background: #1e293b; }
+.dark .sales-action-menu .return { color: #fda4af; }
