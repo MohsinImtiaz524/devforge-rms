@@ -18,7 +18,7 @@ test('tip collection, isolation, retries, receipts, and shift reconciliation', a
   await db.schema.createTable('shifts', t => { t.increments('id'); t.integer('shop_id'); t.integer('user_id'); t.string('status'); t.decimal('opening_balance').defaultTo(0); t.decimal('cash_drops').defaultTo(0); });
   await db.schema.createTable('sales', t => { t.increments('id'); t.integer('shop_id'); t.integer('user_id'); t.integer('waiter_id'); t.integer('shift_id'); t.integer('table_id'); t.integer('order_number'); t.integer('payment_receiver_id'); t.timestamp('payment_received_at'); t.timestamp('created_at'); t.timestamp('updated_at'); t.string('customer_name'); t.string('order_type'); t.string('order_status'); t.string('payment_method'); t.decimal('total'); t.decimal('tax_amount').defaultTo(0); t.decimal('amount_received'); });
   for (const name of ['customer_ledger', 'expenses', 'returns', 'cash_drops', 'cash_handovers']) {
-    await db.schema.createTable(name, t => { t.increments('id'); t.integer('shop_id'); t.integer('shift_id'); t.integer('sale_id'); t.integer('created_by'); t.string('type'); t.string('status'); t.string('payment_method'); t.decimal('amount'); t.decimal('total_refund'); t.timestamp('created_at'); });
+    await db.schema.createTable(name, t => { t.increments('id'); t.integer('shop_id'); t.integer('shift_id'); t.integer('sale_id'); t.integer('created_by'); t.string('type'); t.string('status'); if (name === 'expenses') t.string('source'); t.string('payment_method'); t.decimal('amount'); t.decimal('total_refund'); t.timestamp('created_at'); });
   }
   await ensureTipsSchema(db);
   await ensureTipsSchema(db);
@@ -93,17 +93,30 @@ test('tip collection, isolation, retries, receipts, and shift reconciliation', a
       {id:100,shop_id:1,shift_id:99,total:200,amount_received:200,payment_method:'card',order_status:'completed'}
     ]);
     await db('returns').insert({shop_id:1,shift_id:99,total_refund:20,payment_method:'card'});
-    await db('expenses').insert({shop_id:1,shift_id:99,amount:30});
+    await db('expenses').insert({shop_id:1,shift_id:99,amount:30}); // Legacy expense with NULL source/status still counts.
+    await db('expenses').insert([
+      {shop_id:1,shift_id:99,amount:10,status:'approved',source:'cash_drop'},
+      {shop_id:1,shift_id:99,amount:900,status:'rejected',source:'manual'},
+      {shop_id:1,shift_id:99,amount:900,status:'pending_review',source:'recurring'},
+      {shop_id:2,shift_id:99,amount:900,status:'approved',source:'manual'},
+      {shop_id:1,shift_id:98,amount:900,status:'approved',source:'manual'}
+    ]);
     await db('cash_drops').insert({id:99,shop_id:1,shift_id:99,amount:15,status:'pending'});
     let summary = await shifts.calculateShiftSummary(99,1);
     assert.equal(summary.expected_card,180);
     assert.equal(summary.expected_online,0);
+    assert.equal(summary.total_expenses,30, 'Cash-drop mirrors and unrelated/unapproved expenses are excluded');
     assert.equal(summary.expected_total,325); // 400 - refund 20 - expense 30 - drops 25
     assert.equal(summary.net_revenue,280); // Sales excluding tax, less refunds.
     await db('cash_drops').where({id:99}).update({status:'verified'});
     await db('shifts').where({id:99}).update({cash_drops:25});
+    await db('expenses').insert({shop_id:1,shift_id:99,amount:15,status:'approved',source:'cash_drop'});
     summary = await shifts.calculateShiftSummary(99,1);
-    assert.equal(summary.expected_total,325);
+    assert.equal(summary.total_expenses,30);
+    assert.equal(summary.expected_total,325, 'Verification must not deduct the same cash drop again as an expense');
+    assert.equal(summary.expected_balance,175);
+    assert.equal(summary.net_revenue,280);
+    assert.equal((await db('expenses').where({shift_id:99,source:'cash_drop'})).length,2, 'Mirrored expense records remain intact');
   });
   await t.test('tip-only request requires payment permission on the sales router', () => {
     const router = require('../routes/sales');

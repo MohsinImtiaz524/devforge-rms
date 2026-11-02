@@ -76,7 +76,13 @@ export const analyticsLinks = [{
   activeText: "text-slate-800 dark:text-white",
   activeBorder: "border-slate-800 dark:border-slate-400"
 }];
+analyticsLinks.splice(3, 0, { ...analyticsLinks[2], id: "ingredients", label: "Ingredient Analytics" });
+
+analyticsLinks.splice(4, 0, { ...analyticsLinks[1], id: "tips", label: "Tip Analytics" });
+
 export const headers = {
+  tips: { title: "Tip Analytics", subtitle: "Monthly tip collections and staff breakdown" },
+  ingredients: { title: "Ingredient Analytics", subtitle: "Monthly recipe consumption, usage costs, and ingredient wastage" },
   overview: {
     title: "Overview",
     subtitle: "Track and analyze your business performance"

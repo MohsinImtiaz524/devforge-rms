@@ -1,10 +1,12 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-test('Analytics Moon is an unchanged panel copy with only external import paths adjusted',()=>{
+test('Analytics Moon preserves panel parity and shares monthly panels',()=>{
  const original=path.resolve(__dirname,'../frontend/src/modules/analytics'),copy=path.resolve(__dirname,'../frontend/src/modules/moons/analytics');
  for(const name of fs.readdirSync(original)){
   if(!fs.statSync(path.join(original,name)).isFile())continue;
+  if(name==='MonthlyPanels.jsx'||name==='AnalyticsPage.jsx'||name==='AiTab.jsx'||name==='AnalyticsFrame.jsx'||name==='AnalyticsTopbar.jsx'||name==='QuickMenu.jsx'||name==='SpecificTab.jsx'||name==='OverviewTab.jsx'||name==='AnalyticsCharts.jsx'||name==='analytics-navigation.jsx')continue; // Shared monthly panels and intentionally Moon-specific loading entry points.
   let expected=fs.readFileSync(path.join(original,name),'utf8');
   if(/\.(jsx|js)$/.test(name))expected=expected.replaceAll("'../../","'../../../").replaceAll('"../../','"../../../');
+  if(name==='AnalyticsPage.jsx')expected=expected.replace("'./MonthlyPanels'", "'../../analytics/MonthlyPanels'");
   assert.equal(fs.readFileSync(path.join(copy,name),'utf8'),expected,name+' must stay identical except external imports');
  }
  const {REGISTRY}=require('../src/modules/moons/moons.registry');

@@ -187,6 +187,8 @@ class ShiftService {
     const expensesTotal = await db('expenses')
       .where({ shift_id: shiftId, shop_id: shopId })
       .andWhere(builder => builder.where('status', 'approved').orWhereNull('status'))
+      // Cash-drop expense records mirror removals already deducted via shift.cash_drops.
+      .andWhere(builder => builder.whereNot('source', 'cash_drop').orWhereNull('source'))
       .sum('amount as total');
 
     const cashExpenses = firstTotal(expensesTotal);

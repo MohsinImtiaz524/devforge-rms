@@ -16,7 +16,11 @@
 .analytics-heatmap-level-8 { background: rgba(16, 185, 129, .83); border-color: rgba(5, 150, 105, .90); color: #fff; }
 .analytics-heatmap-level-9 { background: rgb(5, 150, 105); border-color: rgb(4, 120, 87); color: #fff; }
 
-html.analytics-document { font-size: 18px; }
+/* Compact desktop density; retain readable mobile text and touch targets. */
+html.analytics-document { font-size: 16px; }
+@media (min-width: 1024px) {
+  html.analytics-document { font-size: 12px; }
+}
 .analytics-page { font-family: Inter, sans-serif; line-height: 1.5; }
 .analytics-page *, .analytics-page ::before, .analytics-page ::after { box-sizing: border-box; border-width: 0; border-style: solid; border-color: #e5e7eb; }
 .analytics-page h1,.analytics-page h2,.analytics-page h3,.analytics-page h4,.analytics-page h5,.analytics-page h6,.analytics-page p { margin: 0; font-size: inherit; font-weight: inherit; }

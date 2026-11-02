@@ -1,0 +1,33 @@
+﻿/* Analytics Moon only: compact spacing with readable type and consistent controls. */
+@media(min-width:1024px){html.analytics-document.analytics-moon-document{font-size:14px}}
+.moon-workspace{--am-border:#dce3ef;--am-surface:#fff;--am-muted:#526079}
+.dark .moon-workspace{--am-border:#2c3a50;--am-surface:#0f172a;--am-muted:#a6b3c7}
+.moon-workspace .analytics-page .text-xs{font-size:12px;line-height:1.5}.moon-workspace .analytics-page .text-sm{font-size:14px;line-height:1.5}
+.moon-workspace .analytics-page [class~="text-[9px]"],.moon-workspace .analytics-page [class~="text-[10px]"],.moon-workspace .analytics-page [class~="text-[11px]"]{font-size:11px;line-height:1.5;letter-spacing:.025em}
+.moon-workspace .analytics-page .text-slate-400{color:var(--am-muted)}
+.moon-workspace .analytics-page button:not([role="tooltip"]),.moon-workspace .analytics-page select,.moon-workspace .analytics-page input{min-height:36px}
+.moon-workspace .analytics-page :is(button,a,input,select,summary):focus-visible{outline:2px solid #818cf8;outline-offset:3px}
+.moon-workspace .analytics-page :is(.rounded-3xl,.rounded-2xl){border-radius:14px}
+.moon-workspace .analytics-page .bg-white.border{border-color:var(--am-border);box-shadow:0 2px 7px #0f172a04}
+.moon-workspace .analytics-page :is(.p-8,.p-6){padding:18px}
+.moon-workspace .analytics-page .gap-6{gap:18px}
+.moon-workspace .analytics-page th{color:var(--am-muted)}.moon-workspace .analytics-page td{font-variant-numeric:tabular-nums}
+.moon-workspace .analytics-page .am-date-scope{color:var(--am-muted);font-size:12px;line-height:1.6;padding:0 2px}
+.moon-workspace .analytics-page .am-methodology{padding:12px 16px;border:1px solid var(--am-border);border-radius:12px;background:var(--am-surface);font-size:12px;color:var(--am-muted)}
+.moon-workspace .analytics-page .am-methodology summary{font-weight:650;cursor:pointer;min-height:28px;align-content:center}.moon-workspace .analytics-page .am-methodology p{margin-top:8px;line-height:1.7}
+.moon-workspace .moons-nav-group{margin:14px 12px 5px;color:var(--market-muted);font-size:10px;line-height:1.5;letter-spacing:.1em;text-transform:uppercase;font-weight:750}
+.moon-workspace .market-navigation>button{min-height:40px;font-size:12px}
+@media(min-width:901px){.moon-workspace .is-collapsed .moons-nav-group{height:1px;margin:10px 8px 4px;overflow:hidden;font-size:0;background:var(--market-line)}}
+.analytics-module-overlay{position:fixed;inset:0;z-index:300;isolation:isolate;font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#1e293b;font-size:14px}
+.amo-backdrop{position:absolute;inset:0;background:#02061780;backdrop-filter:blur(3px)}
+.amo-panel{position:absolute;inset:0 auto 0 0;width:min(380px,100%);box-sizing:border-box;padding:24px;background:#fff;box-shadow:12px 0 60px #02061730;overflow:auto;overscroll-behavior:contain}
+.amo-panel header{display:flex;align-items:center;justify-content:space-between;gap:12px}.amo-panel header span{font-size:10px;color:#64748b;font-weight:750;letter-spacing:.08em;text-transform:uppercase}.amo-panel h2{margin:6px 0 0;font-size:22px;line-height:1.3;letter-spacing:-.03em}
+.amo-panel button{font:inherit;color:inherit;cursor:pointer}.amo-panel header>button{display:grid;place-items:center;flex:none;width:44px;height:44px;border:1px solid #e2e8f0;border-radius:12px;background:transparent}
+.amo-intro{color:#64748b;font-size:13px;line-height:1.6;margin:16px 0 24px}.amo-panel nav section{margin-bottom:24px}.amo-panel h3{margin:0 0 8px;font-size:11px;color:#64748b;letter-spacing:.08em;text-transform:uppercase}
+.amo-panel nav button{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:10px;border:1px solid transparent;border-radius:12px;background:transparent;text-align:left}.amo-panel nav button:hover{background:#eef2ff;border-color:#c7d2fe}.amo-icon{display:grid;place-items:center;width:36px;height:36px;flex:none;border-radius:10px;color:#6366f1;background:#eef2ff}.amo-panel strong{font-size:13px}.amo-panel small{display:block;font-size:12px;color:#64748b;line-height:1.5;margin-top:3px}.amo-panel :focus-visible{outline:2px solid #818cf8;outline-offset:2px}
+.dark .amo-panel{background:#0f172a;color:#e2e8f0}.dark .amo-panel :is(.amo-intro,small,h3,header span){color:#a6b3c7}.dark .amo-panel header>button{border-color:#334155}.dark .amo-panel nav button:hover,.dark .amo-icon{background:#1e293b;border-color:#334155}
+@media(max-width:600px){.moon-workspace .analytics-page :is(button,select,input){min-height:44px}.amo-panel{padding:20px}}
+
+.moon-workspace .analytics-page button.w-5{min-width:32px;min-height:32px}
+@media(max-width:600px){.moon-workspace .analytics-page button.w-5{min-width:36px;min-height:36px}}
+.dark .moon-workspace .analytics-page .text-slate-500{color:var(--am-muted)}

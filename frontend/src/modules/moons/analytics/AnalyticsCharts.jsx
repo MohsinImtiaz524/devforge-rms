@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useChartSize } from "./useChartSize";
 import { styleObject } from "./analytics-ui";
 export function BarChart({
-  dataPoints
+  dataPoints, metric = "sales"
 }) {
   const [size, ref] = useChartSize();
   const [activeIndex, setActiveIndex] = useState(null);
@@ -14,7 +14,7 @@ export function BarChart({
   const height = size.height || 200;
   const paddingX = 40;
   const paddingY = 30;
-  const maxVal = Math.max(...dataPoints.map(d => d.sales), 1);
+  const maxVal = Math.max(...dataPoints.map(d => d[metric]), 1);
   const barCount = dataPoints.length;
   const chartWidth = width - paddingX * 2;
   const chartHeight = height - paddingY * 2;
@@ -22,9 +22,9 @@ export function BarChart({
   const barWidth = Math.max(chartWidth / barCount * 0.7, 3);
   const barsHtml = dataPoints.map((dp, idx) => {
     const x = getX(idx) + (chartWidth / barCount - barWidth) / 2;
-    const barHeight = dp.sales / maxVal * chartHeight;
+    const barHeight = dp[metric] / maxVal * chartHeight;
     const y = height - paddingY - barHeight;
-    const formattedSales = new Intl.NumberFormat('en-IN', {
+    const formattedSales = metric === 'orders' ? `${new Intl.NumberFormat('en-IN').format(dp.orders)} orders` : new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: getShopCurrency(),
       maximumFractionDigits: 0

@@ -1,3 +1,4 @@
+import { AnalyticsMoonLoader } from './AnalyticsMoonLoader';
 import { useEffect, useState } from "react";
 import { api } from "../../../api/client";
 import { analyticsInfoIcon } from "./analytics-ui";
@@ -22,10 +23,7 @@ export function AiTab({
       active = false;
     };
   }, [analyticsPeriod]);
-  if (result.period !== analyticsPeriod || !result.data && !result.error) return <div className={"flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl gap-4"}>
-        <div className={"w-10 h-10 border-4 border-violet-200 dark:border-violet-800 border-t-violet-600 rounded-full animate-spin"}></div>
-        <span className={"text-sm font-bold text-slate-500"}>AI Analyst is scanning your records for insights...</span>
-      </div>;
+  if (result.period !== analyticsPeriod || !result.data && !result.error) return <AnalyticsMoonLoader key={analyticsPeriod} tab="ai" />;
   if (result.error) return <div className="p-6 text-rose-500 text-sm font-bold">Failed to load AI Insights: {result.error}</div>;
   const aiData = result.data;
   return <div className={"space-y-6 animate-[fadeIn_0.3s_ease-out]"}>

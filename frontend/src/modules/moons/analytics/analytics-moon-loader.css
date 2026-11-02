@@ -1,0 +1,30 @@
+﻿.analytics-moon-loader{--aml-surface:#fff;--aml-border:#e2e8f0;--aml-bone:#edf1f7;--aml-ink:#1e293b;--aml-muted:#64748b;--aml-accent:#6366f1;--aml-crater:#c7d2fe;display:grid;gap:16px;color:var(--aml-ink);padding:2px 0 12px}
+.dark .analytics-moon-loader{--aml-surface:#0f172a;--aml-border:#243149;--aml-bone:#1e293b;--aml-ink:#e2e8f0;--aml-muted:#94a3b8;--aml-accent:#a5b4fc;--aml-crater:#6366f1}
+.analytics-moon-loader .aml-status{display:flex;align-items:center;gap:16px;padding:18px 20px;border:1px solid var(--aml-border);border-radius:16px;background:var(--aml-surface)}
+.analytics-moon-loader .aml-eyebrow{display:block;margin-bottom:4px;color:var(--aml-accent);font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.analytics-moon-loader .aml-status h3{font-size:15px;font-weight:750;line-height:1.4}
+.analytics-moon-loader .aml-status p{margin-top:4px;color:var(--aml-muted);font-size:12px;line-height:1.6}
+.analytics-moon-loader .aml-orbit{position:relative;flex:0 0 64px;width:64px;height:64px;color:var(--aml-accent)}
+.analytics-moon-loader .aml-moon{position:absolute;inset:17px;width:30px;height:30px;padding:3px;border-radius:50%;background:var(--aml-surface)}
+.analytics-moon-loader .aml-satellite{position:absolute;inset:0;width:64px;height:64px;animation:aml-orbit 5s linear infinite;opacity:.72}
+.analytics-moon-loader .aml-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.analytics-moon-loader .aml-cards-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.analytics-moon-loader .aml-card,.analytics-moon-loader .aml-panel{min-width:0;padding:20px;border:1px solid var(--aml-border);border-radius:16px;background:var(--aml-surface)}
+.analytics-moon-loader .aml-card{min-height:112px;display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+.analytics-moon-loader .aml-bone{display:block;background:var(--aml-bone);border-radius:5px;animation:aml-breathe 2.4s ease-in-out infinite}
+.analytics-moon-loader .aml-label{width:48%;height:9px}.analytics-moon-loader .aml-value{width:65%;height:23px}.analytics-moon-loader .aml-detail{width:36%;height:7px}
+.analytics-moon-loader .aml-content{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1fr);gap:16px}
+.analytics-moon-loader .aml-content-table{grid-template-columns:minmax(0,1fr)}
+.analytics-moon-loader .aml-panel{min-height:260px}.analytics-moon-loader .aml-panel-title{height:11px;width:38%;margin-bottom:25px}
+.analytics-moon-loader .aml-chart{height:180px;display:flex;align-items:flex-end;gap:10px;padding:12px 4px 0;border-bottom:1px solid var(--aml-border)}
+.analytics-moon-loader .aml-chart>span{flex:1;border-radius:5px 5px 0 0}
+.analytics-moon-loader .aml-list-row{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--aml-border)}
+.analytics-moon-loader .aml-list-icon{width:24px;height:24px;flex:none}.analytics-moon-loader .aml-list-label{height:9px;width:40%}.analytics-moon-loader .aml-list-number{height:9px;width:20%;margin-left:auto}
+.analytics-moon-loader .aml-row{display:grid;grid-template-columns:2fr 1fr 1fr;gap:24px;padding:13px 0;border-top:1px solid var(--aml-border)}
+.analytics-moon-loader .aml-row>span{height:10px;width:75%}
+@keyframes aml-orbit{to{transform:rotate(360deg)}}@keyframes aml-breathe{0%,100%{opacity:1}50%{opacity:.48}}
+@media(max-width:767px){.analytics-moon-loader .aml-cards,.analytics-moon-loader .aml-cards-3{grid-template-columns:repeat(2,minmax(0,1fr))}.analytics-moon-loader .aml-content{grid-template-columns:minmax(0,1fr)}.analytics-moon-loader .aml-status{padding:14px;gap:12px}.analytics-moon-loader .aml-card,.analytics-moon-loader .aml-panel{padding:16px}.analytics-moon-loader .aml-status h3{font-size:14px}.analytics-moon-loader .aml-status p{font-size:12px}.analytics-moon-loader .aml-chart{gap:6px}}
+@media(prefers-reduced-motion:reduce){.analytics-moon-loader .aml-satellite,.analytics-moon-loader .aml-bone{animation:none}}
+
+.analytics-moon-loader .aml-monthly-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(min-width:1024px){.analytics-moon-loader .aml-monthly-cards.aml-cards-3{grid-template-columns:repeat(3,minmax(0,1fr))}}

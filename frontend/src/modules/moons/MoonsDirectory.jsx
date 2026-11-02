@@ -1,5 +1,6 @@
+import { MoonsSidebar } from './MoonsSidebar';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, ArrowUpRight, Bell, Bike, Boxes, Check, ChevronDown, CircleHelp, FileText, Image as ImageIcon, LayoutGrid, LogOut, Menu, Moon, Search, Settings, Sun, MessageCircle, X } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Bell, Bike, Boxes, Check, ChevronDown, CircleHelp, FileText, Image as ImageIcon, LayoutGrid, LogOut, Menu, Moon, Search, Settings, Sun, MessageCircle, X } from 'lucide-react';
 import { api, legacyUrl } from '../../api/client';
 import heroArtwork from './assets/moons-dashboard-hero.png';
 import './marketplace.css';
@@ -59,21 +60,6 @@ export default function MoonsDirectory() {
     document.addEventListener('pointerdown',outside);document.addEventListener('keydown',keydown);
     return()=>{document.removeEventListener('pointerdown',outside);document.removeEventListener('keydown',keydown);};
   },[]);
-  useEffect(()=>{
-    if(!drawer)return;
-    const overflow=document.body.style.overflow;document.body.style.overflow='hidden';
-    const trigger=menuButton.current;
-    const sidebar=document.querySelector('.market-sidebar');
-    sidebar?.querySelector('a')?.focus();
-    const trap=event=>{
-      if(event.key!=='Tab')return;
-      const controls=[...sidebar.querySelectorAll('a[href],button:not(:disabled)')];
-      if(event.shiftKey && document.activeElement===controls[0]){event.preventDefault();controls.at(-1)?.focus();}
-      else if(!event.shiftKey && document.activeElement===controls.at(-1)){event.preventDefault();controls[0]?.focus();}
-    };
-    document.addEventListener('keydown',trap);
-    return()=>{document.body.style.overflow=overflow;document.removeEventListener('keydown',trap);trigger?.focus();};
-  },[drawer]);
   async function logout(){
     if(signingOut)return;setSigningOut(true);
     try{await api('/api/auth/logout',{method:'POST'});location.replace(legacyUrl('/'));}
@@ -82,23 +68,20 @@ export default function MoonsDirectory() {
   const name=user?.name || user?.username || 'Your account';
   const subscribed=items.filter(item=>item.subscription?.state==='active');
   const filtered=(tab==='mine'?subscribed:items).filter(item=>(category==='All'||categoryLabel(item)===category) && (item.name+' '+item.summary+' '+(item.description || '')).toLowerCase().includes(query.toLowerCase().trim()));
+  const closeDrawer=useCallback(()=>setDrawer(false),[]);
   function selectTab(next){setTab(next);setQuery('');setCategory('All');}
   return <div className="marketplace">
-    {drawer&&<button className="market-sidebar-scrim" aria-label="Close navigation" onClick={()=>setDrawer(false)}/>}
-    <aside className={'market-sidebar '+(drawer?'is-open':'')} aria-label="Workspace sidebar">
-      <a className="market-brand" href="/app/lobby">Orbit<span>OS</span></a>
-      <div className="market-shop"><Moon size={22}/><span><strong>Moons workspace</strong><small>{user?.shop_name || 'My shop'}</small></span></div>
-      <p className="market-nav-label">Your Moons</p>
-      <nav className="market-navigation" aria-label="Moons navigation">
-        {[{key:'discover',label:'Discover',icon:LayoutGrid},{key:'mine',label:'My Moons',icon:Moon},{key:'integrations',label:'Integrations',icon:Boxes}].map(({key,label,icon:Icon})=><button key={key} className={tab===key?'is-active':''} aria-pressed={tab===key} onClick={()=>{selectTab(key);setDrawer(false);}}><Icon size={21}/>{label}{key==='mine'&&<span className="market-nav-count">{subscribed.length}</span>}</button>)}
-        <button onClick={()=>{setDialog({kind:'subscriptions'});setDrawer(false);}}><Settings size={21}/>Subscriptions</button>
-      </nav>
-      <div className="market-sidebar-bottom"><button onClick={()=>{setDialog({kind:'help'});setDrawer(false);}}><CircleHelp size={20}/>Moons help</button><a href="/app/lobby"><ArrowLeft size={20}/>Back to workspace</a></div>
+    <MoonsSidebar user={user} drawerOpen={drawer} onClose={closeDrawer} activeId={tab} items={[
+      {key:'discover',label:'Discover',icon:<LayoutGrid size={21}/>,onClick:()=>selectTab('discover')},
+      {key:'mine',label:'My Moons',icon:<Moon size={21}/>,count:subscribed.length,onClick:()=>selectTab('mine')},
+      {key:'integrations',label:'Integrations',icon:<Boxes size={21}/>,onClick:()=>selectTab('integrations')},
+      {key:'subscriptions',label:'Subscriptions',icon:<Settings size={21}/>,onClick:()=>setDialog({kind:'subscriptions'})}
+    ]} footer={<button title="Moons help" onClick={()=>{setDialog({kind:'help'});setDrawer(false);}}><CircleHelp size={20}/><span className="moons-nav-copy">Moons help</span></button>}>
       <div className="market-profile" ref={profileRef}>
         <button className="market-profile-trigger" aria-expanded={profile} aria-label="Open account menu" onClick={()=>setProfile(value=>!value)}><span className="market-avatar">{initials(name)}</span><span><strong>{name}</strong><small>{user?.role || 'Account'}</small></span><ChevronDown size={15}/></button>
         {profile&&<div className="market-profile-menu"><button onClick={()=>{setDark(value=>!value);setProfile(false);}}>{dark?<Sun size={17}/>:<Moon size={17}/>}Switch to {dark?'light':'dark'} mode</button><a href="/app/lobby"><LayoutGrid size={17}/>Switch workspace</a><button onClick={logout} disabled={signingOut}><LogOut size={17}/>{signingOut?'Signing out...':'Sign out'}</button></div>}
       </div>
-    </aside>
+    </MoonsSidebar>
     <div className="market-main">
       <header className="market-topbar"><div><button ref={menuButton} className="market-icon-button market-menu-toggle" aria-label="Open navigation" aria-expanded={drawer} onClick={()=>setDrawer(value=>!value)}><Menu size={21}/></button><a href="/app/lobby">Workspace</a><span>/</span><h1>Moons</h1></div><div><a className="market-icon-button" aria-label="Notifications" href={user?.role==='superadmin'?'/app/notifications':'/app/notification-inbox'}><Bell size={21}/></a><span className="market-avatar" aria-label={name}>{initials(name)}</span></div></header>
       <section className="market-hero" aria-labelledby="market-hero-title"><div className="market-hero-copy"><p className="market-eyebrow">Your business, with more possibility</p><h2 id="market-hero-title">A little Moon.<br/>A whole new possibility.</h2><p>Discover helpful apps that bring new powers to your shop.</p><button className="market-primary" onClick={()=>{selectTab('discover');resultsRef.current?.scrollIntoView({behavior:'smooth',block:'start'});}}>Explore your Moons<ArrowRight size={19}/></button></div>

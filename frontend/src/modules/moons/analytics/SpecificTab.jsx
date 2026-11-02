@@ -1,3 +1,4 @@
+import { SalesActivity } from './SalesActivity';
 import { getShopCurrency } from '../../../currency';
 import { analyticsAssetUrl } from './analytics-assets';
 import { AiTab } from "./AiTab";
@@ -24,7 +25,7 @@ export function SpecificTab({
     tabHtml = <div className={"space-y-6 animate-[fadeIn_0.2s_ease-out]"}>
         <div className={"grid grid-cols-1 md:grid-cols-3 gap-6"}>
           <div className={"bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-5 rounded-3xl shadow-sm"}>
-            {renderMetricLabel("Total Net Revenue", "Completed sales only. Revenue = bill subtotal - discount + tax - refunds. Includes both received and pending money.")}
+            {renderMetricLabel("Total Net Revenue", "Completed-sales revenue after refunds, excluding tax. Includes received and pending money.")}
             <h4 className={"text-2xl font-black text-slate-800 dark:text-white mt-1"}>{formatCurrency(k.totalSales)}</h4>
             <span className={"text-[10px] font-bold text-emerald-500 block mt-1"}>Adjusted after returns & refunds</span>
           </div>
@@ -289,7 +290,7 @@ export function SpecificTab({
     tabHtml = <div className={"space-y-6 animate-[fadeIn_0.2s_ease-out]"}>
         <div className={"bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm"}>
           <div className={"mb-4"}>
-            {analyticsPanelTitle("Revenue Stream Breakdown", "Net completed-order revenue by order type or channel. Revenue = bill subtotal - discount + tax - refunds.")}
+            {analyticsPanelTitle("Revenue Stream Breakdown", "Completed bill totals by channel, including tax and reduced by refunds. This differs from the tax-exclusive Net Revenue metric.")}
           </div>
           <div className={"grid grid-cols-1 md:grid-cols-2 gap-6"}>
             {data.channelBreakdown.map((c, idx) => {
@@ -315,17 +316,19 @@ export function SpecificTab({
           <div className={"flex items-center justify-between mb-6"}>
             {analyticsPanelTitle("Transactional Ledger Statement", "Report/export area for transaction registers. Uses the selected analytics period when report generation is connected.")}
             <button onClick={() => window.print()} className={"px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition-all shadow-sm"}>
-              Print Statement
+              Print this page
             </button>
           </div>
           
           <div className={"p-8 text-center bg-slate-50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800/60 rounded-2xl flex flex-col items-center justify-center gap-2"}>
             <span className={"text-2xl"}>📄</span>
-            <span className={"text-sm font-bold text-slate-700 dark:text-slate-300"}>Transaction ledger compiled.</span>
-            <p className={"text-xs text-slate-400 max-w-sm"}>Detailed invoice registries can be printed dynamically. Use the Export Report button in the header toolbar to trigger a full report download.</p>
+            <span className={"text-sm font-bold text-slate-700 dark:text-slate-300"}>Detailed reports are not available yet.</span>
+            <p className={"text-xs text-slate-400 max-w-sm"}>Use Product, Ingredient, or Tip Analytics to export the displayed monthly records as CSV. Printing this page prints the current view; it does not generate a transaction ledger.</p>
           </div>
         </div>
       </div>;
   }
+  if (tabId === 'sales') return <>{tabHtml}<section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 sm:p-6 rounded-2xl mt-6"><h4 className="text-sm font-bold mb-4">Activity Heatmap</h4><p className="text-xs text-slate-500 mb-4">Completed bill totals including tax, grouped into four-hour blocks. Refunds are not subtracted per block.</p><SalesActivity data={data}/></section><section className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">{[['Discounts',s.totalDiscounts],['Refunds',s.totalRefunds],['Tax collected',s.totalTax]].map(([label,value])=><article key={label} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl"><h4 className="text-xs text-slate-500">{label}</h4><p className="text-lg font-bold mt-2">{formatCurrency(value)}</p></article>)}</section></>;
+  if (tabId === 'inventory') return <>{tabHtml}<section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 sm:p-6 rounded-2xl mt-6"><h4 className="text-sm font-bold mb-4">Sales by Category</h4><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr><th className="text-left py-3">Category</th><th className="text-right py-3">Revenue after refunds</th></tr></thead><tbody>{data.categoryBreakdown.map((row,index)=><tr key={index}><td className="py-3">{row.label || 'General'}</td><td className="text-right">{formatCurrency(row.sales)}</td></tr>)}</tbody></table>{!data.categoryBreakdown.length && <p className="text-xs text-slate-500">No category sales in this period.</p>}</div></section></>;
   return tabHtml;
 }

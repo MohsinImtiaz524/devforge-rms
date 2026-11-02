@@ -126,7 +126,7 @@ export function AnalyticsFrame({
           </div>
 
           
-          <div className={"grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto"}>
+          {activeAnalyticsTab !== "products" && activeAnalyticsTab !== "ingredients" && activeAnalyticsTab !== "tips" && <div className={"grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto"}>
             
             <div id={"analytics-custom-dates"} className={"" + (analyticsPeriod === 'custom' ? 'flex' : 'hidden') + " w-full sm:w-auto flex-col min-[380px]:flex-row items-stretch min-[380px]:items-center gap-1 sm:gap-2 bg-slate-50 dark:bg-slate-800/40 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800"}>
               <input type={"date"} id={"custom-from"} value={analyticsCustomFrom} onChange={event => {
@@ -160,7 +160,7 @@ export function AnalyticsFrame({
               <svg className={"w-3.5 h-3.5"} fill={"none"} stroke={"currentColor"} viewBox={"0 0 24 24"}><path strokeLinecap={"round"} strokeLinejoin={"round"} strokeWidth={"2"} d={"M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"} /></svg>
               Export Report
             </button>
-          </div>
+          </div>}
         </div>
       </div>
 

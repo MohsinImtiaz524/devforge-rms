@@ -143,4 +143,54 @@ async function payments(shopId, shiftId, connection = db) {
       'tip.collection_mode', 'tip.collected_at as payment_time', 's.payment_method as bill_payment_method',
       's.order_number', 's.order_type', 's.order_status', 's.customer_name', 't.table_number');
 }
-module.exports = { collect, recordStandalone, listEligibleOrders, summary, payments, validateTip, toCents };
+// Analytics reads the immutable collection ledger once. The collector is the
+// only persisted staff assignment; sale.tip_amount is a mirror, not another tip.
+async function monthlyAnalytics(shopId, { month, year }, connection = db) {
+  if (!Number.isSafeInteger(Number(shopId)) || Number(shopId) <= 0) throw invalid('Shop context required.');
+  if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 1900 || year > 9998) throw invalid('Choose a valid month and year.');
+  const pg = connection.client.config.client === 'pg';
+  const setting = pg ? await connection('attendance_settings').where({ shop_id: shopId }).first('timezone') : null;
+  const timezone = setting?.timezone || 'Asia/Karachi';
+  const start = `${year}-${String(month).padStart(2, '0')}-01`;
+  const end = month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, '0')}-01`;
+  const query = connection('sale_tips as tip')
+    .leftJoin('users as u', function () { this.on('u.id', 'tip.collected_by').andOn('u.shop_id', 'tip.shop_id'); })
+    .leftJoin('staff_profiles as staff', function () { this.on('staff.user_id', 'tip.collected_by').andOn('staff.shop_id', 'tip.shop_id'); })
+    .where('tip.shop_id', shopId);
+  if (pg) query.whereRaw('tip.collected_at >= (?::timestamp AT TIME ZONE ?) AND tip.collected_at < (?::timestamp AT TIME ZONE ?)', [start, timezone, end, timezone]);
+  else {
+    // SQLite collection timestamps are UTC, including legacy space-delimited values.
+    const utc = date => new Date(date + 'T00:00:00+05:00').toISOString().replace('T', ' ').slice(0, 19);
+    query.where(connection.raw('datetime(tip.collected_at)'), '>=', utc(start))
+      .where(connection.raw('datetime(tip.collected_at)'), '<', utc(end));
+  }
+  const waitersQuery = connection('users as u')
+    .leftJoin('staff_profiles as staff', function () { this.on('staff.user_id', 'u.id').andOn('staff.shop_id', 'u.shop_id'); })
+    .where('u.shop_id', shopId)
+    .andWhere(function () {
+      this.whereRaw('LOWER(u.role) IN (?, ?)', ['waiter', 'order_taker'])
+        .orWhereExists(connection('user_roles as ur').join('roles as r', 'r.id', 'ur.role_id')
+          .whereColumn('ur.user_id', 'u.id').whereRaw('LOWER(r.name) = ?', ['waiter'])
+          .andWhere(function () { this.where('r.shop_id', shopId).orWhereNull('r.shop_id'); }));
+    }).select('u.id', 'u.name', 'staff.full_name');
+  const [records, waiters] = await Promise.all([query.select('tip.collected_by', 'u.name', 'staff.full_name')
+    .count('tip.id as count').sum('tip.amount_cents as amount_cents')
+    .groupBy('tip.collected_by', 'u.name', 'staff.full_name'), waitersQuery]);
+  const byStaff = new Map(records.map(row => [Number(row.collected_by), {
+    id: Number(row.collected_by), name: row.full_name || row.name || `Former staff #${row.collected_by}`,
+    quantity: Number(row.count), amountCents: BigInt(row.amount_cents),
+  }]));
+  for (const waiter of waiters) {
+    const id = Number(waiter.id);
+    if (!byStaff.has(id)) byStaff.set(id, { id, name: waiter.full_name || waiter.name, quantity: 0, amountCents: 0n });
+  }
+  const rows = [...byStaff.values()].sort((a, b) => a.amountCents === b.amountCents ? a.name.localeCompare(b.name) || a.id - b.id : a.amountCents > b.amountCents ? -1 : 1);
+  const totalCents = rows.reduce((sum, row) => sum + row.amountCents, 0n);
+  return {
+    month, year, timezone,
+    tips: rows.map(({ amountCents, ...row }) => ({ ...row, revenue: Number(amountCents) / 100 })),
+    kpi: { totalTips: Number(totalCents) / 100, tipsReceived: rows.reduce((sum, row) => sum + row.quantity, 0), topRecipient: rows.find(row => row.amountCents > 0n)?.name || null },
+  };
+}
+
+module.exports = { collect, recordStandalone, listEligibleOrders, summary, payments, validateTip, toCents, monthlyAnalytics };

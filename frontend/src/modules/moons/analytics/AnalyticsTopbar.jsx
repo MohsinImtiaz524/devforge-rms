@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { Menu } from 'lucide-react';
+import { useState, useEffect, useCallback } from "react";
 import { useAnalyticsShell } from "./useAnalyticsShell";
 import { QuickMenu } from "./QuickMenu";
 export function AnalyticsTopbar({
-  user
+  user, onOpenNavigation, drawerOpen, onOpenModules
 }) {
   const {
     data,
@@ -18,6 +19,7 @@ export function AnalyticsTopbar({
     enableNotifications
   } = useAnalyticsShell();
   const [quickOpen, setQuickOpen] = useState(false);
+  const closeModules = useCallback(() => setQuickOpen(false), []);
   useEffect(() => {
     const close = event => {
       if (event.key === "Escape") setQuickOpen(false);
@@ -28,8 +30,8 @@ export function AnalyticsTopbar({
   return <>{<header id={"top-nav"} className={"fixed top-0 left-0 w-full h-16 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 z-50 flex items-center justify-between px-3 sm:px-6 transition-colors duration-300 shadow-sm"}>
 
         
-        <div className={"flex items-center gap-4"}>
-            <button onClick={() => setQuickOpen(value => !value)} id="quick-menu-btn" className="flex items-center justify-center w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-800">
+        <div className={"flex items-center gap-4"}><button type="button" className="moons-analytics-menu flex items-center justify-center w-10 h-10 rounded-xl" aria-label="Open navigation" aria-expanded={drawerOpen} onClick={() => { setQuickOpen(false); onOpenNavigation(); }}><Menu size={21}/></button>
+            <button onClick={() => { onOpenModules(); setQuickOpen(value => !value); }} aria-label="Open workspace modules" aria-expanded={quickOpen} aria-haspopup="dialog" id="quick-menu-btn" className="flex items-center justify-center w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-800">
                 <svg className={"w-5 h-5 transform transition-transform " + (quickOpen ? "" : "rotate-180")} id={"quick-menu-arrow"} fill={"none"} stroke={"currentColor"} viewBox={"0 0 24 24"}>
                     <path strokeLinecap={"round"} strokeLinejoin={"round"} strokeWidth={"2"} d={"M11 19l-7-7 7-7m8 14l-7-7 7-7"} />
                 </svg>
@@ -124,5 +126,5 @@ export function AnalyticsTopbar({
                 </div>
             </div>
         </div>
-            </div></header>}<QuickMenu open={quickOpen} modules={data?.modules || []} onClose={() => setQuickOpen(false)} openModule={openModule} /></>;
+            </div></header>}<QuickMenu open={quickOpen} modules={data?.modules || []} onClose={closeModules} openModule={openModule} /></>;
 }

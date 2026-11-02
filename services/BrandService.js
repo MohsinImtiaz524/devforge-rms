@@ -83,6 +83,23 @@ class BrandService {
     return { ownerId: owner.id, ownerPercent, partnerTotal };
   }
 
+  // Reporting must never rebalance or persist ownership on a GET request.
+  async listBrandsForReporting(shopId, connection = db) {
+    const [brands, adminUser] = await Promise.all([
+      connection('brands').where({ shop_id: shopId }).orderBy('id', 'asc'),
+      connection('users').where({ shop_id: shopId, role: 'admin' }).orderBy('id', 'asc').first()
+    ]);
+    const owner = this.pickOwnerBrand(brands, adminUser);
+    const partnerTotal = brands.filter(brand => !sameId(brand.id, owner?.id) && normalizePartnerType(brand.partner_type) === 'share_based')
+      .reduce((sum, brand) => sum + normalizePercent(brand.ownership_percent), 0);
+    return brands.map(brand => {
+      const isOwner = sameId(brand.id, owner?.id);
+      const partnerType = isOwner ? 'share_based' : normalizePartnerType(brand.partner_type);
+      return { ...brand, partner_type: partnerType, is_owner_partner: isOwner,
+        ownership_percent: isOwner ? Math.max(0, 100 - partnerTotal) : partnerType === 'product_based' ? 0 : normalizePercent(brand.ownership_percent) };
+    }).sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  }
+
   async listBrands(shopId) {
     const ownerShare = shopId ? await this.rebalanceOwnerShare(shopId, db, { strict: false }) : null;
     const brands = await db('brands').where({ shop_id: shopId }).orderBy('name', 'asc');

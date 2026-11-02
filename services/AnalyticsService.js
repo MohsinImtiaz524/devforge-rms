@@ -2,6 +2,15 @@ const db = require('../db/knex');
 const brandService = require('./BrandService');
 const tipsService = require('../src/modules/tips/tips.service');
 
+// Limit Analytics fan-out so live ordering retains database pool capacity.
+async function readInBatches(tasks) {
+  const results = [];
+  for (let i = 0; i < tasks.length; i += 2) {
+    results.push(...await Promise.all(tasks.slice(i, i + 2).map(task => task())));
+  }
+  return results;
+}
+
 class AnalyticsService {
   /**
    * Helper to get period bounds (start and end timestamps)
@@ -104,8 +113,10 @@ class AnalyticsService {
     return { start: `${format(prevStart)} 00:00:00`, end: `${format(prevEnd)} 23:59:59` };
   }
 
-  async getDashboardData(shopId, period = 'all', from = null, to = null, brandId = null) {
+  async getDashboardData(shopId, period = 'all', from = null, to = null, brandId = null, panel = null) {
     try {
+      // With no panel, preserve the legacy full-dashboard contract. needs() is legacy-only.
+      const needs = (...panels) => !panel || panels.includes(panel);
       const bounds = this.getPeriodBounds(period, from, to);
       const prevBounds = this.getPreviousPeriodBounds(period, bounds);
       const isSqlite = db.client.config.client !== 'pg';
@@ -115,7 +126,7 @@ class AnalyticsService {
         ? await db('attendance_settings').where({ shop_id: shopId }).select('timezone').first().catch(() => null)
         : null;
       const reportingTimezone = String(timezoneSetting?.timezone || 'Asia/Karachi');
-      const brands = shopId ? await brandService.listBrands(shopId) : [];
+      const brands = shopId && needs('profit') ? await brandService.listBrandsForReporting(shopId) : [];
       const requestedBrandId = parseInt(brandId, 10);
       const selectedBrand = Number.isFinite(requestedBrandId)
         ? brands.find(b => Number(b.id) === requestedBrandId)
@@ -132,10 +143,14 @@ class AnalyticsService {
         if (hasBrandFilter) qb.where(`${alias}.brand_id`, selectedBrandId);
         return qb;
       };
-      const makeItemTotals = () => db('sale_items')
-        .select('sale_id')
-        .select(db.raw('SUM(quantity * price_at_sale) as item_subtotal'))
-        .groupBy('sale_id')
+      const makeItemTotals = (rangeBounds = bounds) => db('sale_items as totals_si')
+        .join('sales as totals_s', 'totals_s.id', 'totals_si.sale_id')
+        .modify(qb => applyShopScope(qb, 'totals_s.shop_id'))
+        .where('totals_s.order_status', 'completed')
+        .whereBetween('totals_s.created_at', [rangeBounds.start, rangeBounds.end])
+        .select('totals_si.sale_id')
+        .select(db.raw('SUM(totals_si.quantity * totals_si.price_at_sale) as item_subtotal'))
+        .groupBy('totals_si.sale_id')
         .as('item_totals');
       const itemCogsExpr = `si.quantity * si.buying_price_at_sale`;
       const returnCogsExpr = `ri.quantity * ri.buying_price_at_sale`;
@@ -152,7 +167,7 @@ class AnalyticsService {
       const brandSalesQuery = (rangeBounds) => db('sale_items as si')
         .join('sales as s', 'si.sale_id', 's.id')
         .join('products as p', 'si.product_id', 'p.id')
-        .leftJoin(makeItemTotals(), 'si.sale_id', 'item_totals.sale_id')
+        .leftJoin(makeItemTotals(rangeBounds), 'si.sale_id', 'item_totals.sale_id')
         .modify(qb => applyShopScope(qb, 's.shop_id'))
         .modify(qb => applyBrandScope(qb))
         .where('s.order_status', 'completed')
@@ -168,80 +183,50 @@ class AnalyticsService {
         return q;
       };
 
-      // 1. KPI Aggregates
-      const kpi = hasBrandFilter
-        ? await brandSalesQuery(bounds)
-          .select(
-            db.raw(`COALESCE(SUM(${allocatedSalesExpr}), 0) as total_sales`),
-            db.raw('COUNT(DISTINCT s.id) as total_orders'),
-            db.raw(`COALESCE(SUM(${allocatedDueExpr}), 0) as total_pending_dues`),
-            db.raw(`COUNT(DISTINCT CASE WHEN ${pendingDueCondition} THEN s.id END) as pending_dues_count`)
-          ).first()
-        : await db('sales as s')
-          .modify(qb => applyShopScope(qb, 's.shop_id'))
-          .where({ 's.order_status': 'completed' })
-          .whereBetween('s.created_at', [bounds.start, bounds.end])
-          .select(
-            db.raw('COALESCE(SUM(s.total), 0) as total_sales'),
-            db.raw('COUNT(s.id) as total_orders'),
-            db.raw('COALESCE(AVG(s.total), 0) as avg_order_value'),
-            db.raw('COALESCE(SUM(CASE WHEN (COALESCE(s.total, 0) - COALESCE(s.amount_received, 0)) > 0.01 THEN (COALESCE(s.total, 0) - COALESCE(s.amount_received, 0)) ELSE 0 END), 0) as total_pending_dues'),
-            db.raw('COALESCE(SUM(CASE WHEN (COALESCE(s.total, 0) - COALESCE(s.amount_received, 0)) > 0.01 THEN 1 ELSE 0 END), 0) as pending_dues_count')
-          ).first();
-
-const taxStats = await db('sales as s')
+      // One scan for metrics sharing the same completed-sales population.
+      const readSalesStats = rangeBounds => db('sales as s')
         .modify(qb => applyShopScope(qb, 's.shop_id'))
-        .where({ 's.order_status': 'completed' })
-        .whereBetween('s.created_at', [bounds.start, bounds.end])
-        .select(db.raw(`COALESCE(SUM(${saleTaxExpr}), 0) as total_tax`), db.raw(`COALESCE(SUM(${collectedTaxExpr}), 0) as collected_tax`))
-        .first();
+        .where('s.order_status', 'completed')
+        .whereBetween('s.created_at', [rangeBounds.start, rangeBounds.end])
+        .select(db.raw('COALESCE(SUM(s.total), 0) as total_sales'), db.raw('COUNT(s.id) as total_orders'),
+          db.raw('COALESCE(AVG(s.total), 0) as avg_order_value'),
+          db.raw('COALESCE(SUM(s.discount), 0) as total_discounts'),
+          db.raw('COALESCE(SUM(s.tax_amount), 0) as total_tax'),
+          db.raw(`COALESCE(SUM(${collectedTaxExpr}), 0) as collected_tax`))
+        .modify(qb => {
+          if (needs('customers')) qb.select(
+            db.raw('COUNT(DISTINCT s.customer_id) as linked_customers'),
+            db.raw('COUNT(CASE WHEN s.customer_id IS NULL THEN 1 END) as walk_in_customers'));
+        }).first();
+      const currentSalesStats = needs('overview', 'sales', 'profit', 'customers') ? await readSalesStats(bounds) : {};
 
-      const receivables = await db('sales as s')
+      // 1. KPI Aggregates
+      const kpi = currentSalesStats;
+
+      const taxStats = currentSalesStats;
+
+      const receivables = needs() ? (await db('sales as s')
         .modify(qb => applyShopScope(qb, 's.shop_id'))
         .whereIn('s.order_status', ['completed', 'payment_pending'])
         .whereBetween('s.created_at', [bounds.start, bounds.end])
         .select(
           db.raw('COALESCE(SUM(CASE WHEN (COALESCE(s.total, 0) - COALESCE(s.amount_received, 0)) > 0.01 THEN (COALESCE(s.total, 0) - COALESCE(s.amount_received, 0)) ELSE 0 END), 0) as total_pending_dues'),
           db.raw('COALESCE(SUM(CASE WHEN (COALESCE(s.total, 0) - COALESCE(s.amount_received, 0)) > 0.01 THEN 1 ELSE 0 END), 0) as pending_dues_count')
-        ).first();
+        ).first()) : {};
 
-      const linkedCustomersCount = hasBrandFilter
-        ? await brandSalesQuery(bounds)
-          .whereNotNull('s.customer_id')
-          .countDistinct('s.customer_id as val').first()
-        : await db('sales as s')
-          .modify(qb => applyShopScope(qb, 's.shop_id'))
-          .where({ 's.order_status': 'completed' })
-          .whereBetween('s.created_at', [bounds.start, bounds.end])
-          .whereNotNull('s.customer_id')
-          .countDistinct('s.customer_id as val').first();
+      const linkedCustomersCount = { val: currentSalesStats.linked_customers };
 
-      const walkInCustomersCount = hasBrandFilter
-        ? await brandSalesQuery(bounds)
-          .whereNull('s.customer_id')
-          .countDistinct('s.id as val').first()
-        : await db('sales as s')
-          .modify(qb => applyShopScope(qb, 's.shop_id'))
-          .where({ 's.order_status': 'completed' })
-          .whereBetween('s.created_at', [bounds.start, bounds.end])
-          .whereNull('s.customer_id')
-          .count('s.id as val').first();
+      const walkInCustomersCount = { val: currentSalesStats.walk_in_customers };
 
-      const totalCustomersInDb = await db('customers')
+      const totalCustomersInDb = needs("customers") ? (await db('customers')
         .modify(qb => shopId ? qb.where({ shop_id: shopId }) : qb)
-        .count('* as val').first();
+        .count('* as val').first()) : {};
 
       // 2. Summary (Returns, COGS, Discounts)
-      const discounts = hasBrandFilter
-        ? await brandSalesQuery(bounds)
-          .select(db.raw(`COALESCE(SUM(${allocatedDiscountExpr}), 0) as val`)).first()
-        : await db('sales as s')
-          .modify(qb => applyShopScope(qb, 's.shop_id'))
-          .where({ 's.order_status': 'completed' })
-          .whereBetween('s.created_at', [bounds.start, bounds.end])
-          .sum('s.discount as val').first();
+      const discounts = { val: currentSalesStats.total_discounts };
 
-      const returnsStats = hasBrandFilter
+      const [returnsStats, refundTaxStats, cogsStats, returnedCogs] = await readInBatches([
+        async () => needs("overview", "sales", "profit") ? (hasBrandFilter
         ? await brandReturnsQuery(bounds)
           .select(
             db.raw('COALESCE(SUM(ri.quantity * ri.refund_price), 0) as total_refunds'),
@@ -253,37 +238,35 @@ const taxStats = await db('sales as s')
           .select(
             db.raw('COALESCE(SUM(r.total_refund), 0) as total_refunds'),
             db.raw('COUNT(r.id) as return_count')
-          ).first();
-
-const refundTaxStats = await db('returns as r')
+          ).first()) : {},
+        async () => needs("overview", "sales", "profit") ? (await db('returns as r')
         .join('sales as s', 'r.sale_id', 's.id')
         .modify(qb => applyShopScope(qb, 'r.shop_id'))
         .whereBetween('r.created_at', [bounds.start, bounds.end])
         .select(db.raw(`COALESCE(SUM(COALESCE(r.total_refund, 0) - ${refundRevenueExpr}), 0) as refunded_tax`))
-        .first();
-
-      const cogsStats = await db('sale_items as si')
+        .first()) : {},
+        async () => needs("profit") ? (await db('sale_items as si')
         .join('sales as s', 'si.sale_id', 's.id')
         .leftJoin('products as p', 'si.product_id', 'p.id')
         .modify(qb => applyShopScope(qb, 's.shop_id'))
         .modify(qb => applyBrandScope(qb))
         .where('s.order_status', 'completed')
         .whereBetween('s.created_at', [bounds.start, bounds.end])
-        .select(db.raw(`SUM(${itemCogsExpr}) as val`)).first();
-
-      const returnedCogs = await db('return_items as ri')
+        .select(db.raw(`SUM(${itemCogsExpr}) as val`)).first()) : {},
+        async () => needs("profit") ? (await db('return_items as ri')
         .join('returns as r', 'ri.return_id', 'r.id')
         .leftJoin('sale_items as si', 'ri.sale_item_id', 'si.id')
         .leftJoin('products as p', 'ri.product_id', 'p.id')
         .modify(qb => applyShopScope(qb, 'r.shop_id'))
         .modify(qb => applyBrandScope(qb))
         .whereBetween('r.created_at', [bounds.start, bounds.end])
-        .select(db.raw(`SUM(${returnCogsExpr}) as val`)).first();
+        .select(db.raw(`SUM(${returnCogsExpr}) as val`)).first()) : {}
+      ]);
 
       const commissionIncomeStats = { val: 0 };
       const returnedCommissionStats = { val: 0 };
 
-      const [productStockValueResult, rawStockValueResult] = await Promise.all([
+      const [productStockValueResult, rawStockValueResult] = needs('inventory') ? await Promise.all([
         db('product_batches as pb')
           .join('products as p', 'p.id', 'pb.product_id')
           .modify(qb => applyShopScope(qb, 'pb.shop_id'))
@@ -294,7 +277,7 @@ const refundTaxStats = await db('returns as r')
           .modify(qb => applyShopScope(qb, 'rb.shop_id'))
           .where({ 'rs.is_deleted': 0 })
           .select(db.raw('COALESCE(SUM(rb.quantity * rb.buying_price), 0) as val')).first()
-      ]);
+      ]) : [{ val: 0 }, { val: 0 }];
       const productStockValue = Number(productStockValueResult?.val || 0);
       const rawStockValue = Number(rawStockValueResult?.val || 0);
 
@@ -320,47 +303,20 @@ const refundTaxStats = await db('returns as r')
         : parseFloat(kpi.avg_order_value || 0);
 
       // 3. Growth
-      const prevKpi = hasBrandFilter
-        ? await brandSalesQuery(prevBounds)
-          .select(
-            db.raw(`COALESCE(SUM(${allocatedSalesExpr}), 0) as total_sales`),
-            db.raw('COUNT(DISTINCT s.id) as total_orders')
-          ).first()
-        : await db('sales as s')
-          .modify(qb => applyShopScope(qb, 's.shop_id'))
-          .where({ 's.order_status': 'completed' })
-          .whereBetween('s.created_at', [prevBounds.start, prevBounds.end])
-          .select(db.raw('COALESCE(SUM(s.total), 0) as total_sales'), db.raw('COUNT(s.id) as total_orders')).first();
-
-      const prevLinkedCustomersCount = hasBrandFilter
-        ? await brandSalesQuery(prevBounds)
-          .whereNotNull('s.customer_id')
-          .countDistinct('s.customer_id as val').first()
-        : await db('sales as s')
-          .modify(qb => applyShopScope(qb, 's.shop_id'))
-          .where({ 's.order_status': 'completed' })
-          .whereBetween('s.created_at', [prevBounds.start, prevBounds.end])
-          .whereNotNull('s.customer_id')
-          .countDistinct('s.customer_id as val').first();
-
-      const prevWalkInCustomersCount = hasBrandFilter
-        ? await brandSalesQuery(prevBounds)
-          .whereNull('s.customer_id')
-          .countDistinct('s.id as val').first()
-        : await db('sales as s')
-          .modify(qb => applyShopScope(qb, 's.shop_id'))
-          .where({ 's.order_status': 'completed' })
-          .whereBetween('s.created_at', [prevBounds.start, prevBounds.end])
-          .whereNull('s.customer_id')
-          .count('s.id as val').first();
-
-      const prevReturns = hasBrandFilter
+      const [prevKpi, prevReturns] = await readInBatches([
+        async () => needs() ? await readSalesStats(prevBounds) : {},
+        async () => needs() ? (hasBrandFilter
         ? await brandReturnsQuery(prevBounds)
           .select(db.raw('COALESCE(SUM(ri.quantity * ri.refund_price), 0) as val')).first()
         : await db('returns as r')
           .modify(qb => applyShopScope(qb, 'r.shop_id'))
           .whereBetween('r.created_at', [prevBounds.start, prevBounds.end])
-          .sum('r.total_refund as val').first();
+          .sum('r.total_refund as val').first()) : {}
+      ]);
+
+      const prevLinkedCustomersCount = { val: prevKpi.linked_customers };
+
+      const prevWalkInCustomersCount = { val: prevKpi.walk_in_customers };
 
       const adjustedPrevRevenue = Number(prevKpi.total_sales || 0) - Number(prevReturns.val || 0);
       const getChange = (curr, prev) => {
@@ -398,18 +354,25 @@ const refundTaxStats = await db('returns as r')
       };
       
       let trendSeries = [];
-      if (period === 'today') {
+      if (needs('overview') && period === 'today') {
         trendSeries = await getTrendData(isSqlite
           ? "strftime('%H', s.created_at)"
           : db.raw("TO_CHAR(s.created_at AT TIME ZONE ?, 'HH24') as label", [reportingTimezone]));
-      } else if (period === '12months') {
+      } else if (needs('overview') && period === '12months') {
         trendSeries = await getTrendData(isSqlite
           ? "strftime('%Y-%m', s.created_at)"
           : db.raw("TO_CHAR(s.created_at AT TIME ZONE ?, 'YYYY-MM') as label", [reportingTimezone]));
-      } else {
+      } else if (needs('overview')) {
         trendSeries = await getTrendData(isSqlite
           ? "date(s.created_at)"
           : db.raw("TO_CHAR(s.created_at AT TIME ZONE ?, 'YYYY-MM-DD') as label", [reportingTimezone]));
+      }
+
+      // Overview needs only three metrics and one trend series for its two charts.
+      if (panel === 'overview') {
+        return { bounds, activePeriod: period, brands: [], selectedBrandId: null,
+          kpi: { totalSales: adjustedRevenue, totalOrders: totalOrderCount, avgOrderValue },
+          trendSeries, reportingTimezone, dataAsOf: new Date().toISOString(), metricVersion: 'analytics-v2' };
       }
 
       const mergeNetBreakdown = (grossRows, refundRows) => {
@@ -472,15 +435,19 @@ const refundTaxStats = await db('returns as r')
           .groupBy('label');
       };
 
-      const paymentBreakdownGross = await grossBreakdown('s.payment_method');
-      const paymentRefunds = await refundBreakdown('s.payment_method');
+      const [paymentBreakdownGross, paymentRefunds, channelBreakdownGross, channelRefunds] = await readInBatches([
+        async () => needs("sales") ? (await grossBreakdown('s.payment_method')) : [],
+        async () => needs("sales") ? (await refundBreakdown('s.payment_method')) : [],
+        async () => needs("channels") ? (await grossBreakdown('s.order_type')) : [],
+        async () => needs("channels") ? (await refundBreakdown('s.order_type')) : []
+      ]);
+
       const paymentBreakdown = mergeNetBreakdown(paymentBreakdownGross, paymentRefunds);
 
-      const channelBreakdownGross = await grossBreakdown('s.order_type');
-      const channelRefunds = await refundBreakdown('s.order_type');
       const channelBreakdown = mergeNetBreakdown(channelBreakdownGross, channelRefunds);
 
-      const categoryBreakdownGross = await db('sale_items as si')
+      const [categoryBreakdownGross, categoryRefunds] = await readInBatches([
+        async () => needs("inventory") ? (await db('sale_items as si')
         .join('sales as s', 'si.sale_id', 's.id')
         .leftJoin('products as p', 'si.product_id', 'p.id')
         .leftJoin(makeItemTotals(), 'si.sale_id', 'item_totals.sale_id')
@@ -490,8 +457,8 @@ const refundTaxStats = await db('returns as r')
         .whereBetween('s.created_at', [bounds.start, bounds.end])
         .select(db.raw("COALESCE(p.category, 'General') as label"))
         .select(db.raw(`SUM(${allocatedSalesExpr}) as sales`))
-        .groupBy('label');
-      const categoryRefunds = await db('return_items as ri')
+        .groupBy('label')) : [],
+        async () => needs("inventory") ? (await db('return_items as ri')
         .join('returns as r', 'ri.return_id', 'r.id')
         .leftJoin('products as p', 'ri.product_id', 'p.id')
         .modify(qb => applyShopScope(qb, 'r.shop_id'))
@@ -499,15 +466,17 @@ const refundTaxStats = await db('returns as r')
         .whereBetween('r.created_at', [bounds.start, bounds.end])
         .select(db.raw("COALESCE(p.category, 'General') as label"))
         .select(db.raw('SUM(ri.quantity * ri.refund_price) as refunds'))
-        .groupBy('label');
+        .groupBy('label')) : []
+      ]);
+
       const categoryBreakdown = mergeNetBreakdown(categoryBreakdownGross, categoryRefunds);
 
-      const hourQ = await getTrendData(isSqlite
+      const hourQ = needs() ? (await getTrendData(isSqlite
         ? "strftime('%H', s.created_at)"
-        : db.raw("TO_CHAR(s.created_at AT TIME ZONE ?, 'HH24') as label", [reportingTimezone]));
+        : db.raw("TO_CHAR(s.created_at AT TIME ZONE ?, 'HH24') as label", [reportingTimezone]))) : [];
       const bestSellingHours = hourQ.sort((a, b) => b.sales - a.sales).slice(0, 5);
 
-      const topProductsRaw = await db('sale_items as si')
+      const topProductsRaw = needs() ? (await db('sale_items as si')
         .join('sales as s', 'si.sale_id', 's.id')
         .join('products as p', 'si.product_id', 'p.id')
         .leftJoin('brands as b', 'p.brand_id', 'b.id')
@@ -520,7 +489,7 @@ const refundTaxStats = await db('returns as r')
         .sum('si.quantity as quantity_sold')
         .select(db.raw(`SUM(${allocatedSalesExpr}) as sales`))
         .groupBy('p.id', 'p.name', 'p.image_path', 'p.stock', 'p.product_type', 'b.name')
-        .orderBy('quantity_sold', 'desc');
+        .orderBy('quantity_sold', 'desc')) : [];
       const topProductIds = topProductsRaw.map(row => Number(row.id)).filter(Boolean);
       const topProductReturns = topProductIds.length ? await db('return_items as ri')
         .join('returns as r', 'r.id', 'ri.return_id')
@@ -550,7 +519,7 @@ const refundTaxStats = await db('returns as r')
         heatmapStartBound = `${hmd.toISOString().split('T')[0]} 00:00:00`;
       }
       const heatmapBounds = { start: heatmapStartBound, end: bounds.end };
-      const heatmapRawData = hasBrandFilter
+      const heatmapRawData = needs("sales") ? (hasBrandFilter
         ? await brandSalesQuery(heatmapBounds)
           .select(
             isSqlite
@@ -575,10 +544,10 @@ const refundTaxStats = await db('returns as r')
               : db.raw("FLOOR(EXTRACT(HOUR FROM s.created_at AT TIME ZONE ?) / 4) as block_idx", [reportingTimezone])
           )
           .count('s.id as orders').sum('s.total as sales')
-          .groupBy('dt', 'block_idx');
+          .groupBy('dt', 'block_idx')) : [];
       const heatmapRaw = heatmapRawData.map(r => ({ ...r, sales: Number(r.sales || 0), orders: Number(r.orders || 0), block_idx: Number(r.block_idx) }));
 
-      const recentSales = await db('sales as s')
+      const recentSales = needs() ? (await db('sales as s')
         .select('s.*')
         .modify(qb => applyShopScope(qb, 's.shop_id'))
         .modify(qb => {
@@ -592,19 +561,19 @@ const refundTaxStats = await db('returns as r')
         .where('s.order_status', 'completed')
         .whereBetween('s.created_at', [bounds.start, bounds.end])
         .orderBy('created_at', 'desc')
-        .limit(10);
+        .limit(10)) : [];
 
-      const totalProductsCount = await db('products as p')
+      const totalProductsCount = needs() ? (await db('products as p')
         .modify(qb => applyShopScope(qb, 'p.shop_id'))
         .modify(qb => applyBrandScope(qb))
         .where({ 'p.is_deleted': 0 })
-        .count('* as val').first();
+        .count('* as val').first()) : {};
 
-      const damageTotalResult = await db('waste_events as we')
+      const damageTotalResult = needs("profit") ? (await db('waste_events as we')
         .modify(qb => applyShopScope(qb, 'we.shop_id'))
         .where({ 'we.status': 'recorded' })
         .whereBetween('we.created_at', [bounds.start, bounds.end])
-        .sum('we.cost_amount as val').first();
+        .sum('we.cost_amount as val').first()) : {};
       const totalDamageLoss = Number(damageTotalResult ? (damageTotalResult.val || 0) : 0);
 
       let businessAdjustedRevenue = adjustedRevenue;
@@ -663,7 +632,8 @@ const refundTaxStats = await db('returns as r')
       const shopProfit = businessGrossProfit - businessDamageLoss;
       const shopProfitMargin = businessAdjustedRevenue > 0 ? (shopProfit / businessAdjustedRevenue) * 100 : 0;
 
-      const brandRevenueRows = await db('sale_items as si')
+      const [brandRevenueRows, brandRefundRows, brandDamageRows] = await readInBatches([
+        async () => needs("profit") ? (await db('sale_items as si')
         .join('sales as s', 'si.sale_id', 's.id')
         .join('products as p', 'si.product_id', 'p.id')
         .leftJoin('brands as b', 'p.brand_id', 'b.id')
@@ -675,8 +645,8 @@ const refundTaxStats = await db('returns as r')
         .select(db.raw(`COALESCE(SUM(${allocatedSalesExpr}), 0) as revenue`))
         .select(db.raw(`COALESCE(SUM(${itemCogsExpr}), 0) as cogs`))
         .select(db.raw('COUNT(DISTINCT s.id) as orders'))
-        .groupBy('p.brand_id', 'b.name');
-      const brandRefundRows = await db('return_items as ri')
+        .groupBy('p.brand_id', 'b.name')) : [],
+        async () => needs("profit") ? (await db('return_items as ri')
         .join('returns as r', 'ri.return_id', 'r.id')
         .leftJoin('sale_items as si', 'ri.sale_item_id', 'si.id')
         .leftJoin('products as p', 'ri.product_id', 'p.id')
@@ -686,8 +656,8 @@ const refundTaxStats = await db('returns as r')
         .select('p.brand_id', 'b.name as brand_name')
         .select(db.raw('COALESCE(SUM(ri.quantity * ri.refund_price), 0) as refunds'))
         .select(db.raw(`COALESCE(SUM(${returnCogsExpr}), 0) as returned_cogs`))
-        .groupBy('p.brand_id', 'b.name');
-      const brandDamageRows = await db('waste_events as we')
+        .groupBy('p.brand_id', 'b.name')) : [],
+        async () => needs("profit") ? (await db('waste_events as we')
         .leftJoin('products as p', 'we.product_id', 'p.id')
         .leftJoin('brands as b', 'p.brand_id', 'b.id')
         .modify(qb => applyShopScope(qb, 'we.shop_id'))
@@ -695,7 +665,9 @@ const refundTaxStats = await db('returns as r')
         .whereBetween('we.created_at', [bounds.start, bounds.end])
         .select('p.brand_id', 'b.name as brand_name')
         .select(db.raw('COALESCE(SUM(we.cost_amount), 0) as damage_loss'))
-        .groupBy('p.brand_id', 'b.name');
+        .groupBy('p.brand_id', 'b.name')) : []
+      ]);
+
       const brandMap = new Map();
       brands.forEach((brand) => {
         brandMap.set(Number(brand.id), {
@@ -821,7 +793,7 @@ const refundTaxStats = await db('returns as r')
       const retainedOwnerProfit = shopProfit - totalPartnerProfit;
 
       const receivedAmountExpr = `CASE WHEN COALESCE(s.amount_received, 0) > COALESCE(s.total, 0) THEN COALESCE(s.total, 0) ELSE COALESCE(s.amount_received, 0) END`;
-      const staffPerformanceRaw = await db('sales as s')
+      const staffPerformanceRaw = needs("staff") ? (await db('sales as s')
         .leftJoin('users as u', db.raw('COALESCE(s.payment_receiver_id, s.user_id)'), 'u.id')
         .modify(qb => applyShopScope(qb, 's.shop_id'))
         .where('s.amount_received', '>', 0.01)
@@ -830,13 +802,13 @@ const refundTaxStats = await db('returns as r')
         .select(db.raw(`COALESCE(SUM(${receivedAmountExpr}), 0) as received_sales`))
         .count('s.id as orders')
         .groupBy('u.id', 'u.name', 'u.username')
-        .orderBy('received_sales', 'desc');
+        .orderBy('received_sales', 'desc')) : [];
       const staffPerformance = staffPerformanceRaw.map(row => ({
         ...row,
         received_sales: Number(row.received_sales || 0),
         orders: Number(row.orders || 0)
       }));
-      const tips = await tipsService.summary({ shopId, bounds });
+      const tips = needs() ? (await tipsService.summary({ shopId, bounds })) : {};
       const totalPaymentsReceived = staffPerformance.reduce((sum, row) => sum + row.received_sales, 0);
 
       return {

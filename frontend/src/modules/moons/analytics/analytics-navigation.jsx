@@ -1,3 +1,4 @@
+import { LayoutDashboard, ChartNoAxesCombined, Package, Wheat, HandCoins, Users, Boxes, ChartPie, BadgeDollarSign, UserRoundCheck, FileChartColumn, Sparkles, SlidersHorizontal } from 'lucide-react';
 export const analyticsLinks = [{
   id: "overview",
   label: "Overview",
@@ -76,7 +77,16 @@ export const analyticsLinks = [{
   activeText: "text-slate-800 dark:text-white",
   activeBorder: "border-slate-800 dark:border-slate-400"
 }];
+analyticsLinks.splice(3, 0, { ...analyticsLinks[2], id: "ingredients", label: "Ingredient Analytics" });
+
+analyticsLinks.splice(4, 0, { ...analyticsLinks[1], id: "tips", label: "Tip Analytics" });
+
+const panelIcons = {overview:LayoutDashboard,sales:ChartNoAxesCombined,products:Package,ingredients:Wheat,tips:HandCoins,customers:Users,inventory:Boxes,profit:BadgeDollarSign,staff:UserRoundCheck,channels:ChartPie,reports:FileChartColumn,ai:Sparkles,custom_reports:SlidersHorizontal};
+analyticsLinks.forEach(tab => { const Icon = panelIcons[tab.id]; tab.icon = <Icon size={20} strokeWidth={1.7} aria-hidden="true"/>; tab.group = ['overview','sales','products','ingredients','tips'].includes(tab.id) ? 'Business performance' : ['customers','inventory','profit','staff','channels'].includes(tab.id) ? 'Business breakdowns' : 'Reports & insights'; });
+
 export const headers = {
+  tips: { title: "Tip Analytics", subtitle: "Monthly tip collections and staff breakdown" },
+  ingredients: { title: "Ingredient Analytics", subtitle: "Monthly recipe consumption, usage costs, and ingredient wastage" },
   overview: {
     title: "Overview",
     subtitle: "Track and analyze your business performance"
