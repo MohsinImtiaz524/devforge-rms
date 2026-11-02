@@ -5,7 +5,7 @@ import './lobby.css'
 
 const GROUPS = [
   { key: 'operations', title: 'Operations', description: 'Daily restaurant operations and frontline tools.', ids: ['dashboard', 'pos', 'delivery', 'tables', 'kds', 'register'] },
-  { key: 'business', title: 'Business', description: 'Manage your restaurant business and data.', ids: ['products', 'brands', 'sales-history', 'analytics', 'reports', 'expenses', 'raw-stock', 'waste-management', 'customers'] },
+  { key: 'business', title: 'Business', description: 'Manage your restaurant business and data.', ids: ['moons', 'products', 'brands', 'sales-history', 'analytics', 'reports', 'expenses', 'raw-stock', 'waste-management', 'customers'] },
   { key: 'administration', title: 'Administration', description: 'People, settings and system management.', ids: ['notifications', 'notification-inbox', 'users', 'settings', 'logs', 'hierarchy', 'subscriptions'] },
 ]
 

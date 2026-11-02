@@ -108,7 +108,7 @@ function enforceApiPermissions(req, res, next) {
   if (req.path.startsWith('/api/print-jobs/') || req.path === '/api/download-print-agent') return next();
   const resource = req.path.split('/')[2];
   // Archive routes declare their exact view/archive/restore permission.
-  if (resource === 'inventory-archives') return next();
+  if (resource === 'inventory-archives' || resource === 'moons') return next(); // Moons declares exact platform permissions in its router.
   if (resource === 'products' && req.method === 'DELETE' && /^\/api\/products\/\d+$/.test(req.path)) {
     // The route selects archive permission for inventory products and preserves
     // the existing delete permission for recipe-based menu products.

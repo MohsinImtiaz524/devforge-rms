@@ -3,6 +3,7 @@ const shiftService = require('./ShiftService');
 
 const MODULES = [
   { id: 'reports', label: 'Reports', desc: 'Filter, print, and export operational reports.', icon: '' },
+  { id: 'moons', label: 'Moons Catalog', desc: 'Manage module details, artwork, availability and offered prices.', icon: '<path d="M20 14A8 8 0 0110 4a8 8 0 1010 10z" fill="#6366F1"/>' },
   { id: 'dashboard', label: 'Dashboards', desc: 'Overview of sales, revenue, and store health analytics.', icon: '<rect x="3" y="3" width="7" height="7" rx="1" fill="#4F46E5"/><rect x="14" y="3" width="7" height="7" rx="1" fill="#0EA5E9"/><rect x="3" y="14" width="7" height="7" rx="1" fill="#10B981"/><rect x="14" y="14" width="7" height="7" rx="1" fill="#F59E0B"/>' },
   { id: 'pos', label: 'POS Terminal', desc: 'Process sales, generate bills, and manage customer checkouts.', icon: '<path d="M4 6h16v10c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V6z" fill="#F59E0B"/><path d="M3 6h18v2H3V6z" fill="#D97706"/><circle cx="12" cy="12" r="2" fill="white"/>' },
   { id: 'delivery', label: 'Delivery Panel', desc: 'Create shared delivery orders, update their status, and record who received payment.', icon: '<path d="M3 6h11v10H3z" fill="#2563EB"/><path d="M14 10h4l3 3v3h-7z" fill="#60A5FA"/><circle cx="7" cy="18" r="2" fill="#1D4ED8"/><circle cx="17" cy="18" r="2" fill="#1D4ED8"/>' },
@@ -49,6 +50,7 @@ async function getLobby(user, resolvedPermissions) {
 
   const allowedPanels = Array.isArray(user.allowed_panels) ? user.allowed_panels : [];
   const allowed = MODULES.filter(module => {
+    if (module.id === 'moons') return process.env.MOONS_ENABLED === 'true' && (user.role === 'superadmin' ? permissionSet.has('platform_moons.view') : Number(user.shop_id) > 0);
     if (module.id === 'notification-inbox') return user.role !== 'superadmin';
     if (module.id === 'pos') return permissionSet.has('orders.create') || permissionSet.has('orders.view');
     if (module.id === 'register') return manageRegister || activeShift?.status === 'open';
@@ -75,8 +77,9 @@ async function getLobby(user, resolvedPermissions) {
     },
     modules: allowed.map(module => ({
       ...module,
-      frontend: ['dashboard', 'users', 'raw-stock', 'notifications', 'notification-inbox', 'analytics', 'reports', 'sales-history', 'tables', 'expenses'].includes(module.id) ? 'react' : 'legacy',
-      target: module.id === 'analytics' ? '/app/analytics' : module.id === 'reports' ? '/app/reports' : module.id === 'sales-history' ? '/app/sales' : module.id === 'tables' ? '/app/tables' : module.id === 'expenses' ? '/app/expenses' : module.id === 'dashboard' ? '/app/dashboard' : module.id === 'users' ? '/app/staff' : module.id === 'raw-stock' ? '/app/inventory' : module.id === 'notifications' ? '/app/notifications' : module.id === 'notification-inbox' ? '/app/notification-inbox' : `/dashboard#${module.id}`,
+      ...(module.id === 'moons' && user.role !== 'superadmin' ? {label:'Moons',desc:'Browse and open optional workspaces for your shop.'} : {}),
+      frontend: ['moons', 'dashboard', 'users', 'raw-stock', 'notifications', 'notification-inbox', 'analytics', 'reports', 'sales-history', 'tables', 'expenses'].includes(module.id) ? 'react' : 'legacy',
+      target: module.id === 'moons' ? (user.role === 'superadmin' ? '/app/moons/manage' : '/app/moons') : module.id === 'analytics' ? '/app/analytics' : module.id === 'reports' ? '/app/reports' : module.id === 'sales-history' ? '/app/sales' : module.id === 'tables' ? '/app/tables' : module.id === 'expenses' ? '/app/expenses' : module.id === 'dashboard' ? '/app/dashboard' : module.id === 'users' ? '/app/staff' : module.id === 'raw-stock' ? '/app/inventory' : module.id === 'notifications' ? '/app/notifications' : module.id === 'notification-inbox' ? '/app/notification-inbox' : `/dashboard#${module.id}`,
     })),
   };
 }

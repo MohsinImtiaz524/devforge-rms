@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 
+const MoonsManager = lazy(() => import('./modules/moons/MoonsManager'))
 const ShopLogo = lazy(() => import('./modules/shops/ShopLogo'))
 const StaffDirectory = lazy(() => import('./modules/staff/StaffDirectory'))
 const Lobby = lazy(() => import('./modules/lobby/Lobby'))
@@ -7,6 +8,8 @@ const ChangePassword = lazy(() => import('./modules/auth/ChangePassword'))
 const LoginPage = lazy(() => import('./modules/auth/LoginPage'))
 const InventoryPage = lazy(() => import('./modules/inventory/InventoryPage'))
 const AnalyticsPage = lazy(() => import('./modules/analytics/AnalyticsPage'))
+const AnalyticsMoon = lazy(() => import('./modules/moons/analytics/AnalyticsMoon'))
+const MoonsDirectory = lazy(() => import('./modules/moons/MoonsDirectory'))
 const ReportsPage = lazy(() => import('./modules/reports/ReportsPage'))
 const DashboardPage = lazy(() => import('./modules/dashboard/DashboardPage'))
 const NotificationsPage = lazy(() => import('./modules/notifications/NotificationsPage'))
@@ -31,6 +34,9 @@ function App() {
   const page = window.location.pathname.startsWith('/app/change-password')
     ? <ChangePassword />
     : window.location.pathname.startsWith('/app/login') ? <LoginPage />
+      : window.location.pathname === '/app/moons/analytics' ? <AnalyticsMoon />
+      : window.location.pathname === '/app/moons' ? <MoonsDirectory />
+      : window.location.pathname === '/app/moons/manage' ? <MoonsManager />
       : window.location.pathname.startsWith('/app/staff') ? <StaffDirectory />
       : window.location.pathname.startsWith('/app/inventory') ? <InventoryPage />
       : window.location.pathname.startsWith('/app/tables') ? <TablesPage />

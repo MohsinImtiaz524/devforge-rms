@@ -30,6 +30,7 @@ const MODULES = {
   platform_shops: ['view', 'create', 'update', 'delete'],
   platform_subscriptions: ['view', 'manage'],
   platform_finance: ['view', 'manage'],
+  platform_moons: ['view', 'update', 'publish', 'manage_prices'],
   platform_announcements: ['view', 'create', 'update', 'publish', 'archive', 'analytics'],
 };
 

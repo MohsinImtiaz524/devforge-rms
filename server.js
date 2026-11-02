@@ -195,6 +195,8 @@ app.use("/api/waste", require("./routes/waste"));
 app.use("/api/shop-settings", require("./routes/shop-settings"));
 app.use("/api/admin", require("./routes/admin"));
 app.use("/api/notifications", require("./routes/notifications"));
+app.use('/api/moons/directory', require('./src/modules/moons/moons.directory').createDirectoryRouter({service:require('./src/modules/moons/moons.directory').createDirectoryService({db,catalog:require('./src/modules/moons/moons.runtime').service})}));
+app.use('/api/moons/admin', require('./src/modules/moons/moons.routes').createMoonsRouter({service:require('./src/modules/moons/moons.runtime').service}));
 app.use("/api/files", require("./src/modules/files/files.routes"));
 app.use("/api/announcements", require("./src/modules/announcements/announcements.routes"));
 app.use("/api/notification-preferences", require("./src/modules/notification-preferences/notification-preferences.routes"));
@@ -272,7 +274,7 @@ app.get("/api/download-print-agent", async (req, res) => {
 const reactDist = path.join(__dirname, "frontend", "dist");
 if (fs.existsSync(reactDist)) {
   app.use("/app", express.static(reactDist, { setHeaders: (res, filePath) => {
-    if (/[/\\]assets[/\\].+\.[A-Za-z0-9_-]{8,}\.(?:js|css)$/.test(filePath)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    if (/[/\\]assets[/\\].+[-.][A-Za-z0-9_-]{8,}\.(?:js|css|png|webp|jpe?g|avif|svg|woff2?)$/.test(filePath)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     else res.setHeader('Cache-Control', 'no-cache');
   } }));
   app.get(/^\/app(?:\/.*)?$/, (req, res) => {
@@ -337,6 +339,10 @@ if (require.main === module) {
     if (!usePostgres()) await require('./src/modules/expenses/expenses.migration').ensureExpensesKnexSchema(require('./db/knex'));
     if (!usePostgres()) await require('./src/modules/announcements/announcements.migration').ensureAnnouncementsKnexSchema(require('./db/knex'));
     await require('./authorization/service').ensureAuthorizationSchema();
+    if (process.env.MOONS_ENABLED === 'true') await db.transaction(async trx => {
+      if (usePostgres()) await trx.raw('SELECT pg_advisory_xact_lock(?)', [72401391]);
+      await require('./src/modules/moons/moons.migration').ensureMoonsSchema(trx);
+    });
     await require('./services/PushNotificationService').ensureSchema();
     await db.transaction(async trx=>{
       if(usePostgres())await trx.raw('SELECT pg_advisory_xact_lock(?)',[72401384]);

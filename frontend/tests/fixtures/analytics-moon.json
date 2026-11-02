@@ -1,0 +1,124 @@
+{
+  "bounds": {
+    "start": "2026-11-01 00:00:00",
+    "end": "2026-11-07 23:59:59"
+  },
+  "kpi": {
+    "totalSales": 1500,
+    "totalOrders": 3,
+    "avgOrderValue": 500,
+    "activeCustomers": 3,
+    "walkInCustomers": 2,
+    "totalCustomers": 5,
+    "totalInvoices": 3
+  },
+  "growth": {
+    "sales": 20,
+    "orders": 10,
+    "customers": 5,
+    "invoices": 10
+  },
+  "summary": {
+    "totalDiscounts": 50,
+    "totalReturns": 1,
+    "totalRefunds": 100,
+    "grossProfit": 900,
+    "shopProfit": 850,
+    "shopProfitMargin": 56.7,
+    "profitMargin": 60,
+    "stockValue": 12000
+  },
+  "trendSeries": [
+    {
+      "label": "2026-11-01",
+      "sales": 600,
+      "orders": 1
+    },
+    {
+      "label": "2026-11-07",
+      "sales": 900,
+      "orders": 2
+    }
+  ],
+  "paymentBreakdown": [
+    {
+      "label": "cash",
+      "sales": 900,
+      "orders": 2
+    },
+    {
+      "label": "card",
+      "sales": 600,
+      "orders": 1
+    }
+  ],
+  "channelBreakdown": [
+    {
+      "label": "dine_in",
+      "sales": 1500,
+      "orders": 3
+    }
+  ],
+  "categoryBreakdown": [
+    {
+      "label": "Burgers",
+      "sales": 1500,
+      "orders": 3
+    }
+  ],
+  "bestSellingHours": [
+    {
+      "label": "02",
+      "sales": 900,
+      "orders": 2
+    }
+  ],
+  "topProducts": [
+    {
+      "id": 1,
+      "name": "Burger",
+      "stock": 2,
+      "quantity_sold": 3,
+      "sales": 1500
+    }
+  ],
+  "heatmapRaw": [
+    {
+      "dt": "2026-11-07",
+      "block_idx": 0,
+      "sales": 900,
+      "orders": 2
+    },
+    {
+      "dt": "2026-11-07",
+      "block_idx": 1,
+      "sales": 600,
+      "orders": 1
+    }
+  ],
+  "recentSales": [],
+  "staffPerformance": [
+    {
+      "name": "Alex",
+      "orders": 3,
+      "received_sales": 1500
+    }
+  ],
+  "brands": [
+    {
+      "id": 1,
+      "name": "Partner A",
+      "partner_type": "share_based"
+    }
+  ],
+  "selectedBrandId": null,
+  "partnerProfitShares": [],
+  "brandPerformance": [],
+  "totalTipsCollected": 50,
+  "tipsBreakdown": {
+    "cash_tips": 50
+  },
+  "totalCOGS": 600,
+  "damageTotal": 50,
+  "totalPartnerProfit": 850
+}
