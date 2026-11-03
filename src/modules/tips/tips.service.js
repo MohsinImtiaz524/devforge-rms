@@ -143,8 +143,8 @@ async function payments(shopId, shiftId, connection = db) {
       'tip.collection_mode', 'tip.collected_at as payment_time', 's.payment_method as bill_payment_method',
       's.order_number', 's.order_type', 's.order_status', 's.customer_name', 't.table_number');
 }
-// Analytics reads the immutable collection ledger once. The collector is the
-// only persisted staff assignment; sale.tip_amount is a mirror, not another tip.
+// Attribute earnings to the order's waiter; collected_by remains the immutable
+// cash-handling audit record. Missing/cross-shop assignments stay unassigned.
 async function monthlyAnalytics(shopId, { month, year }, connection = db) {
   if (!Number.isSafeInteger(Number(shopId)) || Number(shopId) <= 0) throw invalid('Shop context required.');
   if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 1900 || year > 9998) throw invalid('Choose a valid month and year.');
@@ -154,8 +154,9 @@ async function monthlyAnalytics(shopId, { month, year }, connection = db) {
   const start = `${year}-${String(month).padStart(2, '0')}-01`;
   const end = month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, '0')}-01`;
   const query = connection('sale_tips as tip')
-    .leftJoin('users as u', function () { this.on('u.id', 'tip.collected_by').andOn('u.shop_id', 'tip.shop_id'); })
-    .leftJoin('staff_profiles as staff', function () { this.on('staff.user_id', 'tip.collected_by').andOn('staff.shop_id', 'tip.shop_id'); })
+    .leftJoin('sales as sale', function () { this.on('sale.id', 'tip.sale_id').andOn('sale.shop_id', 'tip.shop_id'); })
+    .leftJoin('users as u', function () { this.on('u.id', 'sale.waiter_id').andOn('u.shop_id', 'tip.shop_id'); })
+    .leftJoin('staff_profiles as staff', function () { this.on('staff.user_id', 'u.id').andOn('staff.shop_id', 'tip.shop_id'); })
     .where('tip.shop_id', shopId);
   if (pg) query.whereRaw('tip.collected_at >= (?::timestamp AT TIME ZONE ?) AND tip.collected_at < (?::timestamp AT TIME ZONE ?)', [start, timezone, end, timezone]);
   else {
@@ -173,11 +174,11 @@ async function monthlyAnalytics(shopId, { month, year }, connection = db) {
           .whereColumn('ur.user_id', 'u.id').whereRaw('LOWER(r.name) = ?', ['waiter'])
           .andWhere(function () { this.where('r.shop_id', shopId).orWhereNull('r.shop_id'); }));
     }).select('u.id', 'u.name', 'staff.full_name');
-  const [records, waiters] = await Promise.all([query.select('tip.collected_by', 'u.name', 'staff.full_name')
+  const [records, waiters] = await Promise.all([query.select('u.id as waiter_id', 'u.name', 'staff.full_name')
     .count('tip.id as count').sum('tip.amount_cents as amount_cents')
-    .groupBy('tip.collected_by', 'u.name', 'staff.full_name'), waitersQuery]);
-  const byStaff = new Map(records.map(row => [Number(row.collected_by), {
-    id: Number(row.collected_by), name: row.full_name || row.name || `Former staff #${row.collected_by}`,
+    .groupBy('u.id', 'u.name', 'staff.full_name'), waitersQuery]);
+  const byStaff = new Map(records.map(row => [Number(row.waiter_id), {
+    id: Number(row.waiter_id), name: row.waiter_id == null ? 'Unassigned' : row.full_name || row.name || `Former staff #${row.waiter_id}`,
     quantity: Number(row.count), amountCents: BigInt(row.amount_cents),
   }]));
   for (const waiter of waiters) {
@@ -189,7 +190,7 @@ async function monthlyAnalytics(shopId, { month, year }, connection = db) {
   return {
     month, year, timezone,
     tips: rows.map(({ amountCents, ...row }) => ({ ...row, revenue: Number(amountCents) / 100 })),
-    kpi: { totalTips: Number(totalCents) / 100, tipsReceived: rows.reduce((sum, row) => sum + row.quantity, 0), topRecipient: rows.find(row => row.amountCents > 0n)?.name || null },
+    kpi: { totalTips: Number(totalCents) / 100, tipsReceived: rows.reduce((sum, row) => sum + row.quantity, 0), topRecipient: rows.find(row => row.id > 0 && row.amountCents > 0n)?.name || null },
   };
 }
 

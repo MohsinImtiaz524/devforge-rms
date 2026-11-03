@@ -10,6 +10,7 @@ test('monthly tip analytics counts each collection once, uses cents, isolates st
     await db.raw('CREATE TABLE roles (id INTEGER PRIMARY KEY, shop_id INTEGER, name TEXT)');
     await db.raw('CREATE TABLE user_roles (user_id INTEGER, role_id INTEGER)');
     await db.raw('CREATE TABLE staff_profiles (user_id INTEGER UNIQUE, shop_id INTEGER, full_name TEXT)');
+    await db.raw('CREATE TABLE sales (id INTEGER PRIMARY KEY, shop_id INTEGER, waiter_id INTEGER)');
     await db.raw('CREATE TABLE sale_tips (id INTEGER PRIMARY KEY, shop_id INTEGER, sale_id INTEGER, collected_by INTEGER, amount_cents BIGINT, collected_at TEXT, collection_mode TEXT, UNIQUE(shop_id, sale_id))');
     await db('users').insert([{ id: 1, shop_id: 1, name: 'Cashier' }, { id: 2, shop_id: 1, name: 'Same name' }, { id: 3, shop_id: 2, name: 'Private user' }]);
     await db('users').where('id', 2).update({ role: 'waiter' });
@@ -23,6 +24,15 @@ test('monthly tip analytics counts each collection once, uses cents, isolates st
     await db('roles').insert([{ id: 1, shop_id: 1, name: 'Waiter' }, { id: 2, shop_id: null, name: 'Waiter' }, { id: 3, shop_id: 2, name: 'Waiter' }]);
     await db('user_roles').insert([{ user_id: 6, role_id: 1 }, { user_id: 6, role_id: 2 }, { user_id: 8, role_id: 3 }]);
     await db('staff_profiles').insert([{ user_id: 1, shop_id: 1, full_name: 'Employee A' }, { user_id: 3, shop_id: 2, full_name: 'Private employee' }]);
+    await db('sales').insert([
+      { id: 1, shop_id: 1, waiter_id: 2 },
+      { id: 2, shop_id: 1, waiter_id: 2 },
+      { id: 3, shop_id: 1, waiter_id: 4 },
+      { id: 4, shop_id: 2, waiter_id: 3 },
+      { id: 5, shop_id: 1, waiter_id: 2 },
+      { id: 6, shop_id: 1, waiter_id: 2 },
+      { id: 7, shop_id: 1, waiter_id: 3 },
+    ]);
     await db('sale_tips').insert([
       { id: 1, shop_id: 1, sale_id: 1, collected_by: 1, amount_cents: 10010, collected_at: '2024-01-31T19:00:00Z', collection_mode: 'checkout' },
       { id: 2, shop_id: 1, sale_id: 2, collected_by: 1, amount_cents: 2020, collected_at: '2024-02-29 18:59:59.999', collection_mode: 'standalone' },
@@ -37,11 +47,14 @@ test('monthly tip analytics counts each collection once, uses cents, isolates st
     const data = await monthlyAnalytics(1, selection, db);
     assert.equal(data.kpi.totalTips, 170.55);
     assert.equal(data.kpi.tipsReceived, 4);
-    assert.equal(data.kpi.topRecipient, 'Employee A');
-    assert.deepEqual(data.tips[0], { id: 1, name: 'Employee A', quantity: 2, revenue: 120.30 });
-    assert.equal(data.tips[2].name, 'Former staff #3');
-    assert.deepEqual(data.tips.filter(row => row.quantity === 0).map(row => row.id).sort(), [4, 5, 6]);
-    assert.equal(data.tips.length, 6, 'tipped waiters and multiple role assignments must not duplicate staff');
+    assert.equal(data.kpi.topRecipient, 'Same name');
+    assert.deepEqual(data.tips[0], { id: 2, name: 'Same name', quantity: 2, revenue: 120.30 });
+    assert.equal(data.tips[1].id, 4, 'serving waiter wins even when another waiter collected payment');
+    assert.equal(data.tips[2].name, 'Unassigned', 'cross-shop waiter identity is never exposed');
+    assert.ok(!data.tips.some(row => row.id === 1), 'cashier does not receive waiter earnings');
+    assert.equal((await db('sale_tips').where('id', 1).first()).collected_by, 1, 'collector audit record stays unchanged');
+    assert.deepEqual(data.tips.filter(row => row.quantity === 0).map(row => row.id).sort(), [5, 6]);
+    assert.equal(data.tips.length, 5, 'multiple role assignments must not duplicate staff');
     assert.ok(data.tips.filter(row => row.quantity === 0).every(row => row.revenue === 0));
     assert.equal(data.tips.reduce((sum, row) => sum + Math.round(row.revenue * 100), 0), 17055);
     assert.equal(data.tips.reduce((sum, row) => sum + row.quantity, 0), data.kpi.tipsReceived);
@@ -57,6 +70,18 @@ test('monthly tip analytics counts each collection once, uses cents, isolates st
     await assert.rejects(monthlyAnalytics(1, selection, db));
     await db.schema.renameTable('sale_tips_offline', 'sale_tips');
     assert.deepEqual(await monthlyAnalytics(1, selection, db), data);
+    await db('sales').where('id', 1).update({ waiter_id: null });
+    const unassigned = await monthlyAnalytics(1, selection, db);
+    assert.equal(unassigned.tips.find(row => row.id === 0).revenue, 100.35);
+    assert.equal(unassigned.kpi.totalTips, data.kpi.totalTips, 'missing waiter preserves ledger totals');
+    assert.notEqual(unassigned.kpi.topRecipient, 'Unassigned');
+    await db('sales').where('id', 2).update({ shop_id: 2 });
+    const wrongShopSale = await monthlyAnalytics(1, selection, db);
+    assert.equal(wrongShopSale.tips.find(row => row.id === 0).revenue, 120.55, 'sale join must enforce the business');
+    await db('sales').where('id', 3).delete();
+    const missingSale = await monthlyAnalytics(1, selection, db);
+    assert.equal(missingSale.tips.find(row => row.id === 0).revenue, 170.55);
+    assert.equal(missingSale.kpi.topRecipient, null, 'unassigned tips cannot become top waiter');
   } finally { await db.destroy(); }
 });
 
