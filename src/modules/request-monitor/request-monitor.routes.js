@@ -6,7 +6,7 @@ function createMonitorRouter({ monitor = require('./request-monitor.service').mo
   router.use(requireSuperAdmin);
   router.use((req, res, next) => { res.set('Cache-Control', 'no-store, private'); next(); });
   router.get('/view', (req, res) => res.sendFile(path.resolve(__dirname, '../../../public/request-monitor.html')));
-  router.get('/', (req, res) => res.json(monitor.snapshot()));
+  router.get('/', (req, res) => res.json(monitor.snapshot(require('./request-monitor.intelligence').WINDOWS[req.query.window] ? req.query.window : 'live')));
   return router;
 }
 function initializeMonitorSocket(io, { monitor = require('./request-monitor.service').monitor, intervalMs = 1000 } = {}) {
@@ -21,13 +21,18 @@ function initializeMonitorSocket(io, { monitor = require('./request-monitor.serv
   });
   let timer;
   function emit() {
+    const snapshots = new Map();
     for (const socket of namespace.sockets.values()) {
       if (Date.now() >= socket.data.monitorExpiry) { socket.disconnect(true); continue; }
       // Volatile delivery bounds backpressure; the next snapshot restores current state.
-      socket.volatile.emit('monitor:snapshot', monitor.snapshot());
+      const window=socket.data.monitorWindow || 'live';
+      if(!snapshots.has(window)) snapshots.set(window,monitor.snapshot(window));
+      socket.volatile.emit('monitor:snapshot', snapshots.get(window));
     }
   }
   namespace.on('connection', socket => {
+    socket.data.monitorWindow='live';
+    socket.on('monitor:window', value=>{if(require('./request-monitor.intelligence').WINDOWS[value]) socket.data.monitorWindow=value;});
     socket.emit('monitor:snapshot', monitor.snapshot());
     if (!timer) { timer = setInterval(emit, intervalMs); timer.unref?.(); }
     socket.on('disconnect', () => { if (!namespace.sockets.size && timer) { clearInterval(timer); timer = null; } });

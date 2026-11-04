@@ -16,6 +16,7 @@ class OrderRealtimeService {
     });
 
     io.engine.use(sessionMiddleware);
+    require('../src/modules/request-monitor/request-monitor.service').monitor.instrumentIo(io);
     io.use((socket, next) => {
       const user = socket.request.session?.user;
       const shopId = Number(user?.shop_id);

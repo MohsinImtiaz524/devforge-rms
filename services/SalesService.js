@@ -2226,3 +2226,5 @@ class SalesService {
 }
 
 module.exports = new SalesService();
+
+require('../src/modules/request-monitor/request-monitor.service').monitor.instrumentMethods(module.exports, 'SalesService', ["getSales","getSalesPage","getBill"]);

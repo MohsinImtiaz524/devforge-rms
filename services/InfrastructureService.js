@@ -587,3 +587,5 @@ class InfrastructureService {
 }
 
 module.exports = new InfrastructureService();
+
+require('../src/modules/request-monitor/request-monitor.service').monitor.instrumentMethods(module.exports, 'InfrastructureService', ["listActiveKitchenOrders","updateOrderStatus"]);

@@ -16,7 +16,7 @@ function startFilesWorker(service, options = {}) {
     if (stopped) return;
     if (timer) cancel(timer);
     workerStatus.nextJobAt = new Date(now() + Math.max(0, delay)).toISOString();
-    timer = schedule(() => { timer = null; void tick(); }, Math.min(2147483647, Math.max(0, delay)));
+    timer = schedule(() => { timer = null; void require('../request-monitor/request-monitor.service').monitor.runContext('FilesWorker.tick', tick); }, Math.min(2147483647, Math.max(0, delay)));
     timer.unref?.();
   }
   function wake() {

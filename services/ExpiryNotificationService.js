@@ -178,3 +178,5 @@ class ExpiryNotificationService {
 
 module.exports = new ExpiryNotificationService();
 module.exports.dateKey = dateKey;
+
+require('../src/modules/request-monitor/request-monitor.service').monitor.instrumentMethods(module.exports, 'ExpiryNotificationService', ["syncSubscribedUsers","syncForUser","syncExpiry","syncOutOfStock"]);

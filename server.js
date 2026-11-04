@@ -310,9 +310,9 @@ function startServer(port = PORT) {
     console.log("   Login: admin / admin123");
   });
   const sessionSecurity = require('./src/modules/session-security/session-security.service');
-  sessionSecurity.pruneExpiredSessions().catch((error) => console.error('[Session Cleanup]', error.message));
+  require('./src/modules/request-monitor/request-monitor.service').monitor.runContext('SessionCleanup.pruneExpiredSessions', () => sessionSecurity.pruneExpiredSessions()).catch((error) => console.error('[Session Cleanup]', error.message));
   const cleanupTimer = setInterval(() => {
-    sessionSecurity.pruneExpiredSessions().catch((error) => console.error('[Session Cleanup]', error.message));
+    require('./src/modules/request-monitor/request-monitor.service').monitor.runContext('SessionCleanup.pruneExpiredSessions', () => sessionSecurity.pruneExpiredSessions()).catch((error) => console.error('[Session Cleanup]', error.message));
   }, 60 * 60 * 1000);
   cleanupTimer.unref?.();
   return listener;
@@ -379,7 +379,7 @@ if (require.main === module) {
     const syncInventoryAlerts = async () => {
       if (inventorySyncRunning) return;
       inventorySyncRunning = true;
-      try { await inventoryAlerts.syncSubscribedUsers(); }
+      try { await require('./src/modules/request-monitor/request-monitor.service').monitor.runContext('InventoryAlerts.syncSubscribedUsers', () => inventoryAlerts.syncSubscribedUsers()); }
       catch (error) { console.error('[Inventory Alert Sync]', error.message); }
       finally { inventorySyncRunning = false; }
     };
