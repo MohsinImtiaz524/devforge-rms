@@ -10,6 +10,7 @@ function createStorage() {
     credentials:{accessKeyId:settings.accessKeyId,secretAccessKey:settings.secretAccessKey},
     requestChecksumCalculation:'WHEN_REQUIRED', responseChecksumValidation:'WHEN_REQUIRED',
     requestHandler:{connectionTimeout:Math.min(5000,timeout),requestTimeout:timeout}, maxAttempts:2 });
+  require('../request-monitor/request-monitor.service').monitor.instrumentS3(client);
   const bucket = settings.bucket;
   return {
     async uploadUrl(key, type, seconds) { return getSignedUrl(client, new PutObjectCommand({ Bucket:bucket, Key:key, ContentType:type }), { expiresIn:seconds, signableHeaders:new Set(['content-type']) }); },

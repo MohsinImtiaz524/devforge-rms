@@ -42,6 +42,7 @@ function createRuntimeHealthService() {
       const client = new S3Client({ region: 'auto', endpoint: settings.endpoint, forcePathStyle: true,
         credentials: { accessKeyId: settings.accessKeyId, secretAccessKey: settings.secretAccessKey },
         maxAttempts: 1, requestHandler: { connectionTimeout: 2000, requestTimeout: 4000 } });
+      require('../request-monitor/request-monitor.service').monitor.instrumentS3(client);
       try {
         await client.send(new HeadBucketCommand({ Bucket: settings.bucket }), { abortSignal: AbortSignal.timeout(4000) });
         return { status: 'ok', detail: 'Read-only bucket probe succeeded. Upload, download, CORS and file verification still need an actual upload test.' };

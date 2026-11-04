@@ -7,6 +7,7 @@ const platformPaymentService = require('../services/PlatformPaymentService');
 const brandService = require('../services/BrandService');
 const { sendError } = require('../utils/error-response');
 const router = express.Router();
+router.use('/request-monitor', require('../src/modules/request-monitor/request-monitor.routes').createMonitorRouter());
 router.use('/integration-health', require('../src/modules/integration-health/integration-health.routes').createHealthRouter());
 
 // Helper for logging actions

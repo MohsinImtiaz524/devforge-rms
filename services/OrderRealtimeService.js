@@ -44,6 +44,7 @@ class OrderRealtimeService {
     health.on('connection', socket => socket.on('health:ping', acknowledge => {
       if (typeof acknowledge === 'function') acknowledge({ ok: true });
     }));
+    require('../src/modules/request-monitor/request-monitor.routes').initializeMonitorSocket(io);
     this.io = io;
     return io;
   }

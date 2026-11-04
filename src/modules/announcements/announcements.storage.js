@@ -30,7 +30,7 @@ function localPath(key) {
 async function remote(command) {
   const settings = config();
   if (!settings) throw new Error('R2 configuration is required to access this announcement image.');
-  const s3 = client(settings);
+  const s3 = require('../request-monitor/request-monitor.service').monitor.instrumentS3(client(settings));
   try {
     const result = await s3.send(command(settings.bucket));
     if (result.Body) return Buffer.from(await result.Body.transformToByteArray());

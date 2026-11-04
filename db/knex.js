@@ -33,4 +33,5 @@ const config = {
 
 const db = knex(config[dbClient === 'postgres' ? 'postgres' : 'sqlite']);
 
+require('../src/modules/request-monitor/request-monitor.service').monitor.instrumentKnex(db);
 module.exports = db;

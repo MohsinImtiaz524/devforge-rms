@@ -10,6 +10,7 @@ const { formatErrorResponse } = require("./utils/error-response");
 const { createCsrfProtection } = require('./src/modules/session-security/csrf');
 
 const app = express();
+app.use(require('./src/modules/request-monitor/request-monitor.service').monitor.middleware);
 const isProduction = process.env.NODE_ENV === 'production';
 const sessionSecret = process.env.SESSION_SECRET || (!isProduction ? 'dev-only-session-secret-change-me' : null);
 if (!sessionSecret) throw new Error('SESSION_SECRET is required in production.');

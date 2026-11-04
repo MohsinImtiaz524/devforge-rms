@@ -101,7 +101,7 @@ class PushNotificationService {
     const body = JSON.stringify(payload);
     const results = await Promise.all(rows.map(async row => {
       try {
-        await webpush.sendNotification({ endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } }, body, { TTL: 86400, urgency: 'high' });
+        await require('../src/modules/request-monitor/request-monitor.service').monitor.observe('external', 'Web Push ? send', () => webpush.sendNotification({ endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } }, body, { TTL: 86400, urgency: 'high' }));
         await db('push_subscriptions').where({ id: row.id }).update({ updated_at: db.fn.now() });
         return { delivered: true, deviceId: row.id };
       } catch (error) {

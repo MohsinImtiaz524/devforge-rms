@@ -35,6 +35,7 @@ function buildPoolConfig() {
 }
 
 const pool = new Pool(buildPoolConfig());
+pool.on('connect', client => require('../src/modules/request-monitor/request-monitor.service').monitor.instrumentPgClient(client));
 
 pool.on("error", (err) => {
   console.error("[POSTGRES POOL ERROR]", err);
