@@ -4,6 +4,12 @@ const pushNotificationService = require('./PushNotificationService');
 const cashDrawerService = require('./CashDrawerService');
 let kitchenSchemaReady;
 let tableAccessSchemaReady;
+let routeTargetsReady;
+function hasKitchenRouteTargets() {
+  if (!routeTargetsReady) routeTargetsReady = db.schema.hasColumn('product_categories', 'route_targets')
+    .catch(error => { routeTargetsReady = null; throw error; });
+  return routeTargetsReady;
+}
 
 async function ensureTableAccessSchema() {
   if (tableAccessSchemaReady) return tableAccessSchemaReady;
@@ -335,7 +341,8 @@ class InfrastructureService {
     else query.whereIn('s.order_status', ['pending', 'preparing', 'ready', 'served', 'completed']);
 
     const orders = await query.orderBy('s.created_at', 'asc');
-    const hasRouteTargets = await db.schema.hasColumn('product_categories', 'route_targets');
+    if (!orders.length) return [];
+    const hasRouteTargets = kitchenUserId ? await hasKitchenRouteTargets() : false;
     const categoryRoutes = kitchenUserId
       ? await db('product_categories')
         .where({ shop_id: shopId })
@@ -357,26 +364,35 @@ class InfrastructureService {
     const kitchenRouteKey = kitchenUserId ? `KITCHEN:${Number(kitchenUserId)}` : null;
     const visibleOrders = [];
 
-    for (let order of orders) {
-      if (!String(order.punched_by_name || '').trim() && !String(order.punched_by_username || '').trim() && order.punched_by_user_id) {
-        const creator = await db('users')
-          .select('name', 'username')
-          .where({ id: order.punched_by_user_id })
-          .first();
-        if (creator) {
-          order.punched_by_name = String(creator.name || '').trim() || null;
-          order.punched_by_username = String(creator.username || '').trim() || null;
-        }
-      }
-      const items = await db('sale_items as si')
+    // Bounded batches keep SQLite parameter counts safe and avoid per-order reads.
+    const itemsBySale = new Map();
+    const statusesBySaleKitchen = new Map();
+    for (let offset = 0; offset < orders.length; offset += 400) {
+      const ids = orders.slice(offset, offset + 400).map(order => order.id);
+      const itemRows = await db('sale_items as si')
+        .join('sales as scoped_sale', 'scoped_sale.id', 'si.sale_id')
         .leftJoin('products as p', 'si.product_id', 'p.id')
-        .where('si.sale_id', order.id)
-        .select(
-          'si.id', 'si.quantity', 'si.custom_name', 'si.special_instructions', 
-          'si.variants_json', 'si.addons_json',
-          'p.category as product_category',
-          db.raw('COALESCE(p.name, si.custom_name) as product_name')
-        );
+        .where('scoped_sale.shop_id', shopId).whereIn('si.sale_id', ids)
+        .select('si.sale_id', 'si.id', 'si.quantity', 'si.custom_name', 'si.special_instructions',
+          'si.variants_json', 'si.addons_json', 'p.category as product_category',
+          db.raw('COALESCE(p.name, si.custom_name) as product_name'));
+      for (const { sale_id, ...item } of itemRows) {
+        if (!itemsBySale.has(sale_id)) itemsBySale.set(sale_id, []);
+        itemsBySale.get(sale_id).push(item);
+      }
+      if (kitchenUserId) {
+        const statuses = await db('kitchen_order_statuses').where({ shop_id: shopId }).whereIn('sale_id', ids);
+        for (const row of statuses) statusesBySaleKitchen.set(row.sale_id + ':' + row.kitchen_id, row);
+      }
+    }
+
+    for (let order of orders) {
+      // The existing creator join already supplies this user's name and username.
+      if (order.punched_by_user_id && !String(order.punched_by_name || '').trim() && !String(order.punched_by_username || '').trim()) {
+        order.punched_by_name = null;
+        order.punched_by_username = null;
+      }
+      const items = itemsBySale.get(order.id) || [];
 
       let visibleItems = items;
       const routedKitchenIds = [...new Set(items.flatMap(item =>
@@ -387,16 +403,29 @@ class InfrastructureService {
       ))];
       const orderAlreadyFinished = ['ready', 'served', 'completed'].includes(order.order_status);
       const initialKitchenStatus = orderAlreadyFinished ? 'completed' : (order.order_status === 'preparing' ? 'preparing' : 'pending');
+      let repaired = false;
       for (const routedKitchenId of routedKitchenIds) {
+        if (statusesBySaleKitchen.has(order.id + ':' + routedKitchenId)) continue;
+        // Preserve legacy/new-order repair without attempting duplicate writes on every refresh.
         await db('kitchen_order_statuses').insert({ shop_id: shopId, sale_id: order.id, kitchen_id: routedKitchenId, status: initialKitchenStatus })
           .onConflict(['sale_id', 'kitchen_id']).ignore();
+        repaired = true;
       }
-      if (orderAlreadyFinished && routedKitchenIds.length) {
+      const staleKitchenIds = orderAlreadyFinished ? routedKitchenIds.filter(id => {
+        const row = statusesBySaleKitchen.get(order.id + ':' + id);
+        return row && row.status !== 'completed';
+      }) : [];
+      if (staleKitchenIds.length) {
         await db('kitchen_order_statuses')
           .where({ shop_id: shopId, sale_id: order.id })
-          .whereIn('kitchen_id', routedKitchenIds)
+          .whereIn('kitchen_id', staleKitchenIds)
           .whereNot('status', 'completed')
           .update({ status: 'completed', updated_at: db.fn.now() });
+        repaired = true;
+      }
+      if (repaired) {
+        const rows = await db('kitchen_order_statuses').where({ shop_id: shopId, sale_id: order.id });
+        for (const row of rows) statusesBySaleKitchen.set(row.sale_id + ':' + row.kitchen_id, row);
       }
       if (kitchenUserId) {
         const hasCategoryKitchenRouting = items.some(item =>
@@ -414,7 +443,7 @@ class InfrastructureService {
       }
 
       if (kitchenUserId && routedKitchenIds.includes(Number(kitchenUserId))) {
-        const kitchenStatus = await db('kitchen_order_statuses').where({ shop_id: shopId, sale_id: order.id, kitchen_id: kitchenUserId }).first();
+        const kitchenStatus = statusesBySaleKitchen.get(order.id + ':' + kitchenUserId);
         if (kitchenStatus && !['served', 'completed'].includes(order.order_status)) {
           order.order_status = kitchenStatus.status === 'completed' ? 'ready' : kitchenStatus.status;
         }
