@@ -1,0 +1,1 @@
+try { const saved = localStorage.getItem('theme'); const cookieDark = document.cookie.split(';').some(value => value.trim() === 'rms_theme=dark'); if (saved === 'dark' || (!saved && cookieDark)) document.documentElement.classList.add('dark'); } catch {}

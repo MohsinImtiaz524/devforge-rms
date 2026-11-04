@@ -37,6 +37,13 @@ class OrderRealtimeService {
       socket.emit('realtime:ready', { connected: true });
     });
 
+    // Root diagnostics use a separate namespace and never join tenant rooms.
+    const health = io.of('/integration-health');
+    health.use((socket, next) => socket.request.session?.user?.role === 'superadmin'
+      ? next() : next(new Error('Forbidden')));
+    health.on('connection', socket => socket.on('health:ping', acknowledge => {
+      if (typeof acknowledge === 'function') acknowledge({ ok: true });
+    }));
     this.io = io;
     return io;
   }

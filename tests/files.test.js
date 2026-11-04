@@ -25,7 +25,16 @@ test('shared Files lifecycle isolates owners, publishes immutable bytes, rolls b
   await assert.rejects(service.metadata(other,session.fileId),{status:404});
   await assert.rejects(db.transaction(trx=>service.syncAttachments(trx,admin,resource,[session.fileId])),{publicCode:'FILE_NOT_READY'});
   const upload=await db('file_upload_sessions').where({id:session.sessionId}).first();objects.set(upload.staging_key,bytes);
-  assert.equal((await service.complete(admin,session.sessionId)).status,'verifying');assert.equal((await service.complete(admin,session.sessionId)).status,'verifying');
+  let committedJob; let wakeCount=0;
+  const unsubscribe=service.onWork(()=>{wakeCount++;committedJob=db('file_jobs').where({file_id:session.fileId,kind:'verify'}).first();});
+  assert.equal((await service.complete(admin,session.sessionId)).status,'verifying');
+  assert.ok(await committedJob, 'worker wakeup sees the committed durable job');
+  assert.equal((await service.complete(admin,session.sessionId)).status,'verifying');
+  assert.equal(wakeCount,1);unsubscribe();
+  assert.ok((await service.nextJobAt()) <= Date.now());
+  let rollbackWakeups=0;const stopRollbackCheck=service.onWork(()=>rollbackWakeups++);
+  await assert.rejects(db.transaction(async trx=>{await service.scheduleUnreferencedDeletion(trx,session.fileId);throw new Error('rollback job');}),/rollback job/);
+  await new Promise(resolve=>setImmediate(resolve));assert.equal(rollbackWakeups,0);stopRollbackCheck();
   assert.equal(Number((await db('file_jobs').where({kind:'verify'}).count('* as n').first()).n),1);
   await service.sweep();const file=await db('files').where({id:session.fileId}).first();assert.equal(file.status,'ready');assert.equal(file.width,5);
   assert.equal((await service.content(admin,session.fileId)).mime,'image/png');await assert.rejects(service.content(other,session.fileId),{status:404});

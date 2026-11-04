@@ -9,6 +9,6 @@ function r2Config() {
 }
 function uploadConfig(){
  const number=(name,fallback,min,max)=>{const value=Number(process.env[name]||fallback);if(!Number.isSafeInteger(value)||value<min||value>max)fail(503,'Invalid file pipeline configuration: '+name,'FILES_CONFIGURATION');return value;};
- return {storageTimeoutMs:number('FILES_STORAGE_TIMEOUT_MS',30000,1000,120000),imageConcurrency:number('FILES_IMAGE_CONCURRENCY',1,1,2),imageQueueLimit:number('FILES_IMAGE_QUEUE_LIMIT',4,0,20),maxPending:number('FILES_MAX_PENDING_UPLOADS',20,1,100),scopeQuotaBytes:number('FILES_SCOPE_QUOTA_BYTES',1073741824,20971520,1099511627776),uploadTtlSeconds:number('FILES_UPLOAD_TTL_SECONDS',900,60,900),unattachedHours:number('FILES_UNATTACHED_RETENTION_HOURS',24,1,720),maxAttempts:number('FILES_JOB_MAX_ATTEMPTS',5,1,10),workerIntervalMs:number('FILES_WORKER_INTERVAL_MS',5000,1000,60000)};
+ return {storageTimeoutMs:number('FILES_STORAGE_TIMEOUT_MS',30000,1000,120000),imageConcurrency:number('FILES_IMAGE_CONCURRENCY',1,1,2),imageQueueLimit:number('FILES_IMAGE_QUEUE_LIMIT',4,0,20),maxPending:number('FILES_MAX_PENDING_UPLOADS',20,1,100),scopeQuotaBytes:number('FILES_SCOPE_QUOTA_BYTES',1073741824,20971520,1099511627776),uploadTtlSeconds:number('FILES_UPLOAD_TTL_SECONDS',900,60,900),unattachedHours:number('FILES_UNATTACHED_RETENTION_HOURS',24,1,720),maxAttempts:number('FILES_JOB_MAX_ATTEMPTS',5,1,10),workerIntervalMs:number('FILES_WORKER_INTERVAL_MS',5000,1000,60000),cleanupIntervalMs:number('FILES_CLEANUP_INTERVAL_MS',3600000,60000,86400000)};
 }
 module.exports={r2Config,uploadConfig};

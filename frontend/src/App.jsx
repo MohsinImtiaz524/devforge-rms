@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 
+const WebsiteMoon = lazy(() => import('./modules/moons/website/WebsiteMoon'))
 const MoonsManager = lazy(() => import('./modules/moons/MoonsManager'))
 const ShopLogo = lazy(() => import('./modules/shops/ShopLogo'))
 const StaffDirectory = lazy(() => import('./modules/staff/StaffDirectory'))
@@ -34,6 +35,7 @@ function App() {
   const page = window.location.pathname.startsWith('/app/change-password')
     ? <ChangePassword />
     : window.location.pathname.startsWith('/app/login') ? <LoginPage />
+      : window.location.pathname === '/app/moons/website' ? <WebsiteMoon />
       : window.location.pathname === '/app/moons/analytics' ? <AnalyticsMoon />
       : window.location.pathname === '/app/moons' ? <MoonsDirectory />
       : window.location.pathname === '/app/moons/manage' ? <MoonsManager />

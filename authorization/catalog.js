@@ -13,6 +13,7 @@ const MODULES = {
   expenses: ['view', 'create', 'update', 'delete', 'approve', 'export', 'manage_categories', 'manage_recurring'],
   tables: ['view', 'manage', 'create', 'update', 'delete'],
   analytics: ['view'],
+  website: ['view', 'edit', 'publish'],
   reports: ['view'],
   register: ['view', 'open', 'close', 'cash_drop', 'verify_cash', 'handover', 'view_history'],
   settings: ['view', 'update', 'manage_discounts', 'manage_taxes', 'manage_printers'],

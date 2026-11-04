@@ -7,6 +7,7 @@ const platformPaymentService = require('../services/PlatformPaymentService');
 const brandService = require('../services/BrandService');
 const { sendError } = require('../utils/error-response');
 const router = express.Router();
+router.use('/integration-health', require('../src/modules/integration-health/integration-health.routes').createHealthRouter());
 
 // Helper for logging actions
 async function logAdminAction(shopId, action, details) {
@@ -225,7 +226,7 @@ router.get('/system-health', requireSuperAdmin, (req, res) => {
         const totalMem = os.totalmem();
         const freeMem = os.freemem();
         const memUsage = Math.round(((totalMem - freeMem) / totalMem) * 100);
-        res.json({ cpuUsage, memoryUsage: memUsage, uptimeHours: (os.uptime() / 3600).toFixed(1), activeConnections: 25 });
+        res.json({ cpuUsage, memoryUsage: memUsage, uptimeHours: (os.uptime() / 3600).toFixed(1), activeConnections: require('../services/OrderRealtimeService').io?.engine?.clientsCount ?? 0 });
     } catch (e) { res.status(500).json({ error: 'Failed to fetch health' }); }
 });
 

@@ -4,14 +4,27 @@ const schemas = require('./files.schema');
 const { verify } = require('./files.verification');
 const DAY = 86400000;
 function createFilesService({ db, storageFactory = require('./files.storage').createStorage, verifier = verify, resources = {}, purposeAuthorizers = {}, config: configuredLimits }) {
+  const workListeners = new Set();
+  function onWork(listener) { workListeners.add(listener); return () => workListeners.delete(listener); }
+  function wakeWorker() { for (const listener of workListeners) listener(); }
+  const notifiedTransactions = new WeakSet();
+  function wakeAfterCommit(trx) {
+    if (notifiedTransactions.has(trx)) return;
+    notifiedTransactions.add(trx);
+    // Knex resolves executionPromise after commit, rejects it on rollback.
+    trx.executionPromise.then(wakeWorker, () => {}).catch(() => {
+      console.error('[Files worker] Wakeup failed; durable jobs remain queued.');
+    });
+  }
   const limits=()=>configuredLimits||require('./files.config').uploadConfig();
   const scoped = (user,purpose) => scope(user,purpose,{allowTenant:Boolean(purposeAuthorizers[purpose])});
   async function authorizePurpose(user,purpose) { const key=scoped(user,purpose); if(purposeAuthorizers[purpose])await purposeAuthorizers[purpose](user);return key; }
   const summary = row => ({preview_url:row.status==='ready'&&String(row.mime_type).startsWith('image/')?`/api/files/${row.id}/content`:null,id:row.id,purpose:row.purpose,name:row.original_name,mime:row.mime_type,size:Number(row.verified_bytes||0),width:row.width,height:row.height,status:row.status});
-  async function job(trx,id,kind,runAt=new Date()) { await trx('file_jobs').insert({id:crypto.randomUUID(),file_id:id,kind,run_at:runAt}).onConflict(['file_id','kind']).ignore(); }
+  async function job(trx,id,kind,runAt=new Date()) { await trx('file_jobs').insert({id:crypto.randomUUID(),file_id:id,kind,run_at:runAt}).onConflict(['file_id','kind']).ignore(); wakeAfterCommit(trx); }
   async function scheduleUnreferencedDeletion(trx,fileId){
     const runAt=new Date(Date.now()+limits().unattachedHours*3600000);
     await trx('file_jobs').insert({id:crypto.randomUUID(),file_id:fileId,kind:'delete',run_at:runAt}).onConflict(['file_id','kind']).merge({run_at:runAt,attempts:0,last_error:null});
+    wakeAfterCommit(trx);
   }
   async function owned(user,id,trx=db) {
     const row=await trx('files').where({id:schemas.id.parse(id)}).first();
@@ -45,7 +58,7 @@ function createFilesService({ db, storageFactory = require('./files.storage').cr
     } finally { storage.close(); }
   }
   async function complete(user,id) {
-    return db.transaction(async trx=>{
+    const result = await db.transaction(async trx=>{
       const s=await trx('file_upload_sessions').where({id:schemas.id.parse(id),uploader_id:user.id}).first();
       if(!s)fail(404,'Upload not found.','FILE_NOT_FOUND');
       const row=await owned(user,s.file_id,trx);
@@ -56,6 +69,7 @@ function createFilesService({ db, storageFactory = require('./files.storage').cr
       await trx('files').where({id:row.id}).update({status:'verifying',updated_at:new Date()}); await job(trx,row.id,'verify');
       return {...summary(row),status:'verifying'};
     });
+    return result;
   }
   async function cancel(user,id) {
     await db.transaction(async trx=>{
@@ -152,7 +166,7 @@ function createFilesService({ db, storageFactory = require('./files.storage').cr
       }finally{storage?.close();}
     });
   }
-  async function sweep() {
+  async function cleanup() {
     const config=limits();
     const expired=await db('file_upload_sessions as s').join('files as f','f.id','s.file_id').where('s.expires_at','<=',new Date()).where('f.status','pending').select('f.id').limit(100);
     for(const row of expired)await db('files').where({id:row.id,status:'pending'}).update({status:'expired',updated_at:new Date()});
@@ -163,10 +177,21 @@ function createFilesService({ db, storageFactory = require('./files.storage').cr
       if(await trx('file_attachments').where({file_id:row.id}).first())return;
       await trx('files').where({id:row.id}).update({status:'deleting',updated_at:new Date()});await job(trx,row.id,'delete');
     });
+    return expired.length + rows.length;
+  }
+  async function processDueJobs() {
+    const config=limits();
     const jobs=await db('file_jobs').where('run_at','<=',new Date()).where('attempts','<',config.maxAttempts).orderBy('run_at').limit(10);
     for(const work of jobs)await processJob(work.id);
+    return jobs.length;
   }
+  async function nextJobAt() {
+    const row = await db('file_jobs').where('attempts','<',limits().maxAttempts).min({run_at:'run_at'}).first();
+    return row?.run_at ? new Date(row.run_at).getTime() : null;
+  }
+  // Retain the maintenance entry point used by existing callers.
+  async function sweep() { await cleanup(); return processDueJobs(); }
   async function policyFor(user,purpose) { await authorizePurpose(user,purpose);return projection(purpose); }
-  return {scheduleUnreferencedDeletion,content,readResourceFiles,policyFor,reserve,complete,cancel,metadata,download,syncAttachments,listAttachments,sweep,processJob,projection};
+  return {onWork,cleanup,processDueJobs,nextJobAt,scheduleUnreferencedDeletion,content,readResourceFiles,policyFor,reserve,complete,cancel,metadata,download,syncAttachments,listAttachments,sweep,processJob,projection};
 }
 module.exports = { createFilesService };

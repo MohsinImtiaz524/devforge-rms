@@ -105,6 +105,11 @@ class KnexSessionStore extends session.Store {
   }
 }
 
+app.use(require('./src/modules/moons/website/premium.assets').createTemplateAssetHandler());
+app.use(require('./src/modules/moons/website/website.routes').createLocalWebsiteHandler({service:require('./src/modules/moons/website/website.runtime').service}));
+// Website Moon public origin is consumed before all session and administration middleware.
+app.use(require('./src/modules/moons/website/website.routes').createPublicWebsiteHandler({service:require('./src/modules/moons/website/website.runtime').service}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use((req, res, next) => {
@@ -196,6 +201,7 @@ app.use("/api/shop-settings", require("./routes/shop-settings"));
 app.use("/api/admin", require("./routes/admin"));
 app.use("/api/notifications", require("./routes/notifications"));
 app.use('/api/moons/directory', require('./src/modules/moons/moons.directory').createDirectoryRouter({service:require('./src/modules/moons/moons.directory').createDirectoryService({db,catalog:require('./src/modules/moons/moons.runtime').service})}));
+app.use('/api/moons/website', require('./src/modules/moons/website/website.routes').createWebsiteRouter({service:require('./src/modules/moons/website/website.runtime').service}));
 app.use('/api/moons/admin', require('./src/modules/moons/moons.routes').createMoonsRouter({service:require('./src/modules/moons/moons.runtime').service}));
 app.use("/api/files", require("./src/modules/files/files.routes"));
 app.use("/api/announcements", require("./src/modules/announcements/announcements.routes"));
@@ -343,6 +349,14 @@ if (require.main === module) {
       if (usePostgres()) await trx.raw('SELECT pg_advisory_xact_lock(?)', [72401391]);
       await require('./src/modules/moons/moons.migration').ensureMoonsSchema(trx);
     });
+    if (require('./src/modules/moons/website/website.routes').enabled()) {
+      require('./src/modules/moons/website/website.routes').validateHosting();
+      await db.transaction(async trx => {
+        if (usePostgres()) await trx.raw('SELECT pg_advisory_xact_lock(?)', [72401392]);
+        await require('./src/modules/moons/website/website.migration').ensureWebsiteSchema(trx);
+        await require('./src/modules/moons/website/website.migration').ensureWebsiteOwnerPermissions(trx);
+      });
+    }
     await require('./services/PushNotificationService').ensureSchema();
     await db.transaction(async trx=>{
       if(usePostgres())await trx.raw('SELECT pg_advisory_xact_lock(?)',[72401384]);

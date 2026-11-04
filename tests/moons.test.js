@@ -28,7 +28,7 @@ const admin={id:1,role:'superadmin'}, shop={id:2,shop_id:1,role:'admin'};
 const metadata=(row,overrides={})=>({version:row.version,name:row.name,summary:row.summary,description:'Details for this Moon.',category:row.category,sort_order:row.sort_order,...overrides});
 
 test('Moons catalog migration, services and storage boundaries',async t=>{
- const saved=process.env.MOONS_ENABLED;process.env.MOONS_ENABLED='true';
+ const saved=process.env.MOONS_ENABLED, savedWebsite=process.env.WEBSITE_MOON_ENABLED;process.env.MOONS_ENABLED='true';process.env.WEBSITE_MOON_ENABLED='false';
  const {db,service,files}=await fixture();
  try {
   await t.test('migration is repeatable and never creates subscriptions or charges',async()=>{
@@ -152,7 +152,7 @@ test('Moons catalog migration, services and storage boundaries',async t=>{
     assert.equal(policy('moon.icon').maxBytes,2*1024*1024);assert.equal(policy('moon.screenshot').maxCount,6);
     assert.equal(scope(admin,'moon.icon'),'platform');assert.throws(()=>scope(shop,'moon.icon'),{status:403});
   });
- } finally { await db.destroy();if(saved===undefined)delete process.env.MOONS_ENABLED;else process.env.MOONS_ENABLED=saved; }
+ } finally { await db.destroy();if(saved===undefined)delete process.env.MOONS_ENABLED;else process.env.MOONS_ENABLED=saved;if(savedWebsite===undefined)delete process.env.WEBSITE_MOON_ENABLED;else process.env.WEBSITE_MOON_ENABLED=savedWebsite; }
 });
 
 test('Moons HTTP auth, flag, permissions, CSRF and database failure recovery',async()=>{
