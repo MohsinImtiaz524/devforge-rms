@@ -766,12 +766,31 @@ router.get("/:id/report.pdf", requirePermission("customers.view"), async (req, r
         sales = getSqlite().prepare(`SELECT s.*, u.name as served_by FROM sales s LEFT JOIN users u ON s.user_id = u.id WHERE s.shop_id = ? AND ${dynamicMatchRow} ${dateClause} ORDER BY s.created_at DESC`).all(...finalParams);
     }
 
-    const salesWithItems = await Promise.all(sales.map(async (sale) => {
-        let items;
-        const iQ = `SELECT si.*, COALESCE(p.name, si.custom_name) as product_name, p.sku, b.name as brand_name FROM sale_items si LEFT JOIN products p ON si.product_id = p.id LEFT JOIN brands b ON p.brand_id = b.id WHERE si.sale_id = ${isPostgres ? '$1' : '?'} ORDER BY si.id`;
-        if (isPostgres) { const { rows } = await getPostgres().query(iQ, [sale.id]); items = rows; }
-        else { items = getSqlite().prepare(iQ).all(sale.id); }
-        return { ...sale, items };
+    const itemQuery = `
+      SELECT si.*, COALESCE(p.name, si.custom_name) as product_name, p.sku, b.name as brand_name
+      FROM sale_items si
+      INNER JOIN sales s ON s.id = si.sale_id
+      LEFT JOIN products p ON si.product_id = p.id
+      LEFT JOIN brands b ON p.brand_id = b.id
+      WHERE s.shop_id = ${isPostgres ? '$1' : '?'} AND ${dynamicMatchRow} ${dateClause}
+      ORDER BY si.sale_id, si.id
+    `;
+    let allItems;
+    if (isPostgres) {
+        const { rows } = await getPostgres().query(itemQuery, finalParams);
+        allItems = rows;
+    } else {
+        allItems = getSqlite().prepare(itemQuery).all(...finalParams);
+    }
+    const itemsBySaleId = new Map();
+    for (const item of allItems) {
+        const key = String(item.sale_id);
+        if (!itemsBySaleId.has(key)) itemsBySaleId.set(key, []);
+        itemsBySaleId.get(key).push(item);
+    }
+    const salesWithItems = sales.map((sale) => ({
+        ...sale,
+        items: itemsBySaleId.get(String(sale.id)) || []
     }));
 
     const totalBilled = sales.reduce((s, sale) => s + Number(sale.total || 0), 0);

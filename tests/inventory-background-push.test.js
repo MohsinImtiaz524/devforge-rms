@@ -25,6 +25,7 @@ test('background inventory scan reaches subscribed active users without an open 
       { id: 2, shop_id: 10, role: 'manager', status: 'inactive' },
       { id: 3, shop_id: 20, role: 'admin', status: 'active' },
       { id: 4, shop_id: 10, role: 'admin', status: 'active' },
+      { id: 5, shop_id: 20, role: 'admin', status: 'active' },
     ]);
     await db('push_subscriptions').insert([
       { user_id: 1, shop_id: 10, enabled: true },
@@ -32,16 +33,24 @@ test('background inventory scan reaches subscribed active users without an open 
       { user_id: 2, shop_id: 10, enabled: true },
       { user_id: 3, shop_id: 10, enabled: true },
       { user_id: 4, shop_id: null, enabled: true },
+      { user_id: 5, shop_id: 20, enabled: true },
     ]);
     const seen = [];
-    alerts.syncForUser = async (user, permissions) => {
-      seen.push({ id: user.id, shopId: user.shop_id, permissions });
+    const loadedShops = [];
+    alerts.loadShopState = async (shopId) => {
+      loadedShops.push(shopId);
+      return { shopId };
+    };
+    alerts.syncForUser = async (user, permissions, state) => {
+      seen.push({ id: user.id, shopId: user.shop_id, permissions, stateShopId: state.shopId });
       return 1;
     };
     const created = await alerts.syncSubscribedUsers(async () => ['raw_stock.view']);
-    assert.equal(created, 2);
-    assert.deepEqual(seen.map(row => row.id).sort(), [1, 4]);
+    assert.equal(created, 3);
+    assert.deepEqual(seen.map(row => row.id).sort(), [1, 4, 5]);
     assert.ok(seen.every(row => row.permissions.includes('raw_stock.view')));
+    assert.ok(seen.every(row => row.shopId === row.stateShopId));
+    assert.deepEqual(loadedShops.sort(), [10, 20]);
   } finally {
     await db.destroy();
   }
