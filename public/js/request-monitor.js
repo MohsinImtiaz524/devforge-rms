@@ -2,6 +2,7 @@
   const $ = id => document.getElementById(id);
   const colors = ['#2765fa', '#45bdff', '#31d58d', '#ffd16c', '#a884ff', '#7285ff', '#eaa5a1'];
   let socket, paused = false, selectedWindow = 'live', selectedTrace = null, latest;
+  const currentView = location.pathname.split('/').filter(Boolean).at(-1) || 'overview';
   const ns = 'http://www.w3.org/2000/svg';
   const iconNodes = new Map();
   function el(tag, text, className) {
@@ -130,6 +131,24 @@
     table($('module-data'), [['Module', 'name'], ['Queries', 'count'], ['Total time', r => ms(r.ms)]], d.modules);
     table($('function-data'), [['Function / sampled site', 'name'], ['Queries', 'count'], ['Total time', r => ms(r.ms)]], d.functions);
   }
+  function spikePanels(d) {
+    const host = $('spike-list'); if (!host) return; host.replaceChildren();
+    const definition = d.spikeDefinition || {};
+    $('spike-definition').textContent = `Thresholds: ${num(definition.queryThreshold)} SQL/min · ${ms(definition.wallMsThreshold)} SQL wall · ${num(definition.slowThreshold)} slow calls`;
+    if (!d.spikes?.length) { empty(host, 'No database spike crossed the measured thresholds in this window.'); return; }
+    for (const spike of d.spikes.slice(0, 60)) {
+      const card = el('article', undefined, 'spike-card'), heading = el('div', undefined, 'spike-heading'), title = el('div');
+      title.append(el('strong', new Date(spike.at).toLocaleString()), el('small', 'Exact minute start · this application instance'));
+      heading.append(title, pill(`${num(spike.queries)} SQL · ${ms(spike.sqlWallMs)}`, spike.slowQueries ? 'warn' : 'unknown')); card.append(heading);
+      const grid = el('div', undefined, 'spike-grid'), fingerprints = el('section'), origins = el('section'), jobs = el('section'), requests = el('section'), tenantsHost = el('section');
+      fingerprints.append(el('h3', 'Top SQL fingerprints')); const fingerprintTable = el('div'); table(fingerprintTable, [['Fingerprint', 'fingerprint'], ['Table', 'table'], ['Calls', 'count'], ['SQL wall', r => ms(r.wallMs)]], spike.fingerprints, 5); fingerprints.append(fingerprintTable);
+      origins.append(el('h3', 'Endpoints and background jobs')); const originTable = el('div'); table(originTable, [['Origin', 'name'], ['Type', 'kind'], ['Queries', 'count']], spike.origins, 8); origins.append(originTable);
+      jobs.append(el('h3', 'Background jobs in this minute')); const jobsTable = el('div'); table(jobsTable, [['Job / internal origin', 'name'], ['Queries', 'count']], spike.jobs, 5); jobs.append(jobsTable);
+      requests.append(el('h3', 'Queries per request / job')); const requestTable = el('div'); table(requestTable, [['Trace', 'trace'], ['Origin', 'source'], ['Tenant', 'tenant'], ['Queries', 'queries'], ['Session', 'sessionQueries'], ['Permission', 'permissionQueries']], spike.requests, 10); requests.append(requestTable);
+      tenantsHost.append(el('h3', 'Tenant attribution')); const tenantTable = el('div'); table(tenantTable, [['Tenant', 'name'], ['Queries', 'count']], spike.tenants, 8); tenantsHost.append(tenantTable);
+      grid.append(fingerprints, origins, jobs, requests, tenantsHost); card.append(grid, el('p', `Measured application SQL wall: ${ms(spike.timing.applicationSqlWallMs)} · Maximum observed local pool queue: ${num(spike.timing.maxWaitingConnections)} · PostgreSQL execution: unavailable · Network: unavailable · Connection wait duration: unavailable. ${spike.timing.note}`, 'subtle')); host.append(card);
+    }
+  }
   function printPanels(data) {
     const d = data.intelligence, agents = data.runtime.agents, host = $('print-data'); host.replaceChildren();
     stats(host, [[num(agents.length), 'Connected agents'], [num(d.print.claimCalls), 'Retained claims', 'success'], [num(d.print.emptyClaims), 'Empty responses']]);
@@ -216,7 +235,7 @@
     $('updated').textContent = 'Last updated: ' + new Date(data.checkedAt).toLocaleTimeString();
     $('coverage').textContent = `${data.intelligence.complete ? 'Selected period covered' : 'Partial history'} · ${data.intelligence.detailsCoverage.retained} retained detail events${data.intelligence.detailsCoverage.truncated ? ' — detail buffer truncated; rankings incomplete' : ''} · Minute totals; boundary minutes may include up to 60 extra seconds · This instance only`;
     $('coverage').prepend(icon('info'));
-    kpis(data); activityChart(data.intelligence); databasePanels(data.intelligence); printPanels(data); socketPanels(data); tenants(data.intelligence); infrastructure(data); insights(data.intelligence);
+    kpis(data); activityChart(data.intelligence); databasePanels(data.intelligence); spikePanels(data.intelligence); printPanels(data); socketPanels(data); tenants(data.intelligence); infrastructure(data); insights(data.intelligence);
     if (!$('trace-data').matches(':hover') && !$('trace-data').contains(document.activeElement)) traces(data.intelligence);
     feeds(data);
   }
@@ -239,7 +258,16 @@
   });
   $('clear-trace').addEventListener('click', () => { selectedTrace = null; if (latest) traces(latest.intelligence); });
   $('history').addEventListener('click', event => { const button = event.target.closest('[data-window]'); if (!button) return; selectedWindow = button.dataset.window; for (const node of document.querySelectorAll('[data-window]')) node.setAttribute('aria-pressed', String(node === button)); socket?.emit('monitor:window', selectedWindow); });
-  for (const link of document.querySelectorAll('.sidebar nav a')) link.addEventListener('click', event => { event.preventDefault(); for (const other of document.querySelectorAll('.sidebar nav a')) other.classList.toggle('active', other === link); openDetail(link.hash.slice(1)); });
+  function configurePage() {
+    const views = { overview:['overview','activity','flow'], spikes:['spikes'], database:['database','slow','db-details'], tracing:['tracing'], printing:['printing','print-details'], websockets:['websockets','socket-details'], tenants:['tenants','tenant-details'], infrastructure:['infrastructure'], insights:['insights','cost-details'], history:['activity'] };
+    const visible = new Set(views[currentView] || views.overview), targets = new Set();
+    for (const ids of Object.values(views)) for (const id of ids) { const node = $(id); if (node) targets.add(node); }
+    const cards = $('cards')?.closest('details'); if (cards) { cards.dataset.monitorTarget='live-feeds'; targets.add(cards); if(currentView==='overview') visible.add('live-feeds'); }
+    for (const node of targets) { node.hidden = !(visible.has(node.id) || visible.has(node.dataset.monitorTarget)); if (!node.hidden && node.tagName === 'DETAILS') node.open = true; }
+    for (const link of document.querySelectorAll('.sidebar nav a[data-view]')) link.classList.toggle('active', link.dataset.view === currentView);
+    const names={overview:'Live Monitoring',spikes:'Database Spikes',database:'Database Intelligence',tracing:'Request Tracing',printing:'Print Agents',websockets:'WebSocket Monitoring',tenants:'Tenant Usage',infrastructure:'Infrastructure Health',insights:'Performance Insights',history:'Historical Analytics'};
+    document.title=`${names[currentView]||names.overview} | Orbit OS`; document.querySelector('.topbar h1').textContent=names[currentView]||names.overview;
+  }
   $('toggle').addEventListener('click', () => { paused = !paused; setToggle(paused ? 'Resume live' : 'Pause live', paused ? 'play' : 'pause'); if (paused) { socket?.disconnect(); connection('Paused'); } else connect(); });
   $('refresh').addEventListener('click', () => { paused = false; setToggle('Pause live', 'pause'); connect(); });
   $('fullscreen').addEventListener('click', async () => { try { if (document.fullscreenElement) await document.exitFullscreen(); else await document.documentElement.requestFullscreen(); } catch { $('updated').textContent = 'Fullscreen unavailable in this browser'; } });
@@ -253,6 +281,6 @@
   }).then(text => {
     const document = new DOMParser().parseFromString(text, 'image/svg+xml');
     for (const symbol of document.querySelectorAll('symbol')) iconNodes.set(symbol.id, [...symbol.childNodes]);
-    hydrateIcons(); connect();
+    hydrateIcons(); configurePage(); connect();
   }).catch(() => { connection('Icon asset unavailable - reload'); });
 })();

@@ -79,6 +79,7 @@ function createMonitor({ now = Date.now, clock = () => performance.now(), limit 
     event.module = source?.module || source?.request?.originalUrl?.split('?')[0]?.split('/')[2] || 'Background / internal';
     if (!SEGMENTS.has(event.module) && event.module !== 'websocket') event.module = 'Other / internal';
     event.function = source?.function || extra.caller || 'Not attributed';
+    if (kind === 'database') event.poolWaiting = [...pools.values()].reduce((total, read) => total + (Number(read().waiting) || 0), 0);
     if (source?.emptyClaim !== undefined) event.emptyClaim = source.emptyClaim;
     if(extra.table) event.table=extra.table;
     if(extra.fingerprint) event.fingerprint=extra.fingerprint;

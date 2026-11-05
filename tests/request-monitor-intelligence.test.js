@@ -25,3 +25,8 @@ test('named function wrappers preserve sync returns, thrown errors and rejected 
 test('detail overflow is explicitly disclosed and history selection cannot change totals since startup',()=>{
  let time=1000;const i=createIntelligence({now:()=>time,maxEvents:2});i.add('database',{label:'a',durationMs:1});time=2000;i.add('database',{label:'b',durationMs:2});time=3000;i.add('database',{label:'c',durationMs:3});const d=i.snapshot('1h');assert.equal(d.detailsCoverage.truncated,true);assert.equal(d.totals.database,3);assert.equal(d.traces.length,2);
 });
+test('database spikes retain safe minute fingerprints, origins, tenants and per-request query counts',()=>{
+ let time=Date.parse('2026-11-05T10:21:34Z');const i=createIntelligence({now:()=>time,spikeQueryThreshold:3,spikeWallMsThreshold:99999,spikeSlowThreshold:99});
+ for(let n=0;n<3;n++)i.add('database',{label:'Knex | SELECT | sessions',durationMs:12,table:'sessions',fingerprint:'abc123',trace:'trace-safe',tenant:7,source:'GET /api/auth/me'});
+ const spike=i.snapshot('1m').spikes[0];assert.equal(spike.at,'2026-11-05T10:21:00.000Z');assert.equal(spike.fingerprints[0].fingerprint,'abc123');assert.equal(spike.origins[0].name,'GET /api/auth/me');assert.equal(spike.requests[0].queries,3);assert.equal(spike.requests[0].sessionQueries,3);assert.deepEqual(spike.tenants[0],{name:'Shop 7',count:3});assert.equal(spike.timing.postgresExecutionMs,null);assert.match(spike.timing.note,/not separable/);assert.ok(!JSON.stringify(spike).includes('cookie'));
+});

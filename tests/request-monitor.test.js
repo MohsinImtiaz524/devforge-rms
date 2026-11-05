@@ -39,3 +39,7 @@ test('24-hour database window expires old calls, stays bounded and reports parti
  time=172802000;assert.equal(m.snapshot().cards.database.last24Hours.count,0);
  assert.equal(createMonitor({now:()=>time}).snapshot().cards.database.last24Hours.complete,false);
 });
+test('root-only monitoring sections are separate routable pages',async t=>{
+ const app=express();app.use((req,res,next)=>{req.session=req.headers['x-role']?{user:{role:req.headers['x-role']}}:{};next();});app.use('/monitor',createMonitorRouter({monitor:createMonitor()}));const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));t.after(()=>new Promise(r=>server.close(r)));const base='http://127.0.0.1:'+server.address().port;
+ assert.equal((await fetch(base+'/monitor/view/spikes',{headers:{'x-role':'admin'}})).status,403);assert.equal((await fetch(base+'/monitor/view/spikes',{headers:{'x-role':'superadmin'}})).status,200);assert.equal((await fetch(base+'/monitor/view/not-a-page',{headers:{'x-role':'superadmin'}})).status,404);const redirect=await fetch(base+'/monitor/view',{headers:{'x-role':'superadmin'},redirect:'manual'});assert.equal(redirect.status,302);assert.match(redirect.headers.get('location'),/view\/overview$/);
+});

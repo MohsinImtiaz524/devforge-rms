@@ -5,7 +5,9 @@ function createMonitorRouter({ monitor = require('./request-monitor.service').mo
   const router = express.Router();
   router.use(requireSuperAdmin);
   router.use((req, res, next) => { res.set('Cache-Control', 'no-store, private'); next(); });
-  router.get('/view', (req, res) => res.sendFile(path.resolve(__dirname, '../../../public/request-monitor.html')));
+  const views = new Set(['overview','spikes','database','tracing','printing','websockets','tenants','infrastructure','insights','history']);
+  router.get('/view', (req, res) => res.redirect(302, req.baseUrl + '/view/overview'));
+  router.get('/view/:view', (req, res, next) => views.has(req.params.view) ? res.sendFile(path.resolve(__dirname, '../../../public/request-monitor.html')) : next());
   router.get('/', (req, res) => res.json(monitor.snapshot(require('./request-monitor.intelligence').WINDOWS[req.query.window] ? req.query.window : 'live')));
   return router;
 }
