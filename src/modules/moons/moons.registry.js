@@ -5,4 +5,5 @@ const REGISTRY = Object.freeze({
   website: require('./website/website.moon'),
 });
 const enabled = () => process.env.MOONS_ENABLED === 'true';
-module.exports = { REGISTRY, enabled };
+const canAccessDirectory = (user, permissions = []) => user?.role === 'superadmin' || Object.values(REGISTRY).some((moon) => moon.launchReady && moon.entryPermission && permissions.includes(moon.entryPermission));
+module.exports = { REGISTRY, enabled, canAccessDirectory };

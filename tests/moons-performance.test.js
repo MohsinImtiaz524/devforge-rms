@@ -53,8 +53,8 @@ test('Moons published cache reduces reads, coalesces misses and rechecks identit
    const directory=createDirectoryService({db,catalog,resolvePermissions:async actor=>{permissionChecks++;return actor.shop_id===1&&granted?['analytics.view']:[];}});
    const first={id:2,shop_id:1,role:'manager'},second={id:3,shop_id:2,role:'cashier'};
    let response=await directory.bootstrap(first);assert.equal(response.user.name,'First');assert.equal(response.items[0].can_open,true);
-   response=await directory.bootstrap(second);assert.equal(response.user.name,'Second');assert.equal(response.items[0].can_open,false);
-   granted=false;response=await directory.bootstrap(first);assert.equal(response.items[0].can_open,false);assert.equal(permissionChecks,3);
+   await assert.rejects(directory.bootstrap(second),{status:403,publicCode:'MOON_ACCESS_REQUIRED'});
+   granted=false;await assert.rejects(directory.bootstrap(first),{status:403,publicCode:'MOON_ACCESS_REQUIRED'});assert.equal(permissionChecks,3);
    await assert.rejects(directory.bootstrap({...first,shop_id:2}),{status:403});
    await db('users').where({id:2}).update({status:'blocked'});await assert.rejects(directory.bootstrap(first),{status:403});
    await db('users').where({id:2}).update({status:'active',must_change_password:true});await assert.rejects(directory.bootstrap(first),{publicCode:'PASSWORD_CHANGE_REQUIRED'});

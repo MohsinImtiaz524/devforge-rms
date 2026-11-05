@@ -9,10 +9,13 @@ test('Moons navigation separates shop directory from Super Admin management',asy
   process.env.MOONS_ENABLED='true';
   const owner=await getLobby({id:1,role:'superadmin'},['platform_moons.view']);
   assert.equal(owner.modules.find(row=>row.id==='moons').target,'/app/moons/manage');
-  const staff=await getLobby({id:2,role:'cashier',shop_id:1,allowed_panels:['moons']},['platform_moons.view']);
+  const denied=await getLobby({id:2,role:'cashier',shop_id:1,allowed_panels:['moons']},[]);
+  assert.equal(denied.modules.some(row=>row.id==='moons'),false);
+  const staff=await getLobby({id:2,role:'cashier',shop_id:1,allowed_panels:['moons']},['analytics.view']);
   assert.equal(staff.modules.find(row=>row.id==='moons').target,'/app/moons');
   assert.equal(staff.modules.find(row=>row.id==='moons').label,'Moons');
   const analytics=await getLobby({id:2,role:'cashier',shop_id:1,allowed_panels:['analytics']},['analytics.view']);
   assert.equal(analytics.modules.find(row=>row.id==='analytics').target,'/app/analytics');
+  assert.equal(analytics.modules.find(row=>row.id==='moons').target,'/app/moons');
  }finally{if(saved===undefined)delete process.env.MOONS_ENABLED;else process.env.MOONS_ENABLED=saved;await require('../db/knex').destroy();}
 });

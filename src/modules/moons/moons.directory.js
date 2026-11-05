@@ -1,11 +1,12 @@
 const express=require('express');
 const {requireAuth}=require('../../../middleware/auth');
 const {getUserPermissions}=require('../../../authorization/service');
-const {enabled,REGISTRY}=require('./moons.registry');
+const {enabled,REGISTRY,canAccessDirectory}=require('./moons.registry');
 const {fail}=require('../files/files.policies');
 function createDirectoryService({db,catalog,resolvePermissions=getUserPermissions}) {
   async function list(user,permissions) {
     if(!user?.id)fail(401,'Unauthorized','UNAUTHORIZED');
+    if(!canAccessDirectory(user,permissions))fail(403,'You do not have permission to access Moons.','MOON_ACCESS_REQUIRED');
     if(user.role!=='superadmin') {
       const membership=await db('users as u').join('shops as s','s.id','u.shop_id').where({'u.id':user.id,'u.shop_id':user.shop_id}).select('s.status as shop_status','u.status as user_status').first();
       if(!membership || membership.shop_status==='blocked'||membership.user_status==='blocked')fail(403,'Your shop account is unavailable.','SHOP_UNAVAILABLE');
@@ -25,6 +26,7 @@ function createDirectoryService({db,catalog,resolvePermissions=getUserPermission
     if(actor.status==='blocked' || (actor.role!=='superadmin' && (!actor.shop_id || actor.shop_id!==sessionUser.shop_id || !actor.active_shop_id || actor.shop_status==='blocked')))fail(403,'Your shop account is unavailable.','SHOP_UNAVAILABLE');
     if(actor.must_change_password)fail(403,'You must change your temporary password before continuing.','PASSWORD_CHANGE_REQUIRED');
     const permissions=await resolvePermissions(actor);
+    if(!canAccessDirectory(actor,permissions))fail(403,'You do not have permission to access Moons.','MOON_ACCESS_REQUIRED');
     const items=await offers(actor,permissions);
     return {items,user:{id:actor.id,shop_id:actor.shop_id,name:actor.name,username:actor.username,role:actor.role,shop_name:actor.shop_name}};
   }

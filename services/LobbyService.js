@@ -1,5 +1,6 @@
 const { getUserPermissions } = require('../authorization/service');
 const shiftService = require('./ShiftService');
+const { canAccessDirectory } = require('../src/modules/moons/moons.registry');
 
 const MODULES = [
   { id: 'reports', label: 'Reports', desc: 'Filter, print, and export operational reports.', icon: '' },
@@ -50,7 +51,7 @@ async function getLobby(user, resolvedPermissions) {
 
   const allowedPanels = Array.isArray(user.allowed_panels) ? user.allowed_panels : [];
   const allowed = MODULES.filter(module => {
-    if (module.id === 'moons') return process.env.MOONS_ENABLED === 'true' && (user.role === 'superadmin' ? permissionSet.has('platform_moons.view') : Number(user.shop_id) > 0);
+    if (module.id === 'moons') return process.env.MOONS_ENABLED === 'true' && (user.role === 'superadmin' ? permissionSet.has('platform_moons.view') : Number(user.shop_id) > 0 && canAccessDirectory(user, permissions));
     if (module.id === 'notification-inbox') return user.role !== 'superadmin';
     if (module.id === 'pos') return permissionSet.has('orders.create') || permissionSet.has('orders.view');
     if (module.id === 'register') return manageRegister || activeShift?.status === 'open';

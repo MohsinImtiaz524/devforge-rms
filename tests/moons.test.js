@@ -141,7 +141,7 @@ test('Moons catalog migration, services and storage boundaries',async t=>{
     row=await service.status(admin,row.key,{version:row.version,status:'published'});
     let items=await directory.list(shop,['analytics.view']);
     assert.deepEqual(items.map(item=>item.key),['analytics']);assert.equal(items[0].route,'/app/moons/analytics');assert.equal(items[0].can_open,true);
-    items=await directory.list(shop,[]);assert.equal(items[0].can_open,false);
+    await assert.rejects(directory.list(shop,[]),{status:403,publicCode:'MOON_ACCESS_REQUIRED'});
     await assert.rejects(directory.list({id:3,shop_id:1,role:'admin'},['analytics.view']),{status:403});
     await db('users').where({id:2}).update({status:'blocked'});
     await assert.rejects(directory.list(shop,['analytics.view']),{status:403});
