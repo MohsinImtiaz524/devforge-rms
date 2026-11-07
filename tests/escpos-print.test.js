@@ -439,6 +439,20 @@ test('HTTP and WebSocket workflow scopes jobs, refreshes artwork, preserves old 
   await new Promise(resolve => setTimeout(resolve, 100)); const settledClaims = claims;
   await new Promise(resolve => setTimeout(resolve, 250)); assert.equal(claims, settledClaims, 'No periodic polling');
   assert.equal((await api(`/${jobId}/confirm`, {})).status, 200, 'Confirmation is idempotent');
+  assert.equal((await api(`/${jobId}/cancel`, {})).status, 409, 'Printed jobs cannot be removed');
+  assert.equal((await api(`/${otherJob}/cancel`, {})).status, 404, 'Other shops cannot remove jobs');
+  for (const status of ['pending', 'retry_wait', 'printing', 'failed']) {
+    const id = await insert(1, 'Printer A');
+    await db('print_queue').where({ id }).update({ status });
+    assert.equal((await api(`/${id}/cancel`, {}, 'bad-token')).status, 401);
+    assert.equal((await api(`/${id}/cancel`, {})).status, 200);
+    assert.equal((await api(`/${id}/cancel`, {})).status, 200, 'Removal is idempotent');
+    const removed = await db('print_queue').where({ id }).first();
+    assert.equal(removed.status, 'cancelled');
+    assert.equal(removed.last_error, 'Removed from queue by operator.');
+    assert.equal((await api(`/${id}/retry`, {})).status, 409, 'Removed jobs cannot be retried');
+  }
+  assert.equal(await require('../src/modules/escpos-print/escpos-print.queue').claim(1, ['Printer A'], 'Printer A'), null, 'Removed jobs cannot be claimed');
 });
 
 test('lost confirmation never resubmits a receipt; interrupted RAW writes require review across restart', async () => {
@@ -469,4 +483,58 @@ test('lost confirmation never resubmits a receipt; interrupted RAW writes requir
     agent = createAgent({ shopId: 1, serverUrl: 'https://rms.test' }, { encode }, options);
     await agent.drain('Counter'); assert.equal(claimCount, 1, 'Review hold survives restart');
   } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+});
+
+test('removing a review job reserves its printer lane, releases later work and survives restart', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'escpos-remove-'));
+  const config = { schema: 1, shopId: 1, receipt: {}, printers: [{ system_name: 'Counter' }], assets: [] };
+  fs.writeFileSync(path.join(directory, 'config.json'), JSON.stringify(config));
+  fs.writeFileSync(path.join(directory, 'jobs.json'), JSON.stringify({ 71: { printer: 'Counter', state: 'review', error: 'Interrupted submission' } }));
+  let releaseCancel, cancelStarted, claims = 0, prints = 0, cancelled = false;
+  const started = new Promise(resolve => { cancelStarted = resolve; });
+  const cancellation = new Promise(resolve => { releaseCancel = resolve; });
+  const socket = new EventEmitter(); socket.connected = false;
+  socket.disconnect = () => {};
+  const options = {
+    directory, connect: () => socket, print: async () => { prints++; },
+    fetch: async url => {
+      if (url.endsWith('/71/cancel')) { cancelStarted(); await cancellation; cancelled = true; }
+      else if (url.endsWith('/claim')) { claims++; return Response.json(null); }
+      else if (url.endsWith('/config')) return Response.json(config);
+      else if (url.endsWith('/status')) return Response.json({ jobs: [{ id: 71, station_name: 'Counter', status: cancelled ? 'cancelled' : 'printing' }] });
+      else if (url.endsWith('/fail')) throw new Error('Cancelled job must never be reported failed');
+      return Response.json({ ok: true });
+    }
+  };
+  let agent = createAgent({ shopId: 1, serverUrl: 'https://rms.test' }, encoder, options);
+  const wait = async predicate => { const deadline = Date.now() + 2000; while (!predicate()) { if (Date.now() > deadline) throw new Error('Timed out'); await new Promise(resolve => setTimeout(resolve, 10)); } };
+  try {
+    await agent.start(0);
+    const local = `http://127.0.0.1:${agent.server.address().port}`;
+    const remove = fetch(local + '/resolve', { method: 'POST', headers: { Accept: 'application/json' },
+      body: new URLSearchParams({ token: agent.state().controlToken, id: '71', action: 'cancel' }) });
+    await started;
+    assert.deepEqual(agent.state().busy, ['Counter']);
+    await agent.drain('Counter');
+    assert.equal(claims, 0, 'A print notification cannot claim during cancellation');
+    const duplicate = await fetch(local + '/resolve', { method: 'POST', headers: { Accept: 'application/json' },
+      body: new URLSearchParams({ token: agent.state().controlToken, id: '71', action: 'cancel' }) });
+    assert.equal(duplicate.status, 500);
+    assert.match((await duplicate.json()).error, /processing a job/);
+    releaseCancel();
+    assert.equal((await remove).status, 200);
+    await wait(() => claims === 1);
+    assert.equal(agent.state().journal[71].state, 'cancelled');
+    assert.equal(prints, 0);
+    await agent.stop();
+    agent = createAgent({ shopId: 1, serverUrl: 'https://rms.test' }, encoder, options);
+    assert.equal(agent.state().journal[71].state, 'cancelled');
+    await agent.drain('Counter');
+    assert.equal(claims, 2, 'Removed review job does not hold the lane after restart');
+    assert.equal(prints, 0);
+  } finally {
+    releaseCancel();
+    if (agent.server.listening) await agent.stop();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
 });

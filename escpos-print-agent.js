@@ -269,7 +269,7 @@ finally { [RmsRawPrinter]::ClosePrinter($handle)|Out-Null }
   }
   function persistJournal() {
     // Keep unresolved jobs and a bounded history of acknowledged submissions.
-    const done = Object.keys(journal).filter(id => journal[id].state === 'confirmed').sort((a, b) => Number(b) - Number(a));
+    const done = Object.keys(journal).filter(id => ['confirmed', 'cancelled'].includes(journal[id].state)).sort((a, b) => Number(b) - Number(a));
     done.slice(500).forEach(id => delete journal[id]);
     save('jobs.json', journal);
     publish();
@@ -371,11 +371,27 @@ finally { [RmsRawPrinter]::ClosePrinter($handle)|Out-Null }
         paper[form.get('printer')] = form.get('width'); save('paper.json', paper);
       } else if (req.url === '/resolve') {
         const id = form.get('id'), action = form.get('action');
-        if (!journal[id] || !['confirm', 'fail', 'retry'].includes(action)) throw new Error('Invalid job action');
-        await api(`/${id}/${action}`, { reason: 'Operator marked interrupted submission failed. Verify before retrying.' });
-        journal[id].state = action === 'confirm' ? 'confirmed' : action === 'fail' ? 'failed' : 'resolved'; persistJournal();
-        if (action === 'confirm' || action === 'retry') { lastError = ''; errorStage = ''; }
-        socket?.emit('print:sync');
+        const job = journal[id] || (action === 'cancel' && queue?.jobs?.find(job => String(job.id) === id));
+        if (!job || !['confirm', 'fail', 'retry', 'cancel'].includes(action)) throw new Error('Invalid job action');
+        const printer = job.printer || job.station_name;
+        if (busy.has(printer)) throw new Error('Printer is processing a job. Wait for submission to finish before resolving it.');
+        // Reserve the printer lane across the server request so a wake-up cannot claim or spool during resolution.
+        busy.add(printer); publish();
+        let resolved = false;
+        try {
+          await api(`/${id}/${action}`, { reason: 'Operator marked interrupted submission failed. Verify before retrying.' });
+          journal[id] = { ...job, printer, state: action === 'confirm' ? 'confirmed' : action === 'fail' ? 'failed' : action === 'cancel' ? 'cancelled' : 'resolved',
+            ...(action === 'fail' ? { failureReported: true } : {}),
+            ...(action === 'cancel' ? { error: '', last_error: 'Removed from queue by operator.' } : {}) }; persistJournal();
+          resolved = true;
+          if (['confirm', 'retry', 'cancel'].includes(action)) { lastError = ''; errorStage = ''; }
+          await loadQueueStatus();
+          socket?.emit('print:sync');
+        } finally {
+          busy.delete(printer); publish();
+          const waiting = requested.delete(printer);
+          if (resolved || waiting) setImmediate(() => void drain(printer));
+        }
       } else { res.writeHead(404); return res.end('Not found'); }
       publish();
       if (req.headers.accept?.includes('application/json')) {

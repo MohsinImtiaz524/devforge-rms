@@ -47,6 +47,11 @@ const { encode } = require('../../src/modules/escpos-print/escpos-encoder');
       } else if (endpoint === '/outstanding') data = [];
       else if (endpoint === '/status') data = { checkedAt: now, counts: { printed: 128, pending: 4, printing: 1, failed: 2 }, jobs,
         printers: printers.flatMap((p, i) => ['printed', 'pending', 'failed'].map(status => ({ station_name: p.system_name, status, count: status === 'printed' ? [82, 37, 9][i] : status === 'pending' ? [1, 2, 1][i] : [1, 1, 0][i] }))) };
+      else if (/^\/\d+\/cancel$/.test(endpoint)) {
+        const job = jobs.find(job => String(job.id) === endpoint.split('/')[1]);
+        if (job) job.status = 'cancelled';
+        data = { ok: true };
+      }
       else if (endpoint === '/claim') data = null;
       else data = { ok: true };
       return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
@@ -55,7 +60,7 @@ const { encode } = require('../../src/modules/escpos-print/escpos-encoder');
   let browser;
   try {
     await agent.start(0);
-    browser = await chromium.launch({ headless: true, channel: 'chrome' });
+    browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || 'chrome' });
     const page = await browser.newPage({ viewport: { width: 1440, height: 1050 } });
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     await page.goto(`http://127.0.0.1:${agent.server.address().port}`);
@@ -83,6 +88,19 @@ const { encode } = require('../../src/modules/escpos-print/escpos-encoder');
     await card.getByRole('button', { name: 'Save', exact: true }).click();
     await page.getByText('Paper width saved.', { exact: true }).waitFor();
     assert.equal(JSON.parse(fs.readFileSync(path.join(directory, 'paper.json')))[printers[0].system_name], '58');
+    page.on('dialog', dialog => dialog.accept());
+    await page.getByRole('button', { name: 'Mark failed', exact: true }).click();
+    await page.getByText('Job action saved.', { exact: true }).waitFor();
+    assert.ok(requests.includes('/103/fail'), 'Review action reaches RMS rather than a shadowed form URL');
+    await page.getByRole('button', { name: 'All jobs', exact: true }).click();
+    await page.locator('tr[data-job-id="103"]').getByRole('button', { name: 'Remove from queue', exact: true }).click();
+    await page.locator('tr[data-job-id="103"][data-job-state="cancelled"]').waitFor();
+    assert.ok(requests.includes('/103/cancel'));
+    assert.equal(agent.state().journal[103].state, 'cancelled');
+    await page.locator('tr[data-job-id="102"]').getByRole('button', { name: 'Remove from queue', exact: true }).click();
+    await page.locator('tr[data-job-id="102"][data-job-state="cancelled"]').waitFor();
+    assert.ok(requests.includes('/102/cancel'), 'Server-only queued jobs can be removed');
+    page.removeAllListeners('dialog');
     rejectRefresh = true;
     await page.getByRole('button', { name: 'Refresh Cache', exact: true }).click();
     await page.locator('#toast.error').waitFor();

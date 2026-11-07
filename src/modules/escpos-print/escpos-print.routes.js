@@ -66,10 +66,18 @@ router.post('/claim', asyncRoute(async (req, res) => {
 }));
 router.post('/:id/:action', asyncRoute(async (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isSafeInteger(id) || id <= 0 || !['confirm', 'fail', 'retry'].includes(req.params.action)) return res.status(400).json({ error: 'Invalid job action' });
+  if (!Number.isSafeInteger(id) || id <= 0 || !['confirm', 'fail', 'retry', 'cancel'].includes(req.params.action)) return res.status(400).json({ error: 'Invalid job action' });
   const query = () => db('print_queue').where({ id, shop_id: req.agent.shopId }).whereIn('station_name', req.printers);
   const job = await query().first('status');
   if (!job) return res.status(404).json({ error: 'Job not found' });
+  if (req.params.action === 'cancel') {
+    if (job.status === 'cancelled') return res.json({ ok: true });
+    const changed = await query().whereIn('status', ['pending', 'retry_wait', 'printing', 'failed']).update({
+      status: 'cancelled', updated_at: db.fn.now(), last_error: 'Removed from queue by operator.'
+    });
+    if (!changed) return res.status(409).json({ error: 'Only queued, failed or interrupted jobs can be removed' });
+    return res.json({ ok: true });
+  }
   if (req.params.action === 'retry') {
     const changed = await query().where({ status: 'failed' }).update({ status: 'pending', claimed_at: null, failed_at: null, last_error: null, attempts: 0, updated_at: db.fn.now() });
     if (!changed) return res.status(409).json({ error: 'Only a failed job can be retried' });
