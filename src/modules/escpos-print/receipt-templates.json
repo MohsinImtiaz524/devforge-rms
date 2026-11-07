@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "1.4.2",
+  "version": "1.4.3",
   "formats": {
     "customer": {
       "nodes": [
@@ -474,11 +474,15 @@
           "when": {
             "path": "data.footerShopName"
           }
+        },
+        {
+          "type": "gap",
+          "value": 37.795275590551185
         }
       ],
       "blankLinesAfterTextLine": 0,
       "lineSpacingMultiplier": 2,
-      "feedBeforeCutDots": 80
+      "feedBeforeCutDots": 180
     },
     "unpaid": {
       "nodes": [
@@ -887,7 +891,7 @@
           "when": {
             "path": "receipt.receipt_policies"
           }
-        }, 
+        },
         {
           "type": "text",
           "value": {
@@ -904,12 +908,15 @@
           "when": {
             "path": "data.footerShopName"
           }
+        },
+        {
+          "type": "gap",
+          "value": 37.795275590551185
         }
-        
       ],
       "blankLinesAfterTextLine": 0,
       "lineSpacingMultiplier": 2,
-      "feedBeforeCutDots": 80
+      "feedBeforeCutDots": 180
     },
     "kitchen": {
       "nodes": [
@@ -1097,11 +1104,15 @@
         {
           "type": "gap",
           "value": 2
+        },
+        {
+          "type": "gap",
+          "value": 37.795275590551185
         }
       ],
       "blankLinesAfterTextLine": 0,
       "lineSpacingMultiplier": 2,
-      "feedBeforeCutDots": 80
+      "feedBeforeCutDots": 180
     },
     "shift_close": {
       "blankLinesAfterTextLine": 0,
@@ -1176,9 +1187,13 @@
           "type": "text",
           "value": "End of shift report",
           "align": "center"
+        },
+        {
+          "type": "gap",
+          "value": 37.795275590551185
         }
       ],
-      "feedBeforeCutDots": 80
+      "feedBeforeCutDots": 180
     }
   }
 }

@@ -17,6 +17,21 @@ const { prepareData } = require('../src/modules/escpos-print/escpos-print.data')
 const encode = (document, config, columns) => encoder.encode({ ...document, data: document.data || prepareData(document, config.receipt, config.timeZone) }, { ...config, templates: config.templates || templates }, columns);
 const { createAgent } = require('../escpos-print-agent');
 
+test('every receipt adds 10mm before the original cutter clearance, compatible with existing agents', () => {
+  for (const [format, template] of Object.entries(templates.formats)) {
+    assert.equal(template.feedBeforeCutDots, 180, format);
+    const extraGap = template.nodes.at(-1);
+    assert.equal(extraGap.type, 'gap', format);
+    assert.equal(Math.round(extraGap.value * 203 / 96), 80, format);
+    for (const columns of [32, 48]) {
+      const config = { receipt: {}, templates: { ...templates, formats: { ...templates.formats,
+        [format]: { ...template, nodes: [{ type: 'text', value: 'End of receipt' }, extraGap] } } } };
+      const output = encoder.encode({ type: 'RECEIPT', format }, config, columns);
+      assert.ok(output.subarray(-9).equals(Buffer.from([27, 74, 80, 27, 74, 180, 29, 86, 0])), format);
+    }
+  }
+});
+
 test('shift register summary renders totals, pending bills, cash difference and notes on both paper widths', () => {
   const { prepareShiftData } = require('../src/modules/escpos-print/escpos-shift.data');
   const details = { shift: { id: 8, user_id: 2, cashier_name: 'Ali', status: 'closed', start_time: '2026-10-30T10:00:00Z', end_time: '2026-10-30T12:00:00Z', expected_balance: 1200, closing_balance: 1180, note: 'Closing note', shortage_reason: 'Cash short' },
@@ -272,7 +287,7 @@ test('encoder preserves totals, unpaid labels, kitchen snapshots, cuts, QR and b
   assert.match(data, /Change +Rs\. 20.00/);
   assert.match(data, /Tea@/);
   assert.ok(data.includes('https://example.com/map'));
-  assert.ok(data.endsWith('\x1bJ\x50\x1dV\x00'));
+  assert.ok(data.endsWith('\x1bJ\x50\x1bJ\xb4\x1dV\x00'), 'Extra 10mm feeds before the original cutter clearance');
   assert.match(encode({ ...document, format: 'unpaid' }, config).toString(), /UNPAID BILL/);
   const kitchen = encode({ ...document, format: 'kitchen', is_update: true, items: [{ quantity: 1, name: 'Rice', change_action: 'remove' }] }, config).toString();
   assert.match(kitchen, /REMOVE/); assert.match(kitchen, /UPDATED/); assert.doesNotMatch(kitchen, /GRAND TOTAL|Tea/);
