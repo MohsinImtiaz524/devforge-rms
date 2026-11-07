@@ -8260,7 +8260,7 @@ async function printKitchenBill(saleId) {
   <style>
     @page { margin: 0; }
     body { margin: 0; padding: 0; font-family: 'Courier New', Courier, monospace; }
-    .receipt { width: 80mm; margin: 0 auto; padding: 5mm 5mm 10mm; background: #fff; box-sizing: border-box; }
+    .receipt { width: 80mm; margin: 0 auto; padding: 5mm 5mm 60mm; background: #fff; box-sizing: border-box; }
     .text-center { text-align: center; }
     .bold { font-weight: bold; }
     h1 { font-size: 18px; margin: 0; text-transform: uppercase; border-bottom: 2px solid #000; padding-bottom: 5px; }
@@ -8571,7 +8571,7 @@ async function printBill(saleId, isUnpaid = false) {
       font-family: ${shop?.receipt_font_family || "'Courier New', Courier, monospace"};
       width: 80mm;
       margin: 0 auto;
-      padding: 4mm 4mm 10mm;
+      padding: 4mm 4mm 60mm;
       color: #111827;
       font-size: 11px;
       line-height: 1.2;
@@ -8888,7 +8888,7 @@ async function printReturnReceipt(returnId) {
     }
     @page { margin: 0; }
     html, body { margin: 0; padding: 0; background: #f0f0f0; font-family: ${shop?.receipt_font_family || "'Courier New', Courier, monospace"}; }
-    .receipt { width: 80mm; margin: 0 auto; padding: 4mm 4mm 10mm; color: #111827; font-size: 12px; line-height: 1.2; background: #f8fafc; min-height: 100vh; box-sizing: border-box; }
+    .receipt { width: 80mm; margin: 0 auto; padding: 4mm 4mm 60mm; color: #111827; font-size: 12px; line-height: 1.2; background: #f8fafc; min-height: 100vh; box-sizing: border-box; }
     @media print { html, body { background: #f8fafc; } .receipt { margin: 0; width: 100%; min-height: auto; } }
     .text-center { text-align: center; }
     .text-right { text-align: right; }
