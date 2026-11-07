@@ -161,7 +161,7 @@ function renderReceiptPreview() {
   // Build header
   let headerHtml = "";
   if (useLogo && hasLogo) {
-    headerHtml += `<div style="margin-bottom: ${headerSpacing}px;"><img src="${RmsImageSafety.attribute(logoUrl)}" style="max-width: ${Math.min(70, Math.max(10, Number(document.getElementById("logo-print-width")?.value || settings.logo_print_width_mm) || 60))}mm; max-height: ${Math.min(70, Math.max(10, Number(document.getElementById("logo-print-width")?.value || settings.logo_print_width_mm) || 60))*22/60}mm; width: auto; height: auto; margin: 0 auto; display: block;" alt="${RmsImageSafety.escape(headerText)}"></div>`;
+    headerHtml += `<div style="margin-bottom: ${headerSpacing}px;"><img src="${RmsImageSafety.attribute(logoUrl)}" style="max-width: ${Math.min(110, Math.max(10, Number(document.getElementById("logo-print-width")?.value || settings.logo_print_width_mm) || 60))}mm; max-height: ${Math.min(110, Math.max(10, Number(document.getElementById("logo-print-width")?.value || settings.logo_print_width_mm) || 60))*22/60}mm; width: auto; height: auto; margin: 0 auto; display: block;" alt="${RmsImageSafety.escape(headerText)}"></div>`;
   }
 
   if (useText) {
@@ -340,8 +340,8 @@ function renderReceiptSettings() {
               
               <div id="text-header-input" class="mb-6 text-sm text-slate-500">Shop name and tagline are managed in Account Profile.</div>
               <button type="button" onclick="renderSettings('profile')" class="mb-4 text-sm font-semibold text-indigo-600">Manage shop details in Account Profile</button>
-              <label for="logo-print-width" class="block text-sm font-semibold">Printed logo size (width limit, 10-70 mm)</label>
-              <input id="logo-print-width" type="number" min="10" max="70" step="1" value="${Number(settings.logo_print_width_mm) || 60}" oninput="updateReceiptPreview()" class="w-full rounded-xl border p-3 dark:bg-slate-800" />
+              <label for="logo-print-width" class="block text-sm font-semibold">Printed logo size (width limit, 10-110 mm)</label>
+              <input id="logo-print-width" type="number" min="10" max="110" step="1" value="${Number(settings.logo_print_width_mm) || 60}" oninput="updateReceiptPreview()" class="w-full rounded-xl border p-3 dark:bg-slate-800" />
               <div id="logo-upload-input" class="${!settings.use_logo_on_receipt ? "hidden" : ""}">
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Logo Image</label>
                 <div class="flex flex-col gap-4">

@@ -102,7 +102,7 @@ function renderShopHeader(shop, baseUrl) {
 
   let html = "";
   if (useLogo) {
-    html += `<div style="margin-bottom: ${headerSpacing}px;"><img src="${imageAssetUrl(shop.logo_data || shop.logo_path, baseUrl)}" style="max-width: ${Math.min(70, Math.max(10, Number(shop.logo_print_width_mm) || 60))}mm; max-height: ${Math.min(70, Math.max(10, Number(shop.logo_print_width_mm) || 60))*22/60}mm; width: auto; height: auto; margin: 0 auto; display: block;" alt="${escapeHtml(headerText)}"></div>`;
+    html += `<div style="margin-bottom: ${headerSpacing}px;"><img src="${imageAssetUrl(shop.logo_data || shop.logo_path, baseUrl)}" style="max-width: ${Math.min(110, Math.max(10, Number(shop.logo_print_width_mm) || 60))}mm; max-height: ${Math.min(110, Math.max(10, Number(shop.logo_print_width_mm) || 60))*22/60}mm; width: auto; height: auto; margin: 0 auto; display: block;" alt="${escapeHtml(headerText)}"></div>`;
   }
 
   if (useText) {

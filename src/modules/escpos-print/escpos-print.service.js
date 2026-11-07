@@ -61,7 +61,7 @@ async function configuration(shopId) {
   receipt.use_text_on_receipt = Boolean(shop.use_text_on_receipt);
   const assets = [];
   if (receipt.use_logo_on_receipt && (shop.logo_data || shop.logo_path)) {
-    const width = Math.round(Math.min(70, Math.max(10, Number(shop.logo_print_width_mm) || 60)) * 8);
+    const width = Math.round(Math.min(110, Math.max(10, Number(shop.logo_print_width_mm) || 60)) * 8);
     const source = shop.logo_data || shop.logo_path;
     assets.push({ kind: 'logo', data_by_width: {
       48: await raster(source, width, Math.round(width * 22 / 60)),

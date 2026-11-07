@@ -82,7 +82,7 @@ router.post("/", requireAuth, requireAdmin, require("multer")({limits:{fields:10
     Object.assign(req.body, profile.values);
     if(req.body.logo_print_width_mm!==undefined){
       const width=Number(req.body.logo_print_width_mm);
-      if(!Number.isFinite(width)||width<10||width>70)return res.status(400).json({error:'Logo width must be between 10 and 70 mm.'});
+      if(!Number.isFinite(width)||width<10||width>110)return res.status(400).json({error:'Logo width must be between 10 and 110 mm.'});
       req.body.logo_print_width_mm=width;
     }
     const fields = [

@@ -8497,7 +8497,7 @@ async function printBill(saleId, isUnpaid = false) {
   const headerText = shop?.receipt_header_text || shop?.name || "RESTAURANT";
 
   if (useLogo) {
-    headerHtml += `<div style="margin-bottom: ${headerSpacing}px;"><img src="${RmsImageSafety.attribute(shop.logo_data || shop.logo_path)}" style="max-width: ${Math.min(70, Math.max(10, Number(shop.logo_print_width_mm) || 60))}mm; max-height: ${Math.min(70, Math.max(10, Number(shop.logo_print_width_mm) || 60))*22/60}mm; width: auto; height: auto; margin: 0 auto; display: block;" alt="${RmsImageSafety.escape(headerText)}"></div>`;
+    headerHtml += `<div style="margin-bottom: ${headerSpacing}px;"><img src="${RmsImageSafety.attribute(shop.logo_data || shop.logo_path)}" style="max-width: ${Math.min(110, Math.max(10, Number(shop.logo_print_width_mm) || 60))}mm; max-height: ${Math.min(110, Math.max(10, Number(shop.logo_print_width_mm) || 60))*22/60}mm; width: auto; height: auto; margin: 0 auto; display: block;" alt="${RmsImageSafety.escape(headerText)}"></div>`;
   }
   if (useText) {
     headerHtml += `<h1 style="font-size: ${headerFontSize}px; font-weight: ${headerFontWeight}; margin: 0; text-transform: uppercase; text-align: center;">${RmsImageSafety.escape(headerText)}</h1>`;
@@ -8837,7 +8837,7 @@ async function printReturnReceipt(returnId) {
   const headerText = shop?.receipt_header_text || shop?.name || "RESTAURANT";
 
   if (useLogo) {
-    headerHtml += `<img src="${RmsImageSafety.attribute(shop.logo_data || shop.logo_path)}" style="max-width: ${Math.min(70, Math.max(10, Number(shop.logo_print_width_mm) || 60))}mm; max-height: ${Math.min(70, Math.max(10, Number(shop.logo_print_width_mm) || 60))*20/60}mm; width: auto; height: auto; margin: 0 auto; display: block;" alt="${RmsImageSafety.escape(headerText)}">`;
+    headerHtml += `<img src="${RmsImageSafety.attribute(shop.logo_data || shop.logo_path)}" style="max-width: ${Math.min(110, Math.max(10, Number(shop.logo_print_width_mm) || 60))}mm; max-height: ${Math.min(110, Math.max(10, Number(shop.logo_print_width_mm) || 60))*20/60}mm; width: auto; height: auto; margin: 0 auto; display: block;" alt="${RmsImageSafety.escape(headerText)}">`;
   }
   if (useText) {
     headerHtml += `<h1>${RmsImageSafety.escape(headerText)}</h1>`;
