@@ -139,7 +139,7 @@ function encode(document, config, columns = 48) {
   run(template.nodes, context);
   // Feed a fixed distance before cutting; ESC d depends on the current text
   // line spacing and can leave the footer behind the blade on some printers.
-  const feedDots = template.feedBeforeCutDots ?? 120;
+  const feedDots = template.feedBeforeCutDots ?? 80;
   chunks.push(Buffer.from([0x1b, 0x4a, feedDots, 0x1d, 0x56, 0]));
   return Buffer.concat(chunks);
 }
@@ -166,7 +166,7 @@ function validateTemplates(bundle) {
     if (!Number.isInteger(spacing) || spacing < 0 || spacing > 3) throw new Error('Invalid RMS receipt line spacing');
     const multiplier = bundle.formats[format].lineSpacingMultiplier ?? 1;
     if (!Number.isFinite(multiplier) || multiplier < 1 || multiplier > 3) throw new Error('Invalid RMS receipt line spacing multiplier');
-    const feed = bundle.formats[format].feedBeforeCutDots ?? 120;
+    const feed = bundle.formats[format].feedBeforeCutDots ?? 80;
     if (!Number.isInteger(feed) || feed < 0 || feed > 255) throw new Error('Invalid RMS receipt cutter feed');
     check(bundle.formats[format].nodes);
   }

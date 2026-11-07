@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "1.4.1",
+  "version": "1.4.2",
   "formats": {
     "customer": {
       "nodes": [
@@ -478,7 +478,7 @@
       ],
       "blankLinesAfterTextLine": 0,
       "lineSpacingMultiplier": 2,
-      "feedBeforeCutDots": 180
+      "feedBeforeCutDots": 80
     },
     "unpaid": {
       "nodes": [
@@ -909,7 +909,7 @@
       ],
       "blankLinesAfterTextLine": 0,
       "lineSpacingMultiplier": 2,
-      "feedBeforeCutDots": 180
+      "feedBeforeCutDots": 80
     },
     "kitchen": {
       "nodes": [
@@ -1101,7 +1101,7 @@
       ],
       "blankLinesAfterTextLine": 0,
       "lineSpacingMultiplier": 2,
-      "feedBeforeCutDots": 180
+      "feedBeforeCutDots": 80
     },
     "shift_close": {
       "blankLinesAfterTextLine": 0,
@@ -1178,7 +1178,7 @@
           "align": "center"
         }
       ],
-      "feedBeforeCutDots": 180
+      "feedBeforeCutDots": 80
     }
   }
 }
