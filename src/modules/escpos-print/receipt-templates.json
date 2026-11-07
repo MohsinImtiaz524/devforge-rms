@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "1.4.4",
+  "version": "1.4.6",
   "formats": {
     "customer": {
       "nodes": [
@@ -477,11 +477,7 @@
         },
         {
           "type": "gap",
-          "value": 113.38582677165356
-        },
-        {
-          "type": "gap",
-          "value": 113.38582677165356
+          "value": 37.795275590551185
         }
       ],
       "blankLinesAfterTextLine": 0,
@@ -915,11 +911,7 @@
         },
         {
           "type": "gap",
-          "value": 113.38582677165356
-        },
-        {
-          "type": "gap",
-          "value": 113.38582677165356
+          "value": 37.795275590551185
         }
       ],
       "blankLinesAfterTextLine": 0,
@@ -1115,11 +1107,7 @@
         },
         {
           "type": "gap",
-          "value": 113.38582677165356
-        },
-        {
-          "type": "gap",
-          "value": 113.38582677165356
+          "value": 37.795275590551185
         }
       ],
       "blankLinesAfterTextLine": 0,
@@ -1202,11 +1190,7 @@
         },
         {
           "type": "gap",
-          "value": 113.38582677165356
-        },
-        {
-          "type": "gap",
-          "value": 113.38582677165356
+          "value": 37.795275590551185
         }
       ],
       "feedBeforeCutDots": 180

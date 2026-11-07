@@ -374,7 +374,7 @@ function renderSaleReceiptPage(details, options = {}) {
       font-family: ${cssFontFamily(shop?.receipt_font_family)};
       width: 74mm;
       margin: 0;
-      padding: 0 10mm 60mm 3mm; /* 10mm padding on right, 3mm on left */
+      padding: 0 10mm 10mm 3mm; /* 10mm padding on right, 3mm on left */
       color: #000; /* Pure black is much crisper on thermal printers than off-black #111827 */
       font-size: 12px; /* Slightly larger base font size to counteract any shrinking */
       font-weight: 500;
@@ -386,7 +386,7 @@ function renderSaleReceiptPage(details, options = {}) {
     }
     .kitchen-receipt {
       font-family: 'Courier New', Courier, monospace;
-      padding: 0 10mm 60mm 3mm; /* 10mm padding on right, 3mm on left */
+      padding: 0 10mm 10mm 3mm; /* 10mm padding on right, 3mm on left */
       color: #000;
       width: 74mm;
       margin: 0;
@@ -489,7 +489,7 @@ function renderTipReceiptPage(details, options = {}) {
       box-sizing: border-box;
       width: 74mm;
       margin: 0;
-      padding: 0 10mm 60mm 3mm;
+      padding: 0 10mm 10mm 3mm;
       font-family: ${cssFontFamily(shop.receipt_font_family)};
       font-size: 12px;
       font-weight: 500;
