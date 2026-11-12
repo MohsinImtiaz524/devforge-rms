@@ -241,6 +241,7 @@ function renderCustomerReceipt(details, options) {
         <div>Subtotal: ${currency} ${formatProductMoney(subtotal)}</div>
         ${discount > 0 ? `<div>Discount: -${currency} ${formatMoney(discount)}</div>` : ""}
         ${taxPct > 0 ? `<div>Tax (${escapeHtml(taxPct)}%): ${currency} ${formatMoney(taxAmt)}</div>` : ""}
+        ${Number(sale.delivery_service_charge || 0) > 0 ? `<div style="display: flex; justify-content: space-between; gap: 8px;"><span style="text-align: left;">Delivery service charge:</span><span style="text-align: right; white-space: nowrap;">${currency} ${formatMoney(sale.delivery_service_charge)}</span></div>` : ""}
         <div class="bold total-row" style="margin-top: 4px;">GRAND TOTAL: ${currency} ${formatMoney(grandTotal)}</div>
       </div>
 

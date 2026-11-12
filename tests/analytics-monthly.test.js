@@ -94,3 +94,18 @@ test('monthly queries reject invalid input and missing business context', async 
   assert.equal(monthlyQuery.safeParse({ month: '12', year: '2020' }).success, true);
   await assert.rejects(getMonthlyAnalytics(null, { year: 2024, month: 2 }), /Shop context required/);
 });
+
+ test('monthly analytics includes delivery charges once without changing product units, tax or tenant scope', async () => {
+  const db=await fixture();
+  try {
+    await require('../src/modules/delivery/delivery-charge.migration').up(db);
+    await db('sales').where({id:1}).update({delivery_service_charge:150,total:370});
+    await db('sales').where({id:2}).update({delivery_service_charge:999,total:1998});
+    const data=await getMonthlyAnalytics(1,{year:2024,month:2},db);
+    assert.equal(data.kpi.totalRevenue,450);
+    assert.equal(data.kpi.totalUnits,3);
+    assert.equal(data.products.reduce((sum,row)=>sum+row.revenue,0),450);
+    assert.equal(Number((await db('sales').where({id:1}).first()).tax_amount),20);
+    assert.deepEqual(await getMonthlyAnalytics(1,{year:2024,month:2},db),data);
+  } finally {await db.destroy();}
+ });

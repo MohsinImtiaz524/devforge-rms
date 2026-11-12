@@ -316,6 +316,7 @@ CREATE TABLE IF NOT EXISTS sales (
   discount DOUBLE PRECISION NOT NULL DEFAULT 0,
   tax_percentage DOUBLE PRECISION NOT NULL DEFAULT 0,
   tax_amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+  delivery_service_charge NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (delivery_service_charge >= 0 AND delivery_service_charge <= 99999999.99),
   payment_method TEXT NOT NULL DEFAULT 'cash',
   amount_received DOUBLE PRECISION NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),

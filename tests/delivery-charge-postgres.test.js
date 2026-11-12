@@ -1,0 +1,8 @@
+const test=require('node:test'),assert=require('node:assert/strict'),{randomUUID}=require('node:crypto');
+const target=process.env.DELIVERY_CHARGE_TEST_DATABASE_URL;
+test('PostgreSQL numeric migration, constraints, rollback, and concurrent charge updates',{skip:!target},async()=>{
+ const knex=require('knex');const admin=knex({client:'pg',connection:target});const schema='delivery_test_'+randomUUID().replaceAll('-','');let db;
+ try{await admin.raw('CREATE SCHEMA ??',[schema]);db=knex({client:'pg',connection:target,searchPath:[schema],pool:{min:0,max:3}});await db.schema.createTable('sales',t=>{t.increments('id');t.integer('shop_id');t.decimal('total',12,2)});await db('sales').insert({id:1,shop_id:1,total:990});const {up}=require('../src/modules/delivery/delivery-charge.migration');await up(db);await up(db);assert.equal((await db('sales').first()).total,'990.00');assert.equal((await db('sales').first()).delivery_service_charge,'0.00');await assert.rejects(db('sales').where({id:1}).update({delivery_service_charge:-1}));
+ await Promise.all([150,200].map(fee=>db.transaction(async trx=>{await trx('sales').where({id:1,shop_id:1}).forUpdate().first();await trx('sales').where({id:1,shop_id:1}).update({delivery_service_charge:fee,total:990+fee})})));const row=await db('sales').first();assert.equal(Number(row.total),990+Number(row.delivery_service_charge));await assert.rejects(db.transaction(async trx=>{await trx('sales').where({id:1}).update({total:1});throw Error('rollback')}));assert.equal(Number((await db('sales').first()).total),Number(row.total));
+ }finally{if(db)await db.destroy();await admin.raw('DROP SCHEMA IF EXISTS ?? CASCADE',[schema]);await admin.destroy()}
+});

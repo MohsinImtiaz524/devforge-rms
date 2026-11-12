@@ -12,6 +12,7 @@ const { effectiveKitchenStatuses } = require('../utils/kitchen-status');
 const { classifyAffectedKitchenQueues } = require('../utils/kitchen-queue');
 const { mergeKitchenChanges } = require('../utils/kitchen-pending-changes');
 const { z } = require('zod');
+const { resolveDeliveryCharge, addDeliveryCharge } = require('../src/modules/delivery/delivery-charge');
 
 // Validation Schemas
 const orderNoteSchema = z.preprocess(
@@ -36,6 +37,7 @@ const checkoutSchema = z.object({
     stock_variant_id: z.number().int().positive().nullable().optional(),
   })).min(1, "Cart cannot be empty"),
   discount: z.number().nonnegative().default(0),
+  delivery_service_charge: z.number().nonnegative().optional(),
   tax_percentage: z.number().nonnegative().default(0),
   tip_payment_method: z.enum(['cash', 'card', 'online']).optional(),
   payment_method: z.string().default("cash"),
@@ -788,6 +790,7 @@ class SalesService {
    */
   async createSale(payload, shopId, userId) {
     const data = checkoutSchema.parse(payload);
+    resolveDeliveryCharge(data.delivery_service_charge, data.order_type);
     await assertOrderTypeAllowed(shopId, data.order_type);
     const shop = await db('shops').where({ id: shopId }).select('shop_type').first();
     const isRetailOrder = shop?.shop_type === 'retail' || data.order_type === 'walk_in';
@@ -928,7 +931,8 @@ class SalesService {
 
       // 2. Calculations
       const taxAmount = (subtotal - data.discount) * (data.tax_percentage / 100);
-      const grandTotal = subtotal - data.discount + taxAmount;
+      const serviceCharge = resolveDeliveryCharge(data.delivery_service_charge, data.order_type);
+      const grandTotal = addDeliveryCharge(subtotal - data.discount + taxAmount, serviceCharge);
       const dueAmount = parseFloat((grandTotal - data.amount_received).toFixed(2));
 
       // 3. Customer Resolution
@@ -961,6 +965,7 @@ class SalesService {
           discount: data.discount,
           tax_percentage: data.tax_percentage,
           tax_amount: taxAmount,
+          delivery_service_charge: serviceCharge,
           payment_method: data.payment_method,
           amount_received: data.amount_received,
           order_type: data.order_type,
@@ -1294,6 +1299,11 @@ class SalesService {
       const sale = await trx('sales').where({ id: saleId, shop_id: shopId }).forUpdate().first();
       if (!sale) throw new Error("Sale not found");
       if (sale.order_status === 'completed') throw new Error("Cannot edit a completed order");
+      if (payload.amount_received === undefined) data.amount_received = Number(sale.amount_received || 0);
+      const requestedCharge = resolveDeliveryCharge(data.delivery_service_charge, data.order_type, sale.delivery_service_charge);
+      if (requestedCharge !== Number(sale.delivery_service_charge || 0) && ['ready', 'served', 'cancelled'].includes(sale.order_status)) {
+        throw Object.assign(new Error('Delivery service charge cannot change after dispatch.'), { status: 409 });
+      }
       if (data.order_type === 'takeaway' && data.waiter_id) {
         const assignedWaiter = await trx('users').where({ id: data.waiter_id, shop_id: shopId }).first('role', 'status');
         if (!assignedWaiter || !['waiter', 'order_taker'].includes(String(assignedWaiter.role || '').toLowerCase()) || String(assignedWaiter.status || 'active').toLowerCase() !== 'active') {
@@ -1437,7 +1447,8 @@ class SalesService {
       if (configuredRequirements.length) await this.validateIngredientRequirements(trx, configuredRequirements, 1, 'this order', shopId);
 
       const taxAmount = (subtotal - data.discount) * (data.tax_percentage / 100);
-      const grandTotal = subtotal - data.discount + taxAmount;
+      const serviceCharge = resolveDeliveryCharge(data.delivery_service_charge, data.order_type, sale.delivery_service_charge);
+      const grandTotal = addDeliveryCharge(subtotal - data.discount + taxAmount, serviceCharge);
       const dueAmount = parseFloat((grandTotal - data.amount_received).toFixed(2));
 
       const updatedTableId = data.order_type === 'dine_in'
@@ -1453,12 +1464,14 @@ class SalesService {
         discount: data.discount,
         tax_percentage: data.tax_percentage,
         tax_amount: taxAmount,
+        delivery_service_charge: serviceCharge,
         payment_method: data.payment_method,
         amount_received: data.amount_received,
         order_type: data.order_type,
         table_id: updatedTableId,
         waiter_id: data.waiter_id || sale.waiter_id,
-        rider_id: data.rider_id || sale.rider_id,
+        rider_id: data.rider_id === undefined ? sale.rider_id : data.rider_id,
+        delivery_address: data.delivery_address === undefined ? sale.delivery_address : data.delivery_address,
         kitchen_id: data.kitchen_id || sale.kitchen_id,
         guest_count: data.guest_count,
         token_number: data.token_number || sale.token_number,
@@ -1912,7 +1925,7 @@ class SalesService {
       const subtotal = items.reduce((sum, item) => sum + Number(item.price_at_sale) * Number(item.quantity), 0);
       if (discount > subtotal) throw new Error('Discount cannot exceed the bill subtotal.');
       const taxAmount = (subtotal - discount) * taxPercentage / 100;
-      const total = subtotal - discount + taxAmount;
+      const total = addDeliveryCharge(subtotal - discount + taxAmount, sale.delivery_service_charge);
       await trx('sales').where({ id: saleId, shop_id: shopId }).update({
         customer_name: String(data.customer_name || '').trim().slice(0, 120),
         payment_method: ['cash', 'card', 'online'].includes(data.payment_method) ? data.payment_method : 'cash',
@@ -1980,7 +1993,7 @@ class SalesService {
         const items = await trx('sale_items').where({ sale_id: saleId });
         const subtotal = items.reduce((sum, item) => sum + (Number(item.price_at_sale) * Number(item.quantity)), 0);
         const taxAmount = (subtotal - newDiscount) * (newTaxPct / 100);
-        const grandTotal = subtotal - newDiscount + taxAmount;
+        const grandTotal = addDeliveryCharge(subtotal - newDiscount + taxAmount, sale.delivery_service_charge);
 
         updateData.discount = newDiscount;
         updateData.tax_percentage = newTaxPct;

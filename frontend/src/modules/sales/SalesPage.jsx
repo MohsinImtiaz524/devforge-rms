@@ -1169,8 +1169,7 @@ export default function SalesPage() {
       {modal?.kind === "print" && (
         <Modal title="Print Receipt" onClose={() => setModal(null)}>
           <div className="sales-print-menu">
-            {String(session?.shop_type || "").toLowerCase() ===
-              "restaurant" && (
+            {(['restaurant','retail_restaurant'].includes(String(session?.shop_type||'').toLowerCase())||['dine_in','takeaway','delivery'].includes(modal.sale.order_type)) && (
               <button
                 className="kitchen"
                 onClick={() => openPrint(modal.sale.id, "kitchen")}

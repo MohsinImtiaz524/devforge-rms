@@ -1,6 +1,7 @@
 const { requirePermission } = require('./middleware');
 
 const RESOURCE_MODULE = {
+  'order-workload': 'orders',
   tips: 'orders',
   sales: 'orders', tips: 'orders', delivery: 'delivery', kds: 'kitchen_orders', products: 'products',
   'product-categories': 'products', 'raw-stock': 'raw_stock', recipes: 'recipes', brands: 'brands',
@@ -19,6 +20,7 @@ const RESOURCE_MODULE = {
 function actionFor(req, resource) {
   const method = req.method;
   const path = req.path;
+  if (resource === 'order-workload') return 'create';
   if (resource === 'tips') return 'take_payment';
   if (resource === 'tips') return 'take_payment';
   if (resource === 'sales') {
@@ -116,6 +118,7 @@ function enforceApiPermissions(req, res, next) {
   }
   const module = RESOURCE_MODULE[resource];
   if (!module) return next();
+  if(resource==='order-workload'&&req.method==='GET')return requirePermission('orders.create','orders.update')(req,res,next);
   // Sales history is permissioned separately from live POS/order operations.
   // Its client marks requests explicitly so shared sales endpoints remain usable
   // by the POS under orders.* permissions.

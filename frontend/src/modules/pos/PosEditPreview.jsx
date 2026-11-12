@@ -1,0 +1,13 @@
+import { useState } from 'react'
+import { formatShopCurrency as money } from '../../currency'
+import { configuredItemName, parseList } from './pos.logic'
+import { can } from './orders.logic'
+import PosDialog from './PosDialog'
+
+export default function PosEditPreview({user,bill,close,onContinue,notify}) {
+  const [items,setItems]=useState(()=>bill.items.map(item=>({...item,quantity:Number(item.quantity),original_quantity:Number(item.quantity)})))
+  function remove(index){if(!can(user,'orders.remove_items'))return notify('You may add items, but cannot remove existing order items.','error');setItems(current=>current.filter((_,i)=>i!==index))}
+  function quantity(index,value){const next=Number(value),item=items[index];if(!Number.isFinite(next))return;if(next<item.original_quantity&&!can(user,'orders.remove_items'))return notify('Reducing or removing an existing product requires Remove Order Items access.','error');if(next<1)return remove(index);setItems(current=>current.map((row,i)=>i===index?{...row,quantity:next}:row))}
+  function proceed(){if(!can(user,'orders.update'))return;if(!items.length&&!confirm('Your order is empty. Proceed to POS to add new items?'))return;onContinue({...bill,items})}
+  return <PosDialog title={'Edit Order #'+(bill.sale.order_number||bill.sale.id)} close={close}><div className="payment-form"><button className="primary" onClick={proceed}>Update Order / Add More Items</button><div className="pos-edit-preview"><header><b>Order Items</b><span>{items.length} Active Items</span></header>{items.length?items.map((item,index)=><article key={item.id||index}><b>{configuredItemName({name:item.product_name,variants:parseList(item.variants_json),addons:parseList(item.addons_json)})}</b>{item.special_instructions&&<small>{item.special_instructions}</small>}<div><button aria-label={'Decrease '+item.product_name} onClick={()=>quantity(index,item.quantity-1)}>-</button><input aria-label={'Quantity for '+item.product_name} type="number" min="0" value={item.quantity} onChange={event=>quantity(index,event.target.value)}/><button aria-label={'Increase '+item.product_name} onClick={()=>quantity(index,item.quantity+1)}>+</button><strong>{money(item.quantity*Number(item.price_at_sale))}</strong>{can(user,'orders.remove_items')&&<button aria-label={'Remove '+item.product_name+' from order'} onClick={()=>remove(index)}>Remove</button>}</div></article>):<p>No items remaining</p>}</div><dl><div><dt>Modified Total</dt><dd>{money(items.reduce((sum,item)=>sum+item.quantity*Number(item.price_at_sale),0))}</dd></div></dl><button onClick={close}>Cancel Changes</button></div></PosDialog>
+}

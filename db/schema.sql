@@ -215,6 +215,7 @@ CREATE TABLE IF NOT EXISTS sales (
   discount REAL NOT NULL DEFAULT 0,
   tax_percentage REAL NOT NULL DEFAULT 0,
   tax_amount REAL NOT NULL DEFAULT 0,
+  delivery_service_charge NUMERIC NOT NULL DEFAULT 0 CHECK (delivery_service_charge >= 0 AND delivery_service_charge <= 99999999.99),
   payment_method TEXT NOT NULL DEFAULT 'cash',
   amount_received REAL NOT NULL DEFAULT 0,
   order_type TEXT DEFAULT 'dine_in', -- dine_in, takeaway, delivery, walk_in

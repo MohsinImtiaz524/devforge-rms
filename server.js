@@ -184,6 +184,7 @@ app.use("/api/staff-activity", require("./src/modules/staff-activity/staff-activ
 app.use("/api/roles", require("./routes/roles"));
 app.use("/api/brands", require("./routes/brands"));
 app.use("/api/products", require("./routes/products"));
+app.use('/api/order-workload', require('./src/modules/order-workload/order-workload.routes').createOrderWorkloadRouter({db}));
 app.use("/api/sales", require("./routes/sales"));
 app.use("/api/delivery", require("./routes/delivery"));
 app.use("/api/expenses", require("./src/modules/expenses/expenses.routes"));

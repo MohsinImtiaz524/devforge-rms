@@ -90,9 +90,11 @@ test('walk-in is selectable, saved, correctly labeled, and excluded from kitchen
   const kitchenSource = fs.readFileSync(path.join(__dirname, '../services/InfrastructureService.js'), 'utf8');
   const receiptSource = fs.readFileSync(path.join(__dirname, '../services/ReceiptPrintService.js'), 'utf8');
 
-  assert.match(appSource, /startPOSOrder\('walk_in'\)/);
+  assert.match(appSource, /id="pos-order-type" tabindex="-1" aria-required="true"/);
+  assert.match(appSource, /getPOSAllowedOrderTypes\(\)\.map\(type =>/);
+  assert.match(appSource, /walk_in: \{[\s\S]*?label: 'Walk-in Order'/);
   assert.match(appSource, /activePOSOrderType === 'walk_in'/);
-  assert.match(appSource, /orderType === 'walk_in'/);
+  assert.match(appSource, /order\.order_type === 'walk_in'/);
   assert.match(hierarchySource, /data-service="walk_in"/);
   assert.match(salesSource, /data\.order_type === 'walk_in'/);
   assert.match(kitchenSource, /whereNot\('s\.order_type', 'walk_in'\)/);

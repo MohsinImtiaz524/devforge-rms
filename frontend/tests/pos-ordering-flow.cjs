@@ -1,0 +1,96 @@
+const { chromium, expect } = require('@playwright/test');
+const assert = require('node:assert/strict');
+const path = require('node:path');
+
+(async () => {
+  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  try {
+    const page = await browser.newPage({ viewport: { width: 900, height: 1000 } });
+    const errors = [], saves = [];
+    page.on('pageerror', error => errors.push(error.message));
+    const user = { id: 1, shop_id: 1, shop_type: 'restaurant', role: 'admin', permissions: ['orders.create', 'orders.view', 'orders.update'], allowed_order_types: ['dine_in', 'takeaway', 'delivery'] };
+    await page.route('**/api/**', route => {
+      const url = new URL(route.request().url());
+      if (!url.pathname.startsWith('/api/')) return route.continue();
+      let json = [];
+      if (url.pathname === '/api/auth/me') json = { user };
+      if (url.pathname === '/api/products') json = { items: [{ id: 1, name: 'Test Burger', selling_price: 100, stock: 20, product_type: 'simple', category: 'Food' }], pagination: { page: 1, page_size: 20, total: 1, total_pages: 1 } };
+      if (url.pathname === '/api/tables') json = [{ id: 1, table_number: 'A1', status: 'available', assigned_waiter_id: 2, assigned_waiter_name: 'Test Waiter', floor_id: 1 }];
+      if (url.pathname === '/api/tables/floors') json = [{ id: 1, name: 'Ground' }];
+      if (url.pathname === '/api/users/assignable') json = [{ id: 2, name: 'Test Waiter', role: 'waiter' }];
+      if (url.pathname === '/api/product-categories') json = [{ name: 'Food' }];
+      if (url.pathname === '/api/sales' && route.request().method() === 'POST') {
+        saves.push(route.request().postDataJSON()); json = { saleId: 10, orderNumber: 10, total: 100, print_jobs_queued: 1 };
+      }
+      return route.fulfill({ json });
+    });
+    await page.route('**/socket.io/**', route => route.fulfill({ contentType: 'application/javascript', body: 'window.io=()=>({connected:false,on(){},off(){}})'  }));
+    await page.goto(process.env.POS_TEST_URL || 'http://127.0.0.1:5175/app/pos');
+    await expect(page.getByRole('heading', { name: 'Ready to take an order?' })).toHaveCount(0);
+    await expect(page.locator('.pos-tools').getByRole('button', {name:'View Orders',exact:true})).toBeVisible();
+    await expect(page.locator('.pos-cart-toolbar').getByRole('button', {name:'View Orders',exact:true})).toHaveCount(0);
+    if(await page.getByRole('button',{name:'Expand categories',exact:true}).count())await page.getByRole('button',{name:'Expand categories',exact:true}).click();
+    await page.getByRole('button',{name:'Collapse categories',exact:true}).click();
+    await expect(page.getByRole('navigation',{name:'Categories',exact:true})).toBeHidden();
+    await page.getByRole('button',{name:'Expand categories',exact:true}).click();
+    await page.getByRole('navigation',{name:'Categories',exact:true}).getByRole('button',{name:'Food',exact:true}).click();
+    await expect(page.getByRole('navigation',{name:'Categories',exact:true}).getByRole('button',{name:'Food',exact:true})).toHaveAttribute('aria-pressed','true');
+    await expect(page.locator('.pos-product')).toBeVisible();
+    await page.screenshot({path:path.resolve(__dirname,'../../tmp/pos-react-sidebar-desktop.png')});
+    await page.locator('.pos-product').click();
+    await page.getByRole('button', { name: 'Add to cart', exact: true }).click();
+    await page.getByRole('button', { name: 'Open checkout', exact: true }).click();
+    await expect(page.locator('.pos-order-types button[aria-pressed="true"]')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Kitchen', exact: true }).click();
+    await expect(page.locator('.pos-toast')).toContainText('Please select an order type');
+    assert.equal(saves.length, 0);
+    await page.getByRole('button', { name: 'Dine-in', exact: true }).click();
+    await expect(page.locator('.pos-cart')).toContainText('Test Burger');
+    await page.locator('.pos-service button').filter({hasText:'Choose table'}).click();
+    await page.getByRole('button', { name: 'Back to ordering', exact: true }).click();
+    await expect(page.locator('.pos-cart')).toContainText('Test Burger');
+    await page.locator('.pos-service button').filter({hasText:'Choose table'}).click();
+    await page.getByRole('button').filter({ hasText: 'Table A1' }).click();
+    await expect(page.locator('.pos-service')).toContainText('Test Waiter');
+    await expect(page.locator('.pos-cart')).toContainText('Test Burger');
+    await page.getByRole('button', { name: 'Takeaway', exact: true }).click();
+    await expect(page.locator('.pos-cart')).toContainText('Test Burger');
+    await page.getByRole('button', { name: 'Kitchen', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Order Placed', exact: true })).toBeVisible();
+    assert.equal(saves.length, 1);
+    assert.equal(saves[0].order_type, 'takeaway');
+    assert.equal(saves[0].order_status, 'pending');
+    assert.equal(saves[0].table_id, null);
+    assert.equal(saves[0].amount_received, 0);
+    await page.getByRole('button', { name: 'Continue Ordering', exact: true }).click();
+    await page.setViewportSize({width:1440,height:1000});
+    await page.getByPlaceholder('Search name, SKU, barcode or scan QR').fill('Test Burger');
+    await page.getByPlaceholder('Search name, SKU, barcode or scan QR').press('Enter');
+    await expect(page.locator('.pos-cart')).toContainText('Test Burger');
+    await page.getByRole('button', { name: 'Clear Cart', exact: true }).click();
+    await expect(page.locator('.pos-cart')).toContainText('Your cart is empty');
+    await expect(page.locator('.pos-products table')).toBeVisible();
+    await expect(page.locator('.pos-tools').getByRole('button', {name:'View Orders',exact:true})).toBeVisible();
+    await expect(page.locator('.pos-cart-toolbar').getByRole('button', {name:'View Orders',exact:true})).toHaveCount(0);
+    await expect(page.locator('.pos-order-types button[aria-pressed="true"]')).toHaveCount(0);
+    await page.getByRole('button', { name: 'View Orders', exact: true }).first().click();
+    await expect(page.getByRole('heading', { name: 'Active Orders', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'New Order', exact: true }).click();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.locator('.pos-page')).toHaveClass(/pos-layout-cards/);
+    await page.getByRole('button', { name: 'Open checkout', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Dine-in', exact: true })).toBeVisible();
+    await page.screenshot({ path: path.resolve(__dirname, '../../tmp/pos-react-mobile.png'), fullPage: true });
+    await page.getByRole('button',{name:'Close checkout',exact:true}).last().click();
+    const sidebarToggle=page.locator('.pos-category-sidebar header button');
+    if(await sidebarToggle.getAttribute('aria-expanded')==='true')await sidebarToggle.click();
+    await sidebarToggle.click();
+    await expect(page.getByRole('navigation',{name:'Categories',exact:true})).toBeVisible();
+    await page.getByRole('navigation',{name:'Categories',exact:true}).getByRole('button',{name:'All',exact:true}).click();
+    await expect(page.getByRole('navigation',{name:'Categories',exact:true})).toBeHidden();
+    assert.deepEqual(errors, []);
+    console.log('PASS: React POS entry, required type, cart preservation, table return, save payload, fresh order, layouts, orders, and mobile.');
+  } finally {
+    await browser.close();
+  }
+})().catch(error => { console.error(error); process.exitCode = 1; });

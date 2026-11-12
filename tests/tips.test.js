@@ -65,6 +65,27 @@ test('tip collection, isolation, retries, receipts, and shift reconciliation', a
     assert.match(receipt,/Expected closing cash/);
     assert.match(receipt,/First order #<\/span><span>#101/); assert.match(receipt,/Last order #<\/span><span>#105/);
   });
+  await t.test('delivery charge is counted once in register, shift dashboard and shift receipt totals', async () => {
+    await require('../src/modules/delivery/delivery-charge.migration').up(db);
+    await db('sales').where({id:1}).update({order_type:'delivery',delivery_service_charge:150,total:4650,amount_received:5150});
+    try {
+      const summary=await shifts.calculateShiftSummary(1,1);
+      assert.equal(summary.total_sales_collected,4650);
+      assert.equal(summary.total_sales_ex_tax,4150);
+      assert.equal(summary.net_revenue,4150);
+      assert.equal(summary.total_tax,500);
+      assert.equal(summary.total_tips,500);
+      assert.equal(summary.expected_balance,6150);
+      assert.equal(summary.expected_total,6150);
+      await assert.rejects(shifts.calculateShiftSummary(1,2),/Shift not found/);
+      assert.deepEqual(await shifts.calculateShiftSummary(1,1),summary);
+      const receipt=renderShiftReceiptPage({shift:{id:1},summary,shop:{name:'Test'}},{autoPrint:false});
+      assert.match(receipt,/4650.00/);
+      assert.match(receipt,/4150.00/);
+    } finally {
+      await db('sales').where({id:1}).update({order_type:'takeaway',delivery_service_charge:0,total:4500,amount_received:5000});
+    }
+  });
   await t.test('paid receipt separates tips from change; kitchen and unpaid omit tips', async () => {
     const details={sale:await db('sales').first(),items:[],shop:{name:'Test'}};
     const paid=renderSaleReceiptPage(details,{autoPrint:false});

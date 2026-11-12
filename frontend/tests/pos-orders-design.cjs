@@ -1,0 +1,32 @@
+const {chromium,expect}=require('@playwright/test');
+const fs=require('fs'),path=require('path'),assert=require('node:assert/strict');
+const base='http://127.0.0.1:5175/app/pos';
+const source=fs.readFileSync(path.join(__dirname,'pos-orders-parity.cjs'),'utf8');
+const setupSource=source.slice(source.indexOf('async function setup('),source.indexOf('\n(async'));
+(async()=>{const setup=eval('('+setupSource.trim()+')');const browser=await chromium.launch({channel:'msedge',headless:true});try{
+ const {page,calls,errors}=await setup(browser,['orders.create','orders.view','orders.update','orders.take_payment','orders.complete'],'cashier',1,{shopType:'retail_restaurant'});
+ const records=Array.from({length:12},(_,index)=>({id:109-index,order_number:1009-index,order_type:['takeaway','takeaway','dine_in','delivery','takeaway'][index%5],order_status:['payment_pending','preparing','ready','completed','cancelled'][index%5],table_id:index%5===2?4:null,table_number:index%5===2?'04':null,customer_name:index%5===3?'Online Order':index%5===2?'':'Walk-in',waiter_name:index%5===2?'Ali':'',total:[1140,1020,2480,1560,890][index%5],created_at:new Date('2026-11-11T10:20:00Z').toISOString()}));
+ await page.route('**/api/sales',route=>route.request().method()==='GET'?route.fulfill({json:records}):route.fallback());
+ await page.getByRole('button',{name:'Refresh',exact:true}).click();
+ await page.setViewportSize({width:1440,height:1000});await page.getByRole('combobox',{name:'Order status filter'}).selectOption('all');
+ await page.setViewportSize({width:1848,height:851});
+ await expect(page.locator('.orders-table tbody tr')).toHaveCount(5);await expect(page.locator('.orders-pagination')).toContainText('of 10 orders');
+ const action=page.locator('.orders-table tbody tr').first().getByRole('button',{name:'View',exact:true});const primary=page.locator('.orders-table tbody tr').first().getByRole('button',{name:'Payment & Complete',exact:true});
+ const idle=await action.evaluate(el=>getComputedStyle(el).backgroundColor),filled=await primary.evaluate(el=>getComputedStyle(el).backgroundColor);assert.notEqual(idle,filled);
+ await action.hover();await expect.poll(()=>action.evaluate(el=>getComputedStyle(el).backgroundColor)).not.toBe(idle);await page.mouse.move(1800,800);
+ await page.locator('.orders-table tbody tr').first().locator('td').first().click();await expect(page.locator('.orders-table tbody tr').first()).toHaveAttribute('data-selected','true');
+ await expect(page.locator('.orders-table tbody tr').nth(3).getByRole('button',{name:'Edit',exact:true})).toHaveCount(0);await expect(page.locator('.orders-table tbody tr').nth(3).getByRole('button',{name:'Payment & Complete',exact:true})).toHaveCount(0);
+ await page.screenshot({path:path.join(__dirname,'../../tmp/orders-design-desktop.png'),fullPage:true});
+ await page.getByRole('button',{name:'Next orders page'}).click();await expect(page.locator('.orders-pagination')).toContainText('Showing 6–10');
+ await page.getByRole('textbox',{name:'Search orders'}).fill('Ali');await expect(page.locator('.orders-table tbody tr')).toHaveCount(2);await page.getByRole('button',{name:'Clear order search'}).click();
+ await page.getByRole('combobox',{name:'Table filter'}).selectOption('4');await expect(page.locator('.orders-table tbody tr')).toHaveCount(2);await page.getByRole('combobox',{name:'Table filter'}).selectOption('');
+ await expect(page.getByRole('combobox',{name:'Order status filter'}).locator('option[value="completed"]')).toHaveCount(0);await page.getByRole('textbox',{name:'Search orders'}).fill('Online Order');await expect(page.locator('.orders-table tbody tr')).toHaveCount(0);await page.getByRole('button',{name:'Clear order search'}).click();
+ await page.keyboard.press('Control+k');await expect(page.getByRole('textbox',{name:'Search orders'})).toBeFocused();
+ await page.getByRole('textbox',{name:'Search orders'}).fill('no matching order');await expect(page.locator('.orders-empty')).toBeVisible();await page.getByRole('button',{name:'Clear filters',exact:true}).click();
+ await page.setViewportSize({width:1024,height:844});
+ for(const width of [390,320]){await page.setViewportSize({width,height:844});await expect(page.locator('.order-cards article').first()).toBeVisible();assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:path.join(__dirname,'../../tmp/orders-design-mobile-'+width+'.png'),fullPage:true});}
+ await page.evaluate(()=>document.documentElement.classList.add('dark'));await page.locator('.orders-back').evaluate(el=>Promise.all(el.getAnimations().map(animation=>animation.finished)));await page.screenshot({path:path.join(__dirname,'../../tmp/orders-design-dark.png'),fullPage:true});
+ await page.route('**/api/sales',route=>route.fulfill({status:503,json:{error:'Temporary failure'}}));await page.getByRole('button',{name:'Refresh',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Temporary failure');await expect(page.getByRole('button',{name:'Retry',exact:true})).toBeEnabled();
+ let releaseLoading;const loadingGate=new Promise(resolve=>releaseLoading=resolve);await page.route('**/api/sales',async route=>{await loadingGate;await route.fulfill({json:[]})});await page.reload();await page.getByRole('button',{name:'View Orders',exact:true}).click();await expect(page.getByRole('status',{name:'Loading active orders',exact:true})).toBeVisible();await page.screenshot({path:path.join(__dirname,'../../tmp/orders-design-loading.png'),fullPage:true});releaseLoading();await expect(page.locator('.orders-empty')).toBeVisible();
+ assert.deepEqual(errors,[]);console.log('PASS: reference layout, primary/secondary/hover states, selection, filters, pagination, terminal-order action gates, search shortcut, loading/empty/error states, and responsive light/dark views');
+}finally{await browser.close()}})().catch(error=>{console.error(error);process.exitCode=1});

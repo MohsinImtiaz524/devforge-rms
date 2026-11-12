@@ -22,3 +22,9 @@ Findings fixed and recaptured:
 Interaction evidence: premium browser test passed search/categories/no-results reset, private/live preview, editor/save/publish, anonymous public page, native dialog open/Escape/focus return, mobile navigation, image loading and no browser errors. Existing Website Moon browser regression also passed.
 
 Remaining nonblocking differences: original food photos and library logo fallback; no branding from reference brands; fixture prices/content differ across reviewed states; no future ordering controls. Full assistive-technology audit and deployed HTTPS/R2 checks are not claimed by this visual review.
+
+# Active Orders reference implementation - 2026-11-11
+
+final result: passed
+
+The supplied Active Orders dashboard and component-state board were compared with the implemented React table at 1848 x 851, plus 390/320 mobile cards and dark mode. Earlier typography, casing, sizing, and text-encoding findings were fixed and recaptured. Full evidence, intentional differences, state coverage, and remaining limits are recorded in [reports/active-orders-design-qa.md](reports/active-orders-design-qa.md). Design interaction tests, existing order workflow/permission tests, delivery completion regressions, filter/routing unit tests, and the production build passed. No deployment or migration was performed.

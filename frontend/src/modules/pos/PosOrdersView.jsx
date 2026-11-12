@@ -1,19 +1,40 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Pencil, Printer, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Pencil, Printer, RefreshCw, Eye, CreditCard, Check, Truck, Plus, Coins, Table2, ShoppingBag, Utensils, Store, Search, Layers, Activity, ChevronDown, ChevronLeft, ChevronRight, Clock, Bookmark, ChefHat, CircleCheck, CircleX, Zap, PackageOpen, AlertCircle, LoaderCircle, X } from 'lucide-react'
 import { api } from '../../api/client'
 import { formatShopCurrency as money } from '../../currency'
-import { configuredItemName, parseList } from './pos.logic'
 import PosPaymentModal from './PosPaymentModal'
-import PosDeliveryEditor from './PosDeliveryEditor'
+import PosOrderDetails from './PosOrderDetails'
+import PosPrintOptions from './PosPrintOptions'
+import PosRecordTip from './PosRecordTip'
+import { can, canServe, completionPath, isRetailCompletion, filterOrders, orderStatusLabel, relativeOrderTime, serviceLabel } from './orders.logic'
 
-const can=(user,key)=>user?.role==='superadmin'||user?.permissions?.includes(key)
+import './pos.orders.css'
+
 const TYPES=['dine_in','takeaway','delivery','walk_in']
 
-export default function PosOrdersView({user,back,notify,printReceipt,onEdit}){
-  const [orders,setOrders]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[search,setSearch]=useState(''),[type,setType]=useState(''),[view,setView]=useState(()=>localStorage.getItem('orders_view')==='table'?'table':'cards'),[details,setDetails]=useState(null),[payment,setPayment]=useState(null)
+export default function PosOrdersView({user,back,notify,printReceipt,onEdit,onNew,printTip,retail}) {
+  const [orders,setOrders]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[search,setSearch]=useState(''),[type,setType]=useState(''),[view,setView]=useState(()=>window.matchMedia('(min-width:1280px)').matches?'table':'cards')
+  const [details,setDetails]=useState(null),[payment,setPayment]=useState(null),[printing,setPrinting]=useState(null),[tip,setTip]=useState(false),[busy,setBusy]=useState(false)
+  const [busyMessage,setBusyMessage]=useState('Loading order...')
   const [realtime,setRealtime]=useState('reconnecting')
-  const loaded=useRef(false)
-  const load=useCallback(async()=>{try{setLoading(true);setError('');const rows=await api('/api/sales');setOrders((Array.isArray(rows)?rows:[]).filter(row=>row.order_status!=='completed').slice(0,50))}catch(requestError){setError(requestError.message)}finally{setLoading(false)}},[])
+  const [status,setStatus]=useState('active'),[table,setTable]=useState(''),[page,setPage]=useState(1),[selectedId,setSelectedId]=useState(null)
+  const searchRef=useRef(null)
+  const loaded=useRef(false),mutating=useRef(false),loadingRequest=useRef(null)
+  useEffect(()=>{
+    const desktop=window.matchMedia('(min-width:1280px)')
+    const update=()=>setView(desktop.matches?'table':'cards')
+    desktop.addEventListener('change',update)
+    return()=>desktop.removeEventListener('change',update)
+  },[])
+  const load=useCallback(()=>{
+    if(loadingRequest.current)return loadingRequest.current
+    loadingRequest.current=(async()=>{
+      try{setLoading(true);setError('');const rows=await api('/api/sales');setOrders(Array.isArray(rows)?rows:[])}
+      catch(requestError){setError(requestError.message)}
+      finally{setLoading(false);loadingRequest.current=null}
+    })()
+    return loadingRequest.current
+  },[])
   useEffect(()=>{
     let active=true,refreshTimer=null,staleWhileHidden=false,socket=null
     const scheduleRefresh=()=>{if(document.hidden){staleWhileHidden=true;return}clearTimeout(refreshTimer);refreshTimer=setTimeout(load,250)}
@@ -23,7 +44,7 @@ export default function PosOrdersView({user,back,notify,printReceipt,onEdit}){
     const subscribe=instance=>{if(!active)return;socket=instance;socket.on('connect',statusLive);socket.on('realtime:ready',scheduleRefresh);socket.on('order:changed',scheduleRefresh);socket.on('disconnect',statusDisconnect);socket.on('connect_error',statusError);setRealtime(socket.connected?'live':'reconnecting')}
     const getSocket=()=>new Promise((resolve,reject)=>{
       if(window.orderRealtimeSocket)return resolve(window.orderRealtimeSocket)
-      const connect=()=>{if(!window.orderRealtimeSocket)window.orderRealtimeSocket=window.io({path:'/socket.io',withCredentials:true});resolve(window.orderRealtimeSocket)}
+      const connect=()=>{if(typeof window.io!=='function')return reject(new Error('Realtime client unavailable'));if(!window.orderRealtimeSocket)window.orderRealtimeSocket=window.io({path:'/socket.io',withCredentials:true});resolve(window.orderRealtimeSocket)}
       if(typeof window.io==='function')return connect()
       const existing=document.querySelector('script[data-order-realtime-client]')
       if(existing){existing.addEventListener('load',connect,{once:true});existing.addEventListener('error',reject,{once:true});return}
@@ -36,12 +57,62 @@ export default function PosOrdersView({user,back,notify,printReceipt,onEdit}){
     getSocket().then(subscribe).catch(()=>{if(active)setRealtime('offline')})
     return()=>{active=false;clearTimeout(initial);clearTimeout(refreshTimer);clearInterval(fallback);document.removeEventListener('visibilitychange',visible);if(socket){socket.off('connect',statusLive);socket.off('realtime:ready',scheduleRefresh);socket.off('order:changed',scheduleRefresh);socket.off('disconnect',statusDisconnect);socket.off('connect_error',statusError)}}
   },[load])
-  const filtered=orders.filter(row=>(!type||row.order_type===type)&&(!search||String(row.order_number||row.id).includes(search)))
-  const canServe=order=>['dine_in','takeaway'].includes(order.order_type)&&order.order_status==='ready'&&(Number(order.user_id)===Number(user.id)||Number(order.waiter_id)===Number(user.id)||user.role==='receptionist')
-  const primaryAction=order=>canServe(order)?<button onClick={()=>served(order)}>{order.order_type==='takeaway'?'Handed Over':'Served'}</button>:can(user,'orders.take_payment')&&can(user,'orders.complete')?<button onClick={()=>setPayment(order)}>Pay</button>:can(user,'orders.complete')?<button onClick={()=>complete(order)}>Complete</button>:null
-  function chooseView(value){setView(value);localStorage.setItem('orders_view',value)}
-  async function showDetails(id){try{setDetails(await api(`/api/sales/${id}/bill`))}catch(requestError){notify(requestError.message,'error')}}
-  async function complete(order){if(!confirm('Are you sure you want to complete this order and move it to sales history?'))return;try{if(order.order_type==='walk_in')await api('/api/sales/'+order.id+'/complete',{method:'POST',body:{}});else await api('/api/kds/'+order.id+'/status',{method:'PATCH',body:{status:'completed'}});notify('Order completed');load()}catch(requestError){notify(requestError.message,'error')}}
-  async function served(order){try{await api(`/api/kds/${order.id}/status`,{method:'PATCH',body:{status:'served'}});notify(order.order_type==='takeaway'?'Order handed over':'Order served');load()}catch(requestError){notify(requestError.message,'error')}}
-  return <main className="pos-orders"><header><button onClick={back}><ArrowLeft size={17}/> Back</button><span><h1>Active Orders</h1><p>Dine-in, takeaway, delivery, and saved retail orders</p><small data-realtime-status={realtime}><i/> {realtime==='live'?'Live':realtime==='offline'?'Offline':'Reconnecting'}</small></span><button onClick={load}><RefreshCw size={16}/> Refresh</button></header><nav><input value={search} onChange={event=>setSearch(event.target.value)} placeholder="Search Order ID..."/><select value={type} onChange={event=>setType(event.target.value)}><option value="">All Types</option>{TYPES.map(value=><option value={value} key={value}>{value.replaceAll('_',' ')}</option>)}</select><button className={view==='cards'?'active':''} onClick={()=>chooseView('cards')}>Mobile</button><button className={view==='table'?'active':''} onClick={()=>chooseView('table')}>Table</button></nav>{error&&<div className="pos-error">{error}</div>}{loading?<div className="orders-empty">Loading active orders...</div>:!filtered.length?<div className="orders-empty">No active orders found</div>:view==='cards'?<section className="order-cards">{filtered.map(order=><article key={order.id}><header><span><small>Order #{order.order_number||order.id}</small><b>{order.order_type==='dine_in'?`Table ${order.table_number||'N/A'}`:order.customer_name||order.delivery_address||'Counter order'}</b></span><em>{String(order.order_status||'pending').replaceAll('_',' ')}</em></header><dl><div><dt>Service</dt><dd>{order.order_type.replaceAll('_',' ')}</dd></div><div><dt>Waiter</dt><dd>{order.waiter_name||'-'}</dd></div><div><dt>Total</dt><dd>{money(order.total)}</dd></div></dl><footer>{can(user,'orders.view')&&<button onClick={()=>showDetails(order.id)}>Details</button>}{can(user,'orders.update')&&<button onClick={()=>onEdit(order.id)}><Pencil size={14}/> Edit</button>}{can(user,'orders.view')&&<button onClick={()=>printReceipt(order.id,'customer')}><Printer size={14}/> Print</button>}{primaryAction(order)}</footer></article>)}</section>:<div className="orders-table"><table><thead><tr><th>Order</th><th>Type</th><th>Details</th><th>Waiter</th><th>Status</th><th>Total</th><th>Actions</th></tr></thead><tbody>{filtered.map(order=><tr key={order.id}><td>#{order.order_number||order.id}</td><td>{order.order_type.replaceAll('_',' ')}</td><td>{order.table_number?`Table ${order.table_number}`:order.customer_name||'-'}</td><td>{order.waiter_name||'-'}</td><td>{order.order_status}</td><td>{money(order.total)}</td><td><button onClick={()=>showDetails(order.id)}>View</button>{can(user,'orders.update')&&<button onClick={()=>onEdit(order.id)}>Edit</button>}<button onClick={()=>printReceipt(order.id,'customer')}>Print</button>{primaryAction(order)}</td></tr>)}</tbody></table></div>}{details&&<div className="pos-modal-bg" onMouseDown={event=>event.target===event.currentTarget&&setDetails(null)}><section className="pos-modal"><header><h3>Order #{details.sale?.order_number||details.sale?.id}</h3><button onClick={()=>setDetails(null)}>×</button></header><div className="order-details">{details.sale?.order_type==='delivery'&&<PosDeliveryEditor sale={details.sale} canEdit={can(user,'orders.update')} notify={notify} onDone={()=>{setDetails(null);load()}}/>}{(details.items||[]).map(item=><div key={item.id}><span><b>{configuredItemName({name:item.product_name,variants:parseList(item.variants_json),addons:parseList(item.addons_json)})}</b>{item.special_instructions&&<small>{item.special_instructions}</small>}</span><strong>{item.quantity} × {money(item.price_at_sale)}</strong></div>)}<footer><b>Total</b><strong>{money(details.sale?.total)}</strong></footer></div></section></div>}{payment&&<PosPaymentModal order={payment} close={()=>setPayment(null)} notify={notify} onDone={load} printReceipt={printReceipt}/>}</main>
+
+  useEffect(()=>{const shortcut=event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();searchRef.current?.focus()}};document.addEventListener('keydown',shortcut);return()=>document.removeEventListener('keydown',shortcut)},[])
+  const filtered=filterOrders(orders,type,search,{status,table,savedShop:retail})
+  const pageSize=5,totalPages=Math.max(1,Math.ceil(filtered.length/pageSize)),currentPage=Math.min(page,totalPages)
+  const visible=filtered.slice((currentPage-1)*pageSize,currentPage*pageSize)
+  const tableOptions=[...new Map(orders.filter(order=>order.table_id&&order.order_status!=='completed').map(order=>[String(order.table_id),order.table_number||order.table_id])).entries()]
+  const pageNumbers=[...new Set([1,currentPage-1,currentPage,currentPage+1,totalPages])].filter(value=>value>0&&value<=totalPages).sort((a,b)=>a-b)
+  function changeFilter(setter,value){setter(value);setPage(1);setSelectedId(null)}
+  const finished=order=>['completed','cancelled'].includes(order.order_status)
+  const canPay=can(user,'orders.take_payment')&&can(user,'orders.complete')
+  const context=order=>order.order_type==='dine_in'?`Table ${order.table_number||'N/A'}`:order.order_type==='delivery'?order.customer_name||order.delivery_address||'Delivery customer':order.customer_name||'Counter order'
+  const hasFilters=Boolean(search.trim()||type||table||status!=='active')
+  async function showDetails(id){
+    if(mutating.current)return
+    mutating.current=true;setBusyMessage('Loading order details...')
+    try{setBusy(true);const bill=await api('/api/sales/'+id+'/bill');if(!bill?.sale)throw new Error('Order not found');setDetails(bill)}catch(error){notify(error.message,'error')}finally{mutating.current=false;setBusy(false)}
+  }
+  async function edit(id){
+    if(!can(user,'orders.update'))return notify('You do not have permission to edit orders.','error')
+    if(mutating.current)return
+    mutating.current=true;setBusyMessage('Opening order in POS...')
+    try{setBusy(true);const bill=await api('/api/sales/'+id+'/bill');if(!bill?.sale)throw new Error('Order details not found');setDetails(null);await onEdit(id,bill)}catch(error){notify(error.message,'error')}finally{mutating.current=false;setBusy(false)}
+  }
+  async function complete(order){
+    if(!can(user,'orders.complete'))return notify('You do not have permission to complete orders.','error')
+    if(mutating.current||!confirm('Are you sure you want to complete this order and move it to sales history?'))return
+    mutating.current=true;setBusyMessage('Completing order...');setBusy(true)
+    try{const retailCompletion=isRetailCompletion(user,order);await api(completionPath(user,order),{method:retailCompletion?'POST':'PATCH',body:retailCompletion?{}:{status:'completed'}});notify('Order completed!');await load()}catch(error){notify(error.message,'error')}finally{mutating.current=false;setBusy(false)}
+  }
+  async function served(order){
+    if(!canServe(user,order)||mutating.current)return
+    if(!confirm(order.order_type==='takeaway'?'Confirm that this takeaway order has been handed to the customer?':'Confirm that this order has been handed to the guest?'))return
+    mutating.current=true;setBusyMessage('Updating order status...');setBusy(true)
+    try{await api('/api/kds/'+order.id+'/status',{method:'PATCH',body:{status:'served'}});notify(order.order_type==='takeaway'?'Takeaway order marked as handed over.':'Order marked as served.');await load()}catch(error){notify(error.message,'error')}finally{mutating.current=false;setBusy(false)}
+  }
+  function primaryAction(order,table=false){
+    if(finished(order))return null
+    if(canServe(user,order))return <button className="orders-action-primary" disabled={busy} onClick={()=>served(order)}><Check size={15}/>{order.order_type==='takeaway'?'Mark Handed Over':'Mark Served'}</button>
+    if(!retail&&order.order_type==='delivery'&&order.order_status!=='ready')return <button disabled={busy} onClick={()=>showDetails(order.id)}><Truck size={15}/>Out</button>
+    if(canPay)return <button className="orders-action-primary" disabled={busy} onClick={()=>setPayment(order)}><CreditCard size={15}/>{table?'Payment & Complete':'Pay'}</button>
+    if(can(user,'orders.complete'))return <button className="orders-action-primary" disabled={busy} onClick={()=>complete(order)}><Check size={15}/>Complete</button>
+    return null
+  }
+  function typeBadge(order){const Icon=({dine_in:Utensils,takeaway:ShoppingBag,delivery:Truck,walk_in:Store})[order.order_type]||ShoppingBag;return <span className="pos-type-badge" data-order-type={order.order_type}><Icon size={17}/>{serviceLabel(order.order_type)}</span>}
+  function statusBadge(order){const status=retail&&!finished(order)?'payment_pending':order.order_status||'pending',Icon=({payment_pending:Bookmark,pending:Clock,preparing:Zap,ready:ChefHat,served:CircleCheck,completed:CircleCheck,cancelled:CircleX})[status]||Clock;return <em data-status={status}><Icon size={17}/>{status==='payment_pending'?'Saved':status==='preparing'?'In Progress':orderStatusLabel(order,retail)}</em>}
+  function actions(order,tableView=false){return <div className="pos-order-actions">{can(user,'orders.view')&&<button disabled={busy} onClick={()=>showDetails(order.id)}><Eye size={16}/>{tableView?'View':'Order Details'}</button>}{!finished(order)&&can(user,'orders.update')&&<button disabled={busy} onClick={()=>edit(order.id)}><Pencil size={16}/>Edit</button>}{can(user,'orders.view')&&<button disabled={busy} onClick={()=>setPrinting(order)}><Printer size={16}/>Print</button>}{primaryAction(order,tableView)}</div>}
+  return <main className="pos-orders pos-orders-redesign" aria-busy={busy}>
+    <header className="orders-page-header"><button className="orders-back" onClick={back}><ArrowLeft size={19}/>Back</button><div className="orders-heading"><div><h1>Orders</h1><small data-realtime-status={realtime}><span className="orders-live-dot"/>{realtime==='live'?'Live':realtime==='offline'?'Offline':'Reconnecting'}</small></div></div><div className="orders-header-actions">{can(user,'orders.create')&&<button className="orders-new" onClick={onNew}><Plus size={20}/>New Order</button>}{can(user,'orders.take_payment')&&<button onClick={()=>setTip(true)}><Coins size={20}/>Record Tip</button>}<button disabled={loading} aria-busy={loading} onClick={load}><RefreshCw className={loading?'pos-spin':''} size={20}/>{loading?'Refreshing...':'Refresh'}</button></div></header>
+    <nav className="orders-filter-bar" aria-label="Order filters"><div className="orders-search"><Search size={21}/><input ref={searchRef} aria-label="Search orders" value={search} onChange={event=>changeFilter(setSearch,event.target.value)} placeholder="Search by Order ID, table or customer..."/>{search?<button aria-label="Clear order search" onClick={()=>{changeFilter(setSearch,'');searchRef.current?.focus()}}><X size={16}/></button>:<kbd>Ctrl + K</kbd>}</div><label className="orders-filter"><Layers size={20}/><select aria-label="Order type filter" value={type} onChange={event=>changeFilter(setType,event.target.value)}><option value="">All Types</option>{TYPES.map(value=><option value={value} key={value}>{serviceLabel(value)}</option>)}</select><ChevronDown size={17}/></label><label className="orders-filter"><Activity size={20}/><select aria-label="Order status filter" value={status} onChange={event=>changeFilter(setStatus,event.target.value)}><option value="active">Active</option><option value="all">All Statuses</option>{retail?<option value="payment_pending">Saved</option>:<><option value="pending">Pending</option><option value="preparing">In Progress</option><option value="ready">Ready</option><option value="served">Served</option></>}<option value="cancelled">Cancelled</option></select><ChevronDown size={17}/></label><label className="orders-filter"><Table2 size={20}/><select aria-label="Table filter" value={table} onChange={event=>changeFilter(setTable,event.target.value)}><option value="">All Tables</option>{tableOptions.map(([id,name])=><option key={id} value={id}>Table {name}</option>)}</select><ChevronDown size={17}/></label></nav>
+    {error&&<div className="pos-error orders-load-error" role="alert"><AlertCircle size={19}/><span>Failed to load orders: {error}</span><button onClick={load}>Retry</button></div>}
+    {busy&&<div className="pos-orders-busy" role="status"><LoaderCircle className="pos-spin" size={20}/>{busyMessage}</div>}
+    {loading&&!orders.length?<div className="orders-skeleton" role="status" aria-label="Loading active orders">{Array.from({length:5},(_,index)=><div key={index}><span/><span/><span/><span/></div>)}</div>:!filtered.length?<div className="orders-empty"><PackageOpen size={52}/><h2>{hasFilters?'No matching orders':'No orders to complete'}</h2><p>{hasFilters?'Try a different search or clear the filters.':'Orders waiting to be completed will appear here.'}</p>{hasFilters?<button onClick={()=>{setSearch('');setType('');setStatus('active');setTable('');setPage(1)}}>Clear filters</button>:can(user,'orders.create')&&<button className="orders-new" onClick={onNew}><Plus size={18}/>New Order</button>}</div>:view==='cards'?<section className="order-cards">{visible.map(order=><article key={order.id} data-selected={selectedId===order.id} onClick={()=>setSelectedId(order.id)}><header><span><small>Order #{order.order_number||order.id}</small><b>{context(order)}</b>{order.order_type==='delivery'&&<span className="pos-card-delivery"><small>{order.customer_phone||'No phone'}</small>{order.delivery_address&&<small>{order.delivery_address}</small>}</span>}</span>{statusBadge(order)}</header><dl><div><dt>Placed</dt><dd>{relativeOrderTime(order.created_at)}<small className="pos-order-clock"><Clock size={13}/>{new Date(order.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</small></dd></div><div><dt>Service</dt><dd>{typeBadge(order)}</dd></div><div><dt>Waiter</dt><dd>{order.waiter_name||'\u2014'}</dd></div><div><dt>Total</dt><dd>{money(order.total)}</dd></div></dl><footer>{actions(order)}</footer></article>)}</section>:<div className="orders-table"><table><thead><tr><th>Order ID</th><th>Type</th><th>Table / Details</th><th>Waiter</th><th>Status</th><th>Total</th><th>Time</th><th>Actions</th></tr></thead><tbody>{visible.map(order=><tr key={order.id} data-selected={selectedId===order.id} tabIndex={0} onClick={()=>setSelectedId(order.id)} onKeyDown={event=>{if(event.target===event.currentTarget&&(event.key==='Enter'||event.key===' ')){event.preventDefault();setSelectedId(order.id)}}}><td><strong>#{order.order_number||order.id}</strong></td><td>{typeBadge(order)}</td><td>{order.order_type==='dine_in'?'Table '+(order.table_number||'N/A'):order.order_type==='delivery'?<span className="pos-table-delivery">{order.customer_name||'Delivery customer'}<small>{order.customer_phone||'No phone'}</small>{order.delivery_address&&<small title={order.delivery_address}>{order.delivery_address}</small>}</span>:order.customer_name||'Walk-in'}</td><td>{order.waiter_name||'\u2014'}</td><td>{statusBadge(order)}</td><td className={order.order_status==='cancelled'?'orders-cancelled-total':''}>{money(order.total)}</td><td><span className="orders-time"><Clock size={17}/>{new Date(order.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span></td><td>{actions(order,true)}</td></tr>)}</tbody></table></div>}
+    {!loading&&filtered.length>0&&<footer className="orders-pagination"><span>Showing {(currentPage-1)*pageSize+1}&ndash;{Math.min(currentPage*pageSize,filtered.length)} of {filtered.length} orders</span><nav aria-label="Orders pagination"><button aria-label="Previous orders page" disabled={currentPage===1} onClick={()=>{setPage(currentPage-1);setSelectedId(null)}}><ChevronLeft size={20}/></button>{pageNumbers.map((number,index)=><span key={number}>{index>0&&number-pageNumbers[index-1]>1&&<span className="orders-page-gap">&hellip;</span>}<button aria-label={'Page '+number} aria-current={number===currentPage?'page':undefined} onClick={()=>{setPage(number);setSelectedId(null)}}>{number}</button></span>)}<button aria-label="Next orders page" disabled={currentPage===totalPages} onClick={()=>{setPage(currentPage+1);setSelectedId(null)}}><ChevronRight size={20}/></button></nav></footer>}
+    {details&&<PosOrderDetails user={user} bill={details} close={()=>setDetails(null)} notify={notify} onDone={()=>{setDetails(null);load()}}/>}
+    {printing&&<PosPrintOptions user={user} retail={retail} order={printing} close={()=>setPrinting(null)} notify={notify} printReceipt={printReceipt} onDone={load}/>}
+    {payment&&<PosPaymentModal user={user} retail={retail} order={payment} close={()=>setPayment(null)} notify={notify} onDone={load} printReceipt={printReceipt}/>}
+    {tip&&<PosRecordTip user={user} close={()=>setTip(false)} notify={notify} onDone={load} printTip={printTip}/>}
+  </main>
 }
