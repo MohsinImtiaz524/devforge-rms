@@ -1,4 +1,4 @@
-// Explicit migration only: never called from a request or application startup.
+// Additive migration shared by server startup and the explicit migration command.
 async function up(db) {
   if (!await db.schema.hasColumn('sales', 'delivery_service_charge')) {
     await db.schema.alterTable('sales', table => {
@@ -15,4 +15,13 @@ async function up(db) {
     END $$;`);
   }
 }
-module.exports = { up };
+async function ensureDeliveryChargeSchema(db) {
+  await db.transaction(async trx => {
+    // Share the same lock with manual migrations and other starting instances.
+    if (db.client.config.client === 'pg') {
+      await trx.raw("SELECT pg_advisory_xact_lock(hashtext('orbit_delivery_service_charge_v1'))");
+    }
+    await up(trx);
+  });
+}
+module.exports = { up, ensureDeliveryChargeSchema };

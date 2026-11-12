@@ -339,6 +339,8 @@ if (require.main === module) {
     } else {
       require("./db/db");
     }
+    await require('./src/modules/delivery/delivery-charge.migration').ensureDeliveryChargeSchema(db);
+    console.log('[Startup] Delivery service charge schema ready.');
     await require('./src/modules/tips/tips.migration').ensureTipsSchema(require('./db/knex'));
     if (usePostgres()) await db.transaction(async trx => {
       await trx.raw('SELECT pg_advisory_xact_lock(?)', [72401390]);
