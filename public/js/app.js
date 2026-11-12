@@ -934,6 +934,12 @@ function navigate(page, options = {}) {
       return false;
   }
 
+  if (page === "pos" && !_editingOrderId) {
+    localStorage.setItem("pos_page", page);
+    window.location.assign("/app/pos");
+    return true;
+  }
+
   if (page !== "pos") stopPOSOrdersPolling();
   if (page !== "kds" && typeof _kdsInterval !== 'undefined' && _kdsInterval) {
     clearInterval(_kdsInterval);
