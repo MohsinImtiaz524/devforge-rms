@@ -100,6 +100,8 @@ const toast = (msg, type = "success") => {
   const base =
     "fixed top-8 right-8 z-[100] px-6 py-3 rounded-2xl shadow-2xl text-sm font-bold animate-in fade-in slide-in-from-right-10 duration-300 transform flex items-center gap-3";
   el.className = `${base} ${type === "success" ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"}`;
+  el.classList.add("rms-toast");
+  el.dataset.type = type;
   const icon = document.createElement("span");
   icon.textContent = type === "success" ? "✓" : "✕";
   const label = document.createElement("span");
@@ -113,6 +115,19 @@ const toast = (msg, type = "success") => {
 };
 
 // ─── Theme ───────────────────────────────────────────────────────────
+function showPOSOrderConfirmation({ number, total, title = 'Order placed', token = '' }) {
+  document.getElementById('pos-order-confirmation')?.remove();
+  const notice = document.createElement('div');
+  notice.id = 'pos-order-confirmation';
+  notice.className = 'rms-order-confirmation';
+  notice.setAttribute('role','status');
+  notice.setAttribute('aria-live','polite');
+  notice.setAttribute('aria-atomic','true');
+  notice.innerHTML = `<span class="rms-confirmation-icon" aria-hidden="true"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg></span><div class="rms-confirmation-copy"><strong>${escapeOrderValue(title)}</strong><span>Order #${escapeOrderValue(number)} &middot; ${escapeOrderValue(shopCurrencyCode())} ${Number(total || 0).toFixed(2)}</span>${token ? `<small>Token: ${escapeOrderValue(token)}</small>` : ''}</div><span class="rms-confirmation-progress" aria-hidden="true"></span>`;
+  document.body.appendChild(notice);
+  setTimeout(() => notice.remove(), 3000);
+}
+
 function toggleTheme() {
   const isDark = document.documentElement.classList.contains("dark");
   if (isDark) {
@@ -6362,9 +6377,7 @@ async function updateAndCompleteOrder(id) {
     if (fullyPaid) await printCustomerBill(id);
     else await printUnpaidBill(id);
     closeModal();
-    toast(fullyPaid
-      ? 'Payment complete. Paid bill printed and order completed.'
-      : 'Order completed. Remaining balance saved to the customer ledger.', 'success');
+    showPOSOrderConfirmation({number:s.order_number||id,total:finalTotal,title:'Order completed'});
   } catch (e) {
     toast(e.message, 'error');
   } finally {
@@ -8016,6 +8029,7 @@ async function checkout(status = 'completed', openPaymentAfterSave = false) {
         return;
       }
       await openPOSOrdersView();
+      showPOSOrderConfirmation({number:completedOrderNumber,total:r.total,title:isEditing?'Order updated':'Order saved'});
       return;
     }
 
@@ -8033,25 +8047,9 @@ async function checkout(status = 'completed', openPaymentAfterSave = false) {
       window._lastOrderAutoPrintKitchen = false;
     }
 
-    openModal(
-      isEditing ? "Order Updated" : (status === 'completed' ? "Order Complete" : "Order Placed"),
-      `
-      <div class="text-center space-y-4">
-        <div class="text-5xl">${isEditing ? '📝' : '🎉'}</div>
-        <p class="text-sm font-bold text-slate-500 dark:text-slate-300">Order #${completedOrderNumber}</p>
-        ${orderType === 'takeaway' ? `<p class="text-amber-400 font-bold text-lg">Token: ${token_number}</p>` : ''}
-        <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-900 dark:bg-emerald-950/30">
-          <p class="text-[10px] font-black uppercase tracking-widest text-emerald-600">Completed Amount</p>
-          <p class="mt-1 text-3xl font-black text-emerald-700 dark:text-emerald-300">${shopCurrencyCode()} ${Number(r.total || 0).toFixed(2)}</p>
-        </div>
-        <div class="grid grid-cols-1 gap-2">
-          <button onclick="closeModal()" class="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm transition-all shadow-lg shadow-indigo-600/20">Continue Ordering</button>
-        </div>
-      </div>`,
-      "max-w-md",
-      false,
-    );
-    window._modalOnClose = startFreshPOSOrder;
+    _posCheckoutSubmitting = false;
+    startFreshPOSOrder();
+    showPOSOrderConfirmation({number:completedOrderNumber,total:r.total,token:orderType==='takeaway'?token_number:'',title:isEditing?'Order updated':status==='completed'?'Order completed':'Order placed'});
     _posCheckoutSubmitting = false;
     if (btn) btn.removeAttribute("aria-busy");
   } catch (err) {

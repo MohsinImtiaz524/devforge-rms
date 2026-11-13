@@ -49,8 +49,7 @@ export default function PosPaymentModal({user,order,close,notify,onDone,printRec
       const retailCompletion=isRetailCompletion(user,order)
       await api(completionPath(user,order),{method:retailCompletion?'POST':'PATCH',body:retailCompletion?{}:{status:'completed'}})
       await printReceipt(order.id,received>=finalTotal-.01?'customer':'unpaid')
-      notify(received>=finalTotal-.01?'Payment complete. Paid bill printed and order completed.':'Order completed. Remaining balance saved to the customer ledger.')
-      close();onDone()
+      close();onDone({id:order.id,number:order.order_number||order.id,total:finalTotal,status:'completed',detail:received>=finalTotal-.01?'Payment recorded':'Remaining balance saved to customer ledger.'})
     }catch(error){notify(error.message,'error')}finally{submitting.current=false;setSaving(false)}
   }
   return <PosDialog title="Complete Payment" close={close} busy={saving} className="pos-payment-dialog">

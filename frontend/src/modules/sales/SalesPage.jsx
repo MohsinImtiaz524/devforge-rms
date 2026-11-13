@@ -1209,7 +1209,7 @@ export default function SalesPage() {
       {toast && (
         <div className={"sales-toast " + toast.type}>
           <span>{toast.message}</span>
-          <button onClick={() => setToast(null)}>×</button>
+          <button type="button" aria-label="Dismiss notification" onClick={() => setToast(null)}>&times;</button>
         </div>
       )}
     </div>

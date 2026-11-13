@@ -1,0 +1,33 @@
+/* Shared toast palette; component timing and dismissal stay unchanged. */
+#root :is(.pos-toast,.tables-toast,.inventory-toast,.sales-toast,.expense-toast),.rms-toast.rms-toast{--notice-bg:#ecfdf5;--notice-ink:#065f46;--notice-line:#a7f3d0;--notice-hover:#d1fae5;display:flex;align-items:center;gap:12px;max-width:min(440px,calc(100vw - 32px));padding:12px 14px;border:1px solid var(--notice-line)!important;border-radius:12px;background:var(--notice-bg)!important;color:var(--notice-ink)!important;box-shadow:0 8px 28px #0f172a14;font-family:inherit;font-size:13px;font-weight:550;line-height:1.45;box-sizing:border-box;overflow-wrap:anywhere}
+#root :is(.pos-toast,.tables-toast,.inventory-toast,.sales-toast,.expense-toast).error,.rms-toast[data-type=error]{--notice-bg:#fff1f2;--notice-ink:#9f1239;--notice-line:#fecdd3;--notice-hover:#ffe4e6}
+#root :is(.pos-toast,.tables-toast,.inventory-toast,.sales-toast,.expense-toast):is(.warning,.warn),.rms-toast:is([data-type=warning],[data-type=warn]){--notice-bg:#fffbeb;--notice-ink:#92400e;--notice-line:#fde68a;--notice-hover:#fef3c7}
+#root :is(.pos-toast,.tables-toast,.inventory-toast,.sales-toast,.expense-toast).info,.rms-toast[data-type=info]{--notice-bg:#eff6ff;--notice-ink:#1e40af;--notice-line:#bfdbfe;--notice-hover:#dbeafe}
+.dark #root :is(.pos-toast,.tables-toast,.inventory-toast,.sales-toast,.expense-toast),.dark .rms-toast.rms-toast{--notice-bg:#082f24;--notice-ink:#a7f3d0;--notice-line:#166447;--notice-hover:#124734}
+.dark #root :is(.pos-toast,.tables-toast,.inventory-toast,.sales-toast,.expense-toast).error,.dark .rms-toast[data-type=error]{--notice-bg:#3f1522;--notice-ink:#fecdd3;--notice-line:#9f3450;--notice-hover:#5b2032}
+.dark #root :is(.pos-toast,.tables-toast,.inventory-toast,.sales-toast,.expense-toast):is(.warning,.warn),.dark .rms-toast:is([data-type=warning],[data-type=warn]){--notice-bg:#382911;--notice-ink:#fde68a;--notice-line:#8a641b;--notice-hover:#4b3718}
+.dark #root :is(.pos-toast,.tables-toast,.inventory-toast,.sales-toast,.expense-toast).info,.dark .rms-toast[data-type=info]{--notice-bg:#14294a;--notice-ink:#bfdbfe;--notice-line:#315993;--notice-hover:#1d3c68}
+#root :is(.pos-toast,.tables-toast,.inventory-toast,.sales-toast,.expense-toast)>span{flex:1;min-width:0;color:inherit}
+#root :is(.pos-toast,.tables-toast,.inventory-toast,.sales-toast,.expense-toast)>button{display:grid;place-items:center;flex:none;width:32px;height:32px;min-width:32px;min-height:32px;padding:0;margin:0 0 0 auto;border:0!important;border-radius:8px!important;background:transparent!important;color:var(--notice-ink)!important;box-shadow:none!important;font:inherit;font-size:20px;line-height:1;cursor:pointer;opacity:1}
+#root :is(.pos-toast,.tables-toast,.inventory-toast,.sales-toast,.expense-toast)>button:is(:hover,:focus-visible){background:var(--notice-hover)!important;color:var(--notice-ink)!important}
+#root :is(.pos-toast,.tables-toast,.inventory-toast,.sales-toast,.expense-toast)>button:focus-visible{outline:2px solid var(--notice-ink)!important;outline-offset:2px}
+#root :is(.pos-toast,.tables-toast,.inventory-toast,.sales-toast,.expense-toast)>button svg{width:16px;height:16px;stroke-width:2}
+@media(max-width:480px){#root :is(.pos-toast,.tables-toast,.inventory-toast,.sales-toast,.expense-toast),.rms-toast.rms-toast{right:16px;max-width:calc(100vw - 32px);padding:10px 12px;font-size:12px}}
+
+/* Non-blocking three-second order acknowledgement, shared with legacy POS. */
+.rms-order-confirmation{position:fixed;z-index:240;top:50%;left:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:12px;width:max-content;min-width:250px;max-width:calc(100vw - 32px);padding:18px 22px;border:1px solid #a7f3d0;border-radius:16px;background:#f0fdf8;color:#064e3b;box-shadow:0 16px 50px #052e1626;pointer-events:none;overflow:hidden;box-sizing:border-box;animation:rms-confirmation-in .18s ease-out;font-family:Inter,ui-sans-serif,system-ui,sans-serif}
+.rms-order-confirmation .rms-confirmation-icon{display:grid;place-items:center;width:44px;height:44px;flex:none;border-radius:50%;background:#d1fae5;color:#047857}
+.rms-order-confirmation .rms-confirmation-copy{display:flex;flex-direction:column;gap:4px;min-width:0}
+.rms-order-confirmation .rms-confirmation-copy strong{font-size:15px;line-height:1.3;font-weight:650;color:#064e3b}
+.rms-order-confirmation .rms-confirmation-copy>span{font-size:12px;line-height:1.4;color:#166747;overflow-wrap:anywhere}
+.rms-order-confirmation .rms-confirmation-copy small{font-size:11px;line-height:1.4;color:#166747}
+.rms-order-confirmation .rms-confirmation-progress{position:absolute;bottom:0;left:0;right:0;height:3px;background:#d1fae5}
+.rms-order-confirmation .rms-confirmation-progress:after{content:'';display:block;width:100%;height:100%;background:#10b981;transform-origin:left;animation:rms-confirmation-countdown 3s linear forwards}
+.dark .rms-order-confirmation{background:#0b241c;border-color:#236b4d;box-shadow:0 16px 50px #0005;color:#d1fae5}
+.dark .rms-order-confirmation .rms-confirmation-icon{background:#154734;color:#6ee7b7}
+.dark .rms-order-confirmation .rms-confirmation-copy strong{color:#d1fae5}
+.dark .rms-order-confirmation .rms-confirmation-copy>span,.dark .rms-order-confirmation .rms-confirmation-copy small{color:#a7d6bf}
+.dark .rms-order-confirmation .rms-confirmation-progress{background:#154734}
+@keyframes rms-confirmation-in{from{opacity:0;transform:translate(-50%,-50%) scale(.96)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes rms-confirmation-countdown{to{transform:scaleX(0)}}
+@media(prefers-reduced-motion:reduce){.rms-order-confirmation,.rms-order-confirmation .rms-confirmation-progress:after{animation:none}}

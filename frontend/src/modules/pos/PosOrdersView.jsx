@@ -12,7 +12,7 @@ import './pos.orders.css'
 
 const TYPES=['dine_in','takeaway','delivery','walk_in']
 
-export default function PosOrdersView({user,back,notify,printReceipt,onEdit,onNew,printTip,retail}) {
+export default function PosOrdersView({user,back,notify,printReceipt,onEdit,onNew,printTip,retail,onOrderConfirmed}) {
   const [orders,setOrders]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[search,setSearch]=useState(''),[type,setType]=useState(''),[view,setView]=useState(()=>window.matchMedia('(min-width:1280px)').matches?'table':'cards')
   const [details,setDetails]=useState(null),[payment,setPayment]=useState(null),[printing,setPrinting]=useState(null),[tip,setTip]=useState(false),[busy,setBusy]=useState(false)
   const [busyMessage,setBusyMessage]=useState('Loading order...')
@@ -84,7 +84,7 @@ export default function PosOrdersView({user,back,notify,printReceipt,onEdit,onNe
     if(!can(user,'orders.complete'))return notify('You do not have permission to complete orders.','error')
     if(mutating.current||!confirm('Are you sure you want to complete this order and move it to sales history?'))return
     mutating.current=true;setBusyMessage('Completing order...');setBusy(true)
-    try{const retailCompletion=isRetailCompletion(user,order);await api(completionPath(user,order),{method:retailCompletion?'POST':'PATCH',body:retailCompletion?{}:{status:'completed'}});notify('Order completed!');await load()}catch(error){notify(error.message,'error')}finally{mutating.current=false;setBusy(false)}
+    try{const retailCompletion=isRetailCompletion(user,order);await api(completionPath(user,order),{method:retailCompletion?'POST':'PATCH',body:retailCompletion?{}:{status:'completed'}});onOrderConfirmed?.({id:order.id,number:order.order_number||order.id,total:order.total,status:'completed'});await load()}catch(error){notify(error.message,'error')}finally{mutating.current=false;setBusy(false)}
   }
   async function served(order){
     if(!canServe(user,order)||mutating.current)return
@@ -112,7 +112,7 @@ export default function PosOrdersView({user,back,notify,printReceipt,onEdit,onNe
     {!loading&&filtered.length>0&&<footer className="orders-pagination"><span>Showing {(currentPage-1)*pageSize+1}&ndash;{Math.min(currentPage*pageSize,filtered.length)} of {filtered.length} orders</span><nav aria-label="Orders pagination"><button aria-label="Previous orders page" disabled={currentPage===1} onClick={()=>{setPage(currentPage-1);setSelectedId(null)}}><ChevronLeft size={20}/></button>{pageNumbers.map((number,index)=><span key={number}>{index>0&&number-pageNumbers[index-1]>1&&<span className="orders-page-gap">&hellip;</span>}<button aria-label={'Page '+number} aria-current={number===currentPage?'page':undefined} onClick={()=>{setPage(number);setSelectedId(null)}}>{number}</button></span>)}<button aria-label="Next orders page" disabled={currentPage===totalPages} onClick={()=>{setPage(currentPage+1);setSelectedId(null)}}><ChevronRight size={20}/></button></nav></footer>}
     {details&&<PosOrderDetails user={user} bill={details} close={()=>setDetails(null)} notify={notify} onDone={()=>{setDetails(null);load()}}/>}
     {printing&&<PosPrintOptions user={user} retail={retail} order={printing} close={()=>setPrinting(null)} notify={notify} printReceipt={printReceipt} onDone={load}/>}
-    {payment&&<PosPaymentModal user={user} retail={retail} order={payment} close={()=>setPayment(null)} notify={notify} onDone={load} printReceipt={printReceipt}/>}
+    {payment&&<PosPaymentModal user={user} retail={retail} order={payment} close={()=>setPayment(null)} notify={notify} onDone={result=>{if(result)onOrderConfirmed?.(result);load()}} printReceipt={printReceipt}/>}
     {tip&&<PosRecordTip user={user} close={()=>setTip(false)} notify={notify} onDone={load} printTip={printTip}/>}
   </main>
 }
