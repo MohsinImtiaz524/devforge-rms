@@ -136,8 +136,8 @@ function renderFooter(shop, baseUrl, isUnpaid) {
   const dividerCss = dividerStyle === "none" ? "none" : `${dividerWidth}px ${dividerStyle} #111827`;
   const images = Array.isArray(shop?.receipt_images) ? shop.receipt_images : [];
 
-  let html = shop?.google_maps_url ? `<div data-shop-maps="${escapeHtml(shop.google_maps_url)}"></div>` : "";
-  if (images.length > 0) {
+  let html = !isUnpaid && shop?.google_maps_url ? `<div data-shop-maps="${escapeHtml(shop.google_maps_url)}"></div>` : "";
+  if (!isUnpaid && images.length > 0) {
     html += `<div style="margin-top: ${sectionGap}px; border-top: ${dividerCss}; padding-top: ${sectionGap}px;">`;
     images.forEach((img) => {
       html += `<img src="${imageAssetUrl(img.path, baseUrl)}" style="max-width: 70mm; max-height: 25mm; margin: 3px auto; display: block;" alt="${escapeHtml(img.description || "")}">`;
@@ -179,6 +179,7 @@ function renderCustomerReceipt(details, options) {
   const { sale, items, seller, shop } = details;
   const currency = escapeHtml(shop?.currency && shop.currency !== 'PKR' ? shop.currency : 'Rs.');
   const isUnpaid = options.format === "unpaid";
+  const quotes = isUnpaid ? details.payment_quotes || require('../utils/unpaid-payment-quotes').unpaidPaymentQuotes(sale, items) : [];
   const title = isUnpaid ? "Unpaid Bill" : "Customer Bill";
   const subtotal = items.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.price_at_sale || 0), 0);
   const grandTotal = Number(sale.total || 0);
@@ -209,7 +210,7 @@ function renderCustomerReceipt(details, options) {
         <strong>Customer:</strong> ${escapeHtml(sale.customer_name || "Walk-in")}<br>
         ${sale.customer_phone ? `<strong>Phone:</strong> ${escapeHtml(sale.customer_phone)}<br>` : ""}
         <strong>Type:</strong> ${escapeHtml(formatOrderType(sale.order_type))}<br>
-        <strong>Payment:</strong> ${escapeHtml(method)}<br>
+        <strong>Payment:</strong> ${isUnpaid ? "Pending - method to be confirmed" : escapeHtml(method)}<br>
       </div>
 
       <hr class="divider" />
@@ -240,9 +241,9 @@ function renderCustomerReceipt(details, options) {
       <div class="text-right">
         <div>Subtotal: ${currency} ${formatProductMoney(subtotal)}</div>
         ${discount > 0 ? `<div>Discount: -${currency} ${formatMoney(discount)}</div>` : ""}
-        ${taxPct > 0 ? `<div>Tax (${escapeHtml(taxPct)}%): ${currency} ${formatMoney(taxAmt)}</div>` : ""}
+        ${!isUnpaid && taxPct > 0 ? `<div>Tax (${escapeHtml(taxPct)}%): ${currency} ${formatMoney(taxAmt)}</div>` : ""}
         ${Number(sale.delivery_service_charge || 0) > 0 ? `<div style="display: flex; justify-content: space-between; gap: 8px;"><span style="text-align: left;">Delivery service charge:</span><span style="text-align: right; white-space: nowrap;">${currency} ${formatMoney(sale.delivery_service_charge)}</span></div>` : ""}
-        <div class="bold total-row" style="margin-top: 4px;">GRAND TOTAL: ${currency} ${formatMoney(grandTotal)}</div>
+        ${isUnpaid ? quotes.map(quote => `<div class="bold total-row">Pay by ${quote.method === "cash" ? "cash" : "card"} (${escapeHtml(quote.tax_percentage)}% tax): ${currency} ${formatMoney(quote.total)}</div>`).join("") : `<div class="bold total-row" style="margin-top: 4px;">GRAND TOTAL: ${currency} ${formatMoney(grandTotal)}</div>`}
       </div>
 
       <hr class="divider" />
@@ -251,9 +252,9 @@ function renderCustomerReceipt(details, options) {
         ${isUnpaid ? `
           <div style="text-align: center; border: 1px dashed #111827; padding: 5px; margin-top: 5px; font-weight: bold;">
             *** UNPAID BILL ***<br>
-            Total: ${currency} ${formatMoney(grandTotal)}<br>
+            Reference prices only. Confirm method at payment.<br>
             Amount Paid: ${currency} ${formatMoney(Math.min(received, grandTotal))}<br>
-            Balance Due: ${currency} ${formatMoney(Math.max(remaining, 0))}
+            ${quotes.map(quote => `Balance due (${quote.method}): ${currency} ${formatMoney(quote.due)}`).join("<br>")}
           </div>
         ` : `
           <div><strong>Method:</strong> ${escapeHtml(method)}</div>

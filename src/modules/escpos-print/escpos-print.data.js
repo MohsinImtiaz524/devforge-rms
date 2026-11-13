@@ -1,6 +1,7 @@
 // RMS prepares values; templates own placement and the agent only renders primitives.
 function prepareData(document, receipt = {}, timeZone = 'Asia/Karachi') {
   const sale = document.sale || {};
+  const quotes = document.payment_quotes || require('../../../utils/unpaid-payment-quotes').unpaidPaymentQuotes(sale, document.items || []);
   const items = document.items || [];
   const money = value => Number(value || 0).toFixed(2);
   const payment = value => ({ cash: 'Cash', card: 'Card', online: 'Online Transfer' }[value] || String(value || 'Cash').toUpperCase());
@@ -22,6 +23,7 @@ function prepareData(document, receipt = {}, timeZone = 'Asia/Karachi') {
     kitchenName: String(document.route_label || sale.kitchen_name || 'Kitchen').replace(/^Kitchen:\s*/i, ''),
     updateLabel: document.is_update ? ' - UPDATED' : '', hasTable: Boolean(sale.table_id), table: sale.table_number || 'N/A', token: sale.token_number || '', note: sale.special_instructions || '',
     currency: receipt.currency && receipt.currency !== 'PKR' ? receipt.currency : 'Rs.', subtotal: subtotal.toFixed(0),
+    cashDue: money(quotes[0].due), cardDue: money(quotes[1].due), cashTotal: money(quotes[0].total), cardTotal: money(quotes[1].total), cashTax: quotes[0].tax_percentage, cardTax: quotes[1].tax_percentage,
     total: money(total), discount: money(discount), hasDiscount: discount > 0, taxPercentage: sale.tax_percentage || 0,
     tax: money((subtotal - discount) * Number(sale.tax_percentage || 0) / 100), hasTax: Number(sale.tax_percentage) > 0,
     tip: money(tip), hasTip: tip > 0, standaloneTip: standalone && tip > 0, collected: money(Math.min(received, total) + tip),

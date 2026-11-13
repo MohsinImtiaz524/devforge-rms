@@ -3997,7 +3997,7 @@ function getPOSLayout() {
 
 function capturePOSLayoutState() {
   const ids = [
-    "pos-table", "pos-waiter", "pos-rider", "pos-delivery-addr",
+    "pos-table", "pos-waiter", "pos-rider", "pos-delivery-order-taker", "pos-delivery-addr",
     "pos-token", "pos-takeaway-waiter", "pos-discount", "pos-discount-preset", "pos-tax", "pos-tax-preset",
     "pos-method", "pos-received", "pos-order-note"
   ];
@@ -4051,7 +4051,7 @@ function loadPOSBootstrapData() {
   if (_posBootstrapCache && Date.now() - _posBootstrapCachedAt < 30000) return _posBootstrapCache;
   _posBootstrapCachedAt = Date.now();
   _posBootstrapCache = Promise.all([
-    api(`/api/products?paginate=1&page=1&page_size=${POS_PRODUCTS_PER_PAGE}&menu_only=1&exclude_components=1`),
+    api(`/api/products?paginate=1&page=1&page_size=${POS_PRODUCTS_PER_PAGE}&menu_only=1&exclude_components=1&search_context=pos`),
     api("/api/tables").catch(() => []), api("/api/users/assignable").catch(() => []),
     api("/api/tables/floors").catch(() => []), api("/api/shop-settings/discounts").catch(() => []), api("/api/shop-settings/taxes").catch(() => [])
   ]).catch(error => { _posBootstrapCache = null; throw error; });
@@ -4102,7 +4102,7 @@ async function selectPOSCheckoutOrderType(type) {
   if (!getPOSAllowedOrderTypes().includes(type)) return toast('This order type is not enabled for this shop.', 'error');
   const form = capturePOSLayoutState();
   form.orderType = type;
-  ['pos-table', 'pos-waiter', 'pos-rider', 'pos-delivery-addr', 'pos-token', 'pos-takeaway-waiter'].forEach(id => delete form.values[id]);
+  ['pos-table', 'pos-waiter', 'pos-rider', 'pos-delivery-order-taker', 'pos-delivery-addr', 'pos-token', 'pos-takeaway-waiter'].forEach(id => delete form.values[id]);
   window._posSelectedTableId = null;
   window._posEntryOrderType = type;
   window._posLayoutRestore = { cart: cart.slice(), form };
@@ -4359,7 +4359,9 @@ async function renderPOS() {
     loggedInWaiter?.id || 0
   );
   const activePOSOrderType = layoutRestore?.form?.orderType ?? (_editingOrderId ? _tempEditSaleDetails?.order_type : window._posEntryOrderType) ?? (deliveryOnly ? 'delivery' : '');
-  const lockTableWaiter = activePOSOrderType === 'dine_in' && !!selectedPOSTable;
+  const canAssignOrderTaker = ['admin','superadmin','owner','cashier','pos_user'].includes(String(currentUser?.role || '').toLowerCase());
+  const deliveryOrderTakers = (waiters || []).filter(person => ['waiter','order_taker','rider'].includes(String(person.role).toLowerCase()));
+  const lockTableWaiter = activePOSOrderType === 'dine_in' && !!selectedPOSTable && !canAssignOrderTaker;
   const posOrderTypeMeta = {
     dine_in: {
       label: 'Dine-in Order',
@@ -4556,6 +4558,10 @@ async function renderPOS() {
 
             <!-- Delivery-specific address and rider. Customer identity uses the shared fields below. -->
             <div id="pos-delivery-fields" class="mb-2 space-y-2 hidden">
+              <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Order taker</label>
+                ${canAssignOrderTaker ? `<select id="pos-delivery-order-taker" aria-label="Delivery order taker" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 text-sm font-bold"><option value="">Select waiter or rider</option>${deliveryOrderTakers.map(person => `<option value="${person.id}" ${_editingOrderId && Number(_tempEditSaleDetails?.waiter_id) === Number(person.id) ? 'selected' : ''}>${escapeOrderValue(person.name || person.username || 'Order taker')}</option>`).join('')}</select>` : `<input id="pos-delivery-order-taker" type="hidden" value="${loggedInWaiter?.id || ''}" />`}
+              </div>
               <div>
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Rider</label>
                 <select id="pos-rider" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 text-sm font-bold">
@@ -4982,105 +4988,7 @@ function switchOrderType(type) {
 }
 
 async function showPrintOptionsModal(id) {
-  try {
-    const [data, discounts, taxes] = await Promise.all([
-      api(`/api/sales/${id}/bill`),
-      api("/api/shop-settings/discounts"),
-      api("/api/shop-settings/taxes")
-    ]);
-    const { sale, items } = data;
-    window._printBillSelectedCustomer = sale.customer_id ? { id: sale.customer_id, name: sale.customer_name, phone: sale.customer_phone } : null;
-    const subtotal = items.reduce((sum, item) => sum + (Number(item.price_at_sale) * Number(item.quantity)), 0);
-
-    openModal('Unpaid Bill Options', `
-      <div class="space-y-4">
-        <div class="grid grid-cols-1 gap-3">
-          <div class="relative">
-            <label id="pp-customer-name-label" class="block text-xs font-bold text-slate-500 mb-1">Customer Name <span class="font-normal">(optional)</span></label>
-            <input id="pp-customer-name" type="text" value="${escapeOrderValue(sale.customer_name || '')}" autocomplete="off" oninput="suggestPrintBillCustomers(this.value, 'pp-customer-name'); updatePrintSummary(${subtotal}, '${sale.order_type}')" class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-bold" />
-            <div id="pp-customer-name-suggestions" class="hidden absolute z-[120] left-0 right-0 top-full mt-1 max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"></div>
-          </div>
-          <div class="relative hidden">
-            <label id="pp-customer-phone-label" class="block text-xs font-bold text-slate-500 mb-1">Phone Number ${sale.order_type === 'delivery' ? '<span class="text-rose-500">*</span>' : '<span class="font-normal">(optional)</span>'}</label>
-            <input id="pp-customer-phone" type="tel" value="${escapeOrderValue(sale.customer_phone || '')}" autocomplete="off" oninput="suggestPrintBillCustomers(this.value, 'pp-customer-phone'); updatePrintSummary(${subtotal}, '${sale.order_type}')" class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-bold" />
-            <div id="pp-customer-phone-suggestions" class="hidden absolute z-[120] left-0 right-0 top-full mt-1 max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"></div>
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-bold text-slate-500 mb-1">Payment Method</label>
-            <select id="pp-method" onchange="applyLinkedTax(${subtotal})" class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-bold">
-              <option value="cash" ${sale.payment_method === 'cash' ? 'selected' : ''}>Cash</option>
-              <option value="card" ${sale.payment_method === 'card' ? 'selected' : ''}>Card</option>
-              <option value="online" ${sale.payment_method === 'online' ? 'selected' : ''}>Online Transfer</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-500 mb-1">Tax (%)</label>
-            <select id="pp-tax-preset" class="hidden">
-              <option value="">Presets</option>
-              ${taxes.map(t => `<option value="${t.percentage}" data-method="${t.linked_payment_method || ''}">${t.name} (${t.percentage}%)</option>`).join("")}
-            </select>
-            <input id="pp-tax" type="number" step="0.01" value="${sale.tax_percentage || 0}" 
-              oninput="updatePrintSummary(${subtotal})"
-              class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-bold" />
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-xs font-bold text-slate-500 mb-1">Discount</label>
-          <div class="flex gap-2">
-            <select id="pp-disc-preset" onchange="applyDiscPreset(${subtotal})" class="w-1/2 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all">
-              <option value="">Presets</option>
-              ${discounts.map(d => `<option value="${d.value}" data-type="${d.type}">${d.name} (${d.type === 'percentage' ? d.value + '%' : `${shopCurrencyCode()}` + d.value})</option>`).join("")}
-            </select>
-            <input id="pp-discount" data-delivery-charge="${Number(sale.delivery_service_charge || 0)}" type="number" step="0.01" value="${sale.discount || 0}"
-              oninput="updatePrintSummary(${subtotal})"
-              class="flex-1 px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-bold" />
-          </div>
-        </div>
-
-        <!-- Bill Summary Section -->
-        <div class="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700/50 space-y-2">
-          <div class="flex justify-between text-xs">
-            <span class="text-slate-500 font-bold uppercase tracking-wider">Subtotal</span>
-            <span class="text-slate-900 dark:text-white font-black">${shopCurrencyCode()} ${subtotal.toLocaleString()}</span>
-          </div>
-          <div class="flex justify-between text-xs">
-            <span class="text-slate-500 font-bold uppercase tracking-wider">Discount</span>
-            <span id="ps-discount" class="text-rose-500 font-black">- ${shopCurrencyCode()} ${Number(sale.discount || 0).toLocaleString()}</span>
-          </div>
-          <div class="flex justify-between text-xs border-b border-slate-100 dark:border-slate-700 pb-2">
-            <span class="text-slate-500 font-bold uppercase tracking-wider">Tax</span>
-            <span id="ps-tax" class="text-slate-900 dark:text-white font-black">${shopCurrencyCode()} 0</span>
-          </div>
-          <div class="flex justify-between items-center pt-1">
-            <span class="text-slate-500 font-black uppercase tracking-widest text-[10px]">Grand Total</span>
-            <span id="ps-total" class="text-lg font-black text-indigo-600 dark:text-indigo-400">${shopCurrencyCode()} ${Number(sale.total).toLocaleString()}</span>
-          </div>
-          <div class="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-slate-700">
-            <span class="text-slate-500 font-black uppercase tracking-widest text-[10px]">Remaining Due</span>
-            <span id="ps-due" class="text-lg font-black text-rose-500">${shopCurrencyCode()} ${Math.max(Number(sale.total) - Number(sale.amount_received || 0), 0).toLocaleString()}</span>
-          </div>
-        </div>
-
-        <div class="pt-2">
-          <button onclick="printUnpaidBillInquiry(${id})" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black shadow-lg shadow-indigo-600/25 transition-all">
-            🖨️ Update & Print Unpaid Bill
-          </button>
-        </div>
-      </div>
-    `, 'max-w-md');
-
-    // Initial sync
-    setTimeout(() => {
-      applyLinkedTax(subtotal);
-      updatePrintSummary(subtotal, '${sale.order_type}');
-    }, 0);
-  } catch (err) {
-    console.error(err);
-    toast("Error loading print options", "error");
-  }
+  return printUnpaidBill(id);
 }
 
 function applyTaxPreset(subtotal) {
@@ -5339,7 +5247,7 @@ async function renderPOSOrdersNow() {
         : s.order_type === 'delivery' && s.order_status !== 'ready'
         ? `<button onclick="viewOrderItems(${s.id})" class="px-3 py-1.5 rounded-lg bg-blue-500 text-white font-bold text-[10px] uppercase hover:bg-blue-600 transition-all shadow-sm">Out</button>`
         : currentUserHasPermission('orders.take_payment') && currentUserHasPermission('orders.complete')
-          ? `<button onclick="showOrderCompleteModal(${s.id})" class="px-3 py-1.5 rounded-lg bg-emerald-500 text-white font-bold text-[10px] uppercase hover:bg-emerald-600 transition-all shadow-sm">Payment & Complete</button>`
+          ? `<button onclick="showOrderCompleteModal(${s.id})" class="px-3 py-1.5 rounded-lg bg-emerald-500 text-white font-bold text-[10px] uppercase hover:bg-emerald-600 transition-all shadow-sm">Complete Payment</button>`
           : currentUserHasPermission('orders.complete')
             ? `<button onclick="completeOrderFromPOS(${s.id}, false, '${s.order_type}')" class="px-3 py-1.5 rounded-lg bg-emerald-500 text-white font-bold text-[10px] uppercase hover:bg-emerald-600 transition-all shadow-sm">Complete</button>` : '';
 
@@ -6172,7 +6080,7 @@ async function showOrderCompleteModal(id, selectedOrder = null) {
   ]);
   window._completeOrderSelectedCustomer = s.customer_id ? { id: s.customer_id, name, phone } : null;
 
-  openModal('Collect Payment', `
+  openModal('Complete Payment', `
     <div class="space-y-4">
       <div class="grid grid-cols-2 gap-3">
         <div class="relative">
@@ -6203,7 +6111,7 @@ async function showOrderCompleteModal(id, selectedOrder = null) {
             <option value="">Presets</option>
             ${taxes.map(t => `<option value="${t.percentage}" data-method="${t.linked_payment_method || ''}">${escapeOrderValue(t.name)} (${t.percentage}%)</option>`).join('')}
           </select>
-          <input id="op-tax" type="number" step="0.01" value="${taxPercentage}" oninput="updateCompleteOrderSummary(${subtotal})" class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-bold" />
+          <input id="op-tax" data-default-tax="${taxPercentage}" type="number" step="0.01" value="${taxPercentage}" oninput="updateCompleteOrderSummary(${subtotal})" class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-bold" />
         </div>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -6279,8 +6187,8 @@ async function showOrderCompleteModal(id, selectedOrder = null) {
     </div>
   `, 'max-w-md');
 
-  // Initial trigger to sync summary
-  updateCompleteOrderSummary(subtotal);
+  // Preview the selected method without saving any billing changes.
+  applyCompleteOrderLinkedTax(subtotal);
   hideAppLoader();
 }
 
@@ -6296,8 +6204,14 @@ function applyCompleteOrderDiscountPreset(subtotal) {
 
 function applyCompleteOrderLinkedTax(subtotal) {
   const method = document.getElementById('op-method')?.value;
+  const previousTotal = completeOrderTotal(subtotal);
+  const received = document.getElementById('op-received');
+  const tip = Number(document.getElementById('op-tip')?.value || 0);
+  const fullPayment = Math.abs(Number(received.value) - previousTotal - tip) < .01;
   const preset = Array.from(document.getElementById('op-tax-preset')?.options || []).find(option => option.dataset.method === method);
-  if (preset) document.getElementById('op-tax').value = preset.value;
+  const tax = document.getElementById('op-tax');
+  tax.value = preset ? preset.value : tax.dataset.defaultTax;
+  if (fullPayment) received.value = (completeOrderTotal(subtotal) + tip).toFixed(2);
   updateCompleteOrderSummary(subtotal);
 }
 
@@ -6555,30 +6469,13 @@ function filterPOSByCategory(cat) {
 }
 
 async function printUnpaidBillInquiry(id) {
-  const customerName = $c('pp-customer-name')?.value.trim() || '';
-  const paymentMethod = $c('pp-method')?.value || 'cash';
-  const discount = Math.max(parseFloat($c('pp-discount')?.value) || 0, 0);
-  const taxPercentage = Math.max(parseFloat($c('pp-tax')?.value) || 0, 0);
-  try {
-    await api(`/api/sales/${id}/inquiry-bill`, 'PATCH', {
-      customer_name: customerName,
-      payment_method: paymentMethod,
-      discount,
-      tax_percentage: taxPercentage
-    });
-    await printUnpaidBill(id);
-    closeModal();
-    await renderPOSOrders();
-    toast('Unpaid bill printed. No payment was recorded.', 'success');
-  } catch (e) {
-    toast(e.message || 'Could not print unpaid bill', 'error');
-  }
+  return printUnpaidBill(id);
 }
 
 async function loadPOSProductsPage(page = 1) {
   const params = new URLSearchParams({
     paginate: '1', page: String(page), page_size: String(POS_PRODUCTS_PER_PAGE),
-    menu_only: '1', exclude_components: '1'
+    menu_only: '1', exclude_components: '1', search_context: 'pos'
   });
   if (_posProductSearch) params.set('search', _posProductSearch);
   if (_posProductCategory) params.set('category', _posProductCategory);
@@ -6827,7 +6724,7 @@ function finishPOSQuickAdd(message, type) {
 
 function getPOSQuickAddEntries(products) {
   return products.flatMap(product => {
-    const variants = getProductMenuVariants(product);
+    const variants = currentUser?.shop_type === 'retail' ? getProductMenuVariants(product) : [];
     if (variants.length) return variants.map(variant => ({ product, variant }));
     return [{ product, variant: null }];
   });
@@ -6934,6 +6831,7 @@ function quickAddPOSItem(productId, variantId = null) {
     if (!product) return finishPOSQuickAdd("Product is no longer available", "error");
     const isRecipe = inventoryIsRecipeProduct(product);
     const variants = getProductMenuVariants(product);
+    if (currentUser?.shop_type !== 'retail' && (variants.length || product.components?.length)) { clearPOSQuickAddSearch(true); return addToCart(productId); }
     const variant = variantId == null ? null : variants.find(item => Number(item.id) === Number(variantId));
     if (variantId != null && !variant) return finishPOSQuickAdd("This product variant is inactive or unavailable", "error");
     if (isPOSQuickAddExpired(variant) || isPOSQuickAddExpired(product)) return finishPOSQuickAdd("This product or variant has expired", "error");
@@ -8006,9 +7904,10 @@ async function checkout(status = 'completed', openPaymentAfterSave = false) {
     }
     if (!waiter_id) {
       resetPOSCheckoutSubmission(status, isEditing, actionId);
-      return toast('This table has no assigned order taker. Assign one in Table Management first.', 'error');
+      return toast('Select a waiter for this dine-in order.', 'error');
     }
   } else if (orderType === 'delivery') {
+    waiter_id = Number($c('pos-delivery-order-taker')?.value) || null;
     delivery_address = $c('pos-delivery-addr')?.value.trim() || '';
     rider_id = parseInt($c('pos-rider')?.value) || null;
   } else if (orderType === 'takeaway') {
@@ -8326,6 +8225,7 @@ function canPrintKitchenReceipt() {
 }
 
 async function printReceipt(saleId, format = RECEIPT_FORMATS.CUSTOMER, options = {}) {
+  if (['waiter', 'order_taker'].includes(String(currentUser?.role || '').toLowerCase()) && format !== 'unpaid') return toast('Waiters can only print unpaid bills.', 'error');
   const { browserFallback = true, missingPrinterMessage = "No configured printer found" } = options;
   try {
     const shopId = managedShopId || currentUser?.shop_id;
@@ -8371,6 +8271,7 @@ function printKitchenReceipt(saleId) {
 }
 
 function showReceiptPrintMenu(saleId, includeKitchen = canPrintKitchenReceipt()) {
+  if (['waiter', 'order_taker'].includes(String(currentUser?.role || '').toLowerCase())) return showPrintOptionsModal(saleId);
   openModal("Print Receipt", `
     <div class="space-y-3">
       ${includeKitchen ? `
@@ -8387,7 +8288,7 @@ function showReceiptPrintMenu(saleId, includeKitchen = canPrintKitchenReceipt())
 
       <button onclick="showPrintOptionsModal(${saleId})" class="w-full text-left p-4 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 hover:border-rose-300 dark:hover:border-rose-400 transition-all">
         <div class="font-black text-rose-700 dark:text-rose-300 text-sm uppercase tracking-wide">Unpaid Bill</div>
-        <p class="text-xs text-rose-700/70 dark:text-rose-300/70 mt-1">Pending-payment copy with editable tax/discount before printing.</p>
+        <p class="text-xs text-rose-700/70 dark:text-rose-300/70 mt-1">Cash and card reference totals. No billing changes.</p>
       </button>
     </div>
   `, "max-w-md");

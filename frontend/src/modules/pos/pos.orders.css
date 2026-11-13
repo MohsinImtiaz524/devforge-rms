@@ -161,3 +161,16 @@
 .pos-page .pos-orders.pos-orders-redesign button.orders-new:not(:disabled):hover,.pos-page .pos-orders.pos-orders-redesign .pos-order-actions>button.orders-action-primary:not(:disabled):hover{border-color:var(--orders-purple)!important}
 .pos-page .pos-orders.pos-orders-redesign button:not(:disabled):active{outline:none!important;box-shadow:none!important}
 .pos-page .pos-orders.pos-orders-redesign button:focus-visible{outline:2px solid var(--orders-purple)!important;outline-offset:2px}
+
+/* Cards need their own foregrounds; shared mobile styles must not inherit black text. */
+.dark .pos-page .pos-orders.pos-orders-redesign .order-cards>article{background:var(--orders-surface);color:var(--orders-text)}
+.dark .pos-page .pos-orders.pos-orders-redesign .order-cards article>header{background:var(--orders-subtle);color:var(--orders-text)}
+.dark .pos-page .pos-orders.pos-orders-redesign .order-cards article :is(h2,h3,b,strong,dd){color:var(--orders-text)}
+.dark .pos-page .pos-orders.pos-orders-redesign .order-cards article :is(dt,small,.pos-order-clock){color:var(--orders-muted)}
+.dark .pos-page .pos-orders.pos-orders-redesign .order-cards article>footer{background:var(--orders-surface);color:var(--orders-text)}
+.dark .pos-page .pos-orders.pos-orders-redesign .order-cards>article[data-selected=true]{border-color:var(--orders-purple)!important}
+.dark .pos-page .pos-orders.pos-orders-redesign .order-cards>article[data-selected=true]>header{background:var(--orders-soft)}
+.dark .pos-page .pos-orders.pos-orders-redesign .pos-order-actions>button:not(:disabled){background:#1e293b;color:#e0e7ff;border-color:var(--orders-border)!important}
+.dark .pos-page .pos-orders.pos-orders-redesign .pos-order-actions>button:not(:disabled):is(:hover,:focus-visible){background:#312e81;color:#fff}
+.dark .pos-page .pos-orders.pos-orders-redesign button.orders-new,.dark .pos-page .pos-orders.pos-orders-redesign .pos-order-actions>button.orders-action-primary:not(:disabled),.dark .pos-page .pos-orders.pos-orders-redesign .orders-pagination button[aria-current=page]{background:#7c3aed;color:#fff;border-color:#7c3aed!important}
+.dark .pos-page .pos-orders.pos-orders-redesign button.orders-new:not(:disabled):hover,.dark .pos-page .pos-orders.pos-orders-redesign .pos-order-actions>button.orders-action-primary:not(:disabled):is(:hover,:focus-visible){background:#6d28d9;color:#fff;border-color:#6d28d9!important}

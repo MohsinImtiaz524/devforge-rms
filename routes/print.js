@@ -8,6 +8,7 @@ const { prepareShopImages } = require('../services/ReceiptImageService');
 const { renderShiftReceiptPage } = require('../services/ShiftReceiptService');
 
 const router = express.Router();
+const { enforceReceiptPrintAccess } = require('../middleware/receipt-print-access');
 const FORMATS = new Set(["kitchen", "customer", "unpaid"]);
 
 function getRequestBaseUrl(req) {
@@ -85,7 +86,8 @@ router.get("/jobs/:id", async (req, res) => {
     ? content.format
     : "kitchen";
 
-  const details = await salesService.getBill(content.sale_id, shopId);
+  if (!enforceReceiptPrintAccess(req, res, format)) return;
+  const details = await salesService.getBill(content.sale_id, shopId, { paymentQuotes: format === "unpaid" });
   if (!details) return res.status(404).send("Sale not found");
 
   if (format === "kitchen" && Array.isArray(content.items)) {
@@ -116,7 +118,8 @@ router.get("/sales/:id", async (req, res) => {
     return res.status(401).send("Unauthorized print request");
   }
 
-  let details = await salesService.getBill(req.params.id, shopId);
+  if (!enforceReceiptPrintAccess(req, res, format)) return;
+  let details = await salesService.getBill(req.params.id, shopId, { paymentQuotes: format === "unpaid" });
   if (!details) return res.status(404).send("Sale not found");
 
   if (format === "kitchen") {

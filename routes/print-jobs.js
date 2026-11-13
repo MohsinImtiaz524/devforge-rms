@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/knex');
 const salesService = require('../services/SalesService');
+const { enforceReceiptPrintAccess } = require('../middleware/receipt-print-access');
 const { requireAuth } = require('../middleware/auth');
 
 // Claim one job at a time so a newly queued cash-drawer pulse cannot sit behind
@@ -151,6 +152,7 @@ router.get('/poll', async (req, res) => {
 router.post('/queue', requireAuth, async (req, res) => {
   const shopId = req.session.user.shop_id || req.body.shop_id;
   const { sale_id, format } = req.body;
+  if (!enforceReceiptPrintAccess(req, res, format)) return;
 
   if (!shopId) return res.status(400).json({ error: "shop_id required" });
   if (!sale_id) return res.status(400).json({ error: "sale_id required" });

@@ -18,3 +18,13 @@ for (const shopType of ['restaurant', 'retail_restaurant', 'retail', undefined])
     assert.equal(html.includes('printKitchenReceipt(42)'), false);
   });
 }
+
+for (const role of ['waiter', 'order_taker']) {
+  test(role + ' print menu opens unpaid options only', () => {
+    const opened = [];
+    const context = { currentUser: { role, shop_type: 'restaurant' }, window: {}, openModal: () => assert.fail('General print menu must be hidden'), showPrintOptionsModal: id => opened.push(id) };
+    vm.createContext(context);
+    vm.runInContext(eligibility + menu + '\nshowReceiptPrintMenu(42, true)', context);
+    assert.deepEqual(opened, [42]);
+  });
+}

@@ -41,6 +41,14 @@ test('real checkout/edit/payment transactions preserve a separate delivery charg
  await assert.rejects(service.createSale({...payload,order_type:'takeaway'},1,1),/only for delivery/i);
  const count=(await db('sales')).length;await assert.rejects(db.transaction(async trx=>{await trx('sales').where({id:saleId,shop_id:1}).update({delivery_service_charge:150,total:1140});throw Error('rollback')}),/rollback/);assert.equal(Number((await db('sales').where({id:saleId}).first()).total),990);assert.equal((await db('sales')).length,count);
  const printer=service.generatePrintJobs;service.generatePrintJobs=async()=>{throw Error('Print queue unavailable')};await assert.rejects(service.createSale({...payload,client_request_id:'delivery-print-failure'},1,1),/Print queue unavailable/);service.generatePrintJobs=printer;assert.equal((await db('sales')).length,count);
+ if(!await db.schema.hasColumn('return_items','sale_item_id'))await db.schema.alterTable('return_items',t=>t.integer('sale_item_id'));
+ await db('taxes').insert([{shop_id:1,name:'Cash',percentage:16,linked_payment_method:'cash'},{shop_id:1,name:'Card',percentage:5,linked_payment_method:'card'},{shop_id:2,name:'Other shop',percentage:99,linked_payment_method:'card'}]);
+ const savedBefore=await db('sales').where({id:saleId}).first();
+ const quoted=await service.getBill(saleId,1,{receiptOnly:true,paymentQuotes:true});
+ assert.equal(quoted.payment_quotes[0].tax_percentage,16);assert.equal(quoted.payment_quotes[1].tax_percentage,5);
+ assert.equal(await service.getBill(saleId,2,{paymentQuotes:true}),null);
+ await service.getBill(saleId,1,{receiptOnly:true,paymentQuotes:true});
+ assert.deepEqual(await db('sales').where({id:saleId}).first(),savedBefore);
  const {renderSaleReceiptPage}=require('../services/ReceiptPrintService');
  const bill={sale:{...row,total:1140,delivery_service_charge:150},items:[{product_name:'Meal',quantity:1,price_at_sale:1000}],shop:{name:'Test'},seller:{name:'Cashier'}};
  const receipt=renderSaleReceiptPage(bill,{format:'customer'});assert.ok(receipt.includes('Delivery service charge:</span><span style="text-align: right; white-space: nowrap;">'));assert.match(receipt,/150\.00/);assert.match(receipt,/1,140\.00|1140\.00/);

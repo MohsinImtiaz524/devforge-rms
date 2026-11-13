@@ -1,0 +1,47 @@
+/* Scoped to payment confirmation; uses the View Orders palette. */
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog{--pay-accent:#6200ee;--pay-soft:#f2ecff;--pay-border:#e1e2ee;--pay-text:#111126;--pay-muted:#5b5c76;--pay-surface:#fff;--pay-subtle:#f8f8fc;width:min(760px,100%);max-width:760px;max-height:calc(100dvh - 32px);background:var(--pay-surface);color:var(--pay-text);border:1px solid var(--pay-border)!important;border-radius:16px!important;box-shadow:0 24px 80px #15112e30;font-family:Inter,ui-sans-serif,system-ui,sans-serif}
+.dark .pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog{--pay-accent:#a78bfa;--pay-soft:#2b2147;--pay-border:#35364f;--pay-text:#f1f1fa;--pay-muted:#b1b2c9;--pay-surface:#111322;--pay-subtle:#1a1c2e}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog>header{align-items:center;padding:16px 20px;border-bottom:1px solid var(--pay-border);background:var(--pay-surface)}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog>header h3{margin:0;font-size:18px;font-weight:650;letter-spacing:-.4px}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog>header button{display:grid;place-items:center;width:32px;height:32px;min-height:32px;padding:0;background:var(--pay-subtle);color:var(--pay-muted);border-color:var(--pay-border)!important;border-radius:9px}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-compact{padding:16px 20px 18px;gap:14px}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-context{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--pay-muted)}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-context span:first-child{color:var(--pay-accent);font-weight:650}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-context span+span{padding-left:10px;border-left:1px solid var(--pay-border);text-transform:capitalize}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-layout{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:20px;align-items:start}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-fields{display:grid;gap:12px;min-width:0}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog label{display:grid;align-content:start;gap:5px;min-width:0;color:var(--pay-muted);font-size:11px;font-weight:550;text-transform:none;letter-spacing:0}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog input,.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog select{width:100%;min-width:0;height:38px;padding:7px 10px;background:var(--pay-surface);color:var(--pay-text);border:1px solid var(--pay-border)!important;border-radius:9px!important;font-family:inherit;font-size:13px;font-weight:500;box-sizing:border-box}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog :is(input,select,button):focus-visible{outline:2px solid var(--pay-accent);outline-offset:2px}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-discount{display:grid;grid-template-columns:minmax(0,1fr) 70px;gap:6px}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-hint{font-size:11px;line-height:1.4;color:var(--pay-muted)}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-summary{display:grid;gap:10px;padding:14px;background:var(--pay-subtle);border:1px solid var(--pay-border);border-radius:12px;min-width:0}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog dl{display:grid;gap:7px;margin:0;padding:0;background:none;border:0!important;border-radius:0;font-size:12px}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog dl>div{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog dt{color:var(--pay-muted)}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog dd{margin:0;font-weight:550;color:var(--pay-text);font-variant-numeric:tabular-nums}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-grand-total{border-top:1px solid var(--pay-border);padding-top:10px;margin-top:3px}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-grand-total dt{color:var(--pay-text);font-weight:600}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-grand-total dd{color:var(--pay-accent);font-size:21px;font-weight:650;letter-spacing:-.5px}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog input[aria-label="Amount Received"]{font-size:18px;font-weight:600;height:42px}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .quick-pay{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:0}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .quick-pay button{min-height:30px;padding:5px 8px;background:var(--pay-surface);color:var(--pay-muted);border:1px solid var(--pay-border)!important;border-radius:8px;font-size:11px;font-weight:550}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .quick-pay button:last-child{background:var(--pay-soft);color:var(--pay-accent)}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-balance{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;padding-top:2px}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-balance strong{font-size:13px;font-variant-numeric:tabular-nums}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;border-top:1px solid var(--pay-border);padding-top:14px}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-footer button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:9px 14px;border-radius:10px;font-size:12px;font-weight:600;line-height:1.3}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-cancel{background:var(--pay-surface);color:var(--pay-muted);border:1px solid var(--pay-border)!important}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-footer .primary{background:var(--pay-accent);color:#fff;border-color:var(--pay-accent)!important}
+.dark .pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-footer .primary{background:#7c3aed;border-color:#7c3aed!important}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog button:disabled{opacity:.5;cursor:wait}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .pos-suggestions{z-index:5;max-height:160px;overflow:auto;background:var(--pay-surface)}
+@media(max-width:600px){.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog>header{padding:12px 14px}.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-compact{padding:12px 14px;gap:10px}.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-layout{grid-template-columns:minmax(0,1fr);gap:12px}.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-fields{gap:9px}.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-summary{gap:7px;padding:10px 12px}.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog dl{grid-template-columns:1fr 1fr;gap:6px 14px}.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-grand-total{grid-column:1/-1;padding-top:7px;margin-top:0}.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-grand-total dd{font-size:20px}.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-footer{padding-top:10px;gap:8px}.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-footer .primary{flex:1}.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-discount{grid-template-columns:minmax(0,1fr) 60px}.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-hint{font-size:10px}}
+@media(max-height:740px) and (min-width:601px){.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-fields{gap:9px}.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-compact{padding:12px 18px;gap:10px}}
+
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-compact{min-width:0;grid-template-columns:minmax(0,1fr);box-sizing:border-box}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .pair{padding:0;border:0!important;background:none;border-radius:0;min-width:0}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-footer{min-width:0}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .payment-footer button{white-space:normal;min-width:0}
+.pos-page .pos-modal.pos-orders-dialog.pos-payment-dialog .quick-pay button{box-shadow:none}

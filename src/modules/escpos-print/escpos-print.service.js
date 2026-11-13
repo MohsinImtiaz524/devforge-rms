@@ -97,11 +97,11 @@ async function documentFor(job, shopId) {
       items: content.items, route_label: content.route_label, is_update: Boolean(content.is_update) };
     return { ...document, data: prepareData(document, {}, process.env.APP_TIME_ZONE || 'Asia/Karachi') };
   }
-  const bill = await sales.getBill(content.sale_id, shopId, { receiptOnly: true });
+  const bill = await sales.getBill(content.sale_id, shopId, { receiptOnly: true, paymentQuotes: content.format === 'unpaid' });
   if (!bill) throw new Error('Sale not found');
   // Kitchen jobs contain the exact routed lines, including add/remove updates.
   if (content.format === 'kitchen' && !Array.isArray(content.items)) throw new Error('Kitchen job has no routed item snapshot');
-  const document = { type: 'RECEIPT', format: content.format, sale: bill.sale, seller: bill.seller,
+  const document = { type: 'RECEIPT', format: content.format, payment_quotes: bill.payment_quotes, sale: bill.sale, seller: bill.seller,
     items: content.format === 'kitchen' ? content.items : bill.items,
     route_label: content.route_label, is_update: Boolean(content.is_update) };
   return { ...document, data: prepareData(document, bill.shop, process.env.APP_TIME_ZONE || 'Asia/Karachi') };

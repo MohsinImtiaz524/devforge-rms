@@ -1,5 +1,6 @@
 const db = require('../db/knex');
 const { assertOrderTypeAllowed } = require('./OrderTypePermissionService');
+const { assertOrderAssignment } = require('../utils/assert-order-assignment');
 const tipsService = require('../src/modules/tips/tips.service');
 const customerService = require('./CustomerService');
 const notificationService = require('./NotificationService');
@@ -799,12 +800,7 @@ class SalesService {
       && (data.order_type === 'takeaway' || !data.waiter_id)) {
       data.waiter_id = userId;
     }
-    if (data.order_type === 'takeaway' && data.waiter_id) {
-      const assignedWaiter = await db('users').where({ id: data.waiter_id, shop_id: shopId }).first('role', 'status');
-      if (!assignedWaiter || !['waiter', 'order_taker'].includes(String(assignedWaiter.role || '').toLowerCase()) || String(assignedWaiter.status || 'active').toLowerCase() !== 'active') {
-        throw new Error('Select an active order taker from this shop');
-      }
-    }
+    await assertOrderAssignment(db, shopId, data.order_type, data.waiter_id);
     if (data.client_request_id) {
       const existing = await db('sales')
         .where({ shop_id: shopId, client_request_id: data.client_request_id })
@@ -1304,11 +1300,8 @@ class SalesService {
       if (requestedCharge !== Number(sale.delivery_service_charge || 0) && ['ready', 'served', 'cancelled'].includes(sale.order_status)) {
         throw Object.assign(new Error('Delivery service charge cannot change after dispatch.'), { status: 409 });
       }
-      if (data.order_type === 'takeaway' && data.waiter_id) {
-        const assignedWaiter = await trx('users').where({ id: data.waiter_id, shop_id: shopId }).first('role', 'status');
-        if (!assignedWaiter || !['waiter', 'order_taker'].includes(String(assignedWaiter.role || '').toLowerCase()) || String(assignedWaiter.status || 'active').toLowerCase() !== 'active') {
-          throw new Error('Select an active order taker from this shop');
-        }
+      if (data.order_type === 'takeaway' || data.order_type !== sale.order_type || (data.waiter_id && Number(data.waiter_id) !== Number(sale.waiter_id))) {
+        await assertOrderAssignment(trx, shopId, data.order_type, data.waiter_id);
       }
 
       let shiftId = data.order_status === 'payment_pending' ? null : sale.shift_id;
@@ -2113,7 +2106,11 @@ class SalesService {
       shop.use_logo_on_receipt = Boolean(shop.use_logo_on_receipt);
     }
 
+    const paymentQuotes = options.paymentQuotes
+      ? require('../utils/unpaid-payment-quotes').unpaidPaymentQuotes(sale, items, await db('taxes').where({ shop_id: shopId }).orderBy('id'))
+      : undefined;
     return {
+      payment_quotes: paymentQuotes,
       sale,
       items,
       seller,

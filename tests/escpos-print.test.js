@@ -178,7 +178,7 @@ test('RMS customer, unpaid and kitchen section order and columns are preserved a
     const unpaid = encode({ ...document, format: 'unpaid' }, config, width).toString('latin1');
     assert.match(unpaid, /\*\*\* UNPAID BILL \*\*\*/);
     assert.match(unpaid, /Amount Paid: Rs\. 200.00/);
-    assert.match(unpaid, /Balance Due: Rs\. 0.00/);
+    assert.match(unpaid, /Due \(cash\): Rs\. 0.00/);
     assert.doesNotMatch(unpaid, /Change|Method:|Tip received/);
     const kitchen = encode({ ...document, format: 'kitchen', route_label: 'Kitchen: Hot kitchen', is_update: true }, config, width).toString('latin1');
     assert.ok(kitchen.indexOf('Hot kitchen') < kitchen.indexOf('KITCHEN ORDER'));

@@ -674,7 +674,7 @@
         },
         {
           "type": "text",
-          "value": "Payment: {{data.method}}"
+          "value": "Payment pending - method to be confirmed"
         },
         {
           "type": "gap",
@@ -761,23 +761,14 @@
         },
         {
           "type": "row",
-          "label": "Tax ({{data.taxPercentage}}%)",
-          "value": "{{data.currency}} {{data.tax}}",
-          "when": {
-            "path": "data.hasTax"
-          }
-        },
-        {
-          "type": "gap",
-          "value": 2,
-          "when": {
-            "path": "data.hasTax"
-          }
+          "label": "Cash ({{data.cashTax}}% tax)",
+          "value": "{{data.currency}} {{data.cashTotal}}",
+          "bold": true
         },
         {
           "type": "row",
-          "label": "GRAND TOTAL",
-          "value": "{{data.currency}} {{data.total}}",
+          "label": "Card ({{data.cardTax}}% tax)",
+          "value": "{{data.currency}} {{data.cardTotal}}",
           "bold": true
         },
         {
@@ -799,7 +790,7 @@
         },
         {
           "type": "text",
-          "value": "Total: {{data.currency}} {{data.total}}",
+          "value": "Reference prices only. Confirm at payment.",
           "align": "center",
           "bold": true
         },
@@ -819,7 +810,13 @@
         },
         {
           "type": "text",
-          "value": "Balance Due: {{data.currency}} {{data.due}}",
+          "value": "Due (cash): {{data.currency}} {{data.cashDue}}",
+          "align": "center",
+          "bold": true
+        },
+        {
+          "type": "text",
+          "value": "Due (card): {{data.currency}} {{data.cardDue}}",
           "align": "center",
           "bold": true
         },
@@ -835,39 +832,6 @@
           "value": {
             "path": "receipt.section_gap"
           }
-        },
-        {
-          "type": "qr",
-          "value": {
-            "path": "receipt.google_maps_url"
-          },
-          "when": {
-            "path": "receipt.google_maps_url"
-          }
-        },
-        {
-          "type": "each",
-          "value": {
-            "path": "data.promotions"
-          },
-          "nodes": [
-            {
-              "type": "image",
-              "value": {
-                "path": "item"
-              }
-            },
-            {
-              "type": "text",
-              "value": {
-                "path": "item.description"
-              },
-              "when": {
-                "path": "item.description"
-              },
-              "align": "center"
-            }
-          ]
         },
         {
           "type": "gap",

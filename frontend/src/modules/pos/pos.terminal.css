@@ -432,3 +432,28 @@
 .pos-page .pos-terminal .pos-delivery-controls input,.pos-page .pos-terminal .pos-delivery-controls select{font-weight:400}
 .pos-page .pos-terminal .pos-delivery-controls input::placeholder{font-weight:400;color:#64748b;opacity:1}
 .dark .pos-page .pos-terminal .pos-delivery-controls input::placeholder{color:#94a3b8}
+
+/* Table selection keeps a visible scrollbar, overriding the shared hidden rails. */
+.pos-page .pos-modal.pos-table-dialog .table-choice{scrollbar-width:thin;scrollbar-color:var(--pos-accent,#6200ee) var(--pos-surface,#f8f8fc);scrollbar-gutter:stable}
+.pos-page .pos-modal.pos-table-dialog .table-choice::-webkit-scrollbar{display:block;width:8px;height:8px}
+.pos-page .pos-modal.pos-table-dialog .table-choice::-webkit-scrollbar-track{background:var(--pos-surface,#f8f8fc);border-radius:8px}
+.pos-page .pos-modal.pos-table-dialog .table-choice::-webkit-scrollbar-thumb{background:var(--pos-accent,#6200ee);border:2px solid var(--pos-surface,#f8f8fc);border-radius:8px;min-height:36px}
+
+/* Explicit contrast for product cards and variant options in dark mode. */
+.dark .pos-page .pos-terminal .pos-product{background:var(--pos-surface);color:var(--pos-ink);border-color:var(--pos-line)!important}
+.dark .pos-page .pos-terminal .pos-product :is(h3,b,strong){color:var(--pos-ink)}
+.dark .pos-page .pos-terminal .pos-product :is(p,small){color:#b1b2c9}
+.dark .pos-page .pos-terminal .pos-product>div{background:#1e293b;color:#cbd5e1}
+.dark .pos-page .pos-terminal .pos-product>em{background:#292044;color:#ddd6fe}
+.dark .pos-page .pos-terminal .pos-product:is(:hover,:focus-visible){background:#1a1c2e;border-color:var(--pos-accent)!important}
+.dark .pos-page .pos-product-dialog .pos-config fieldset{background:var(--pos-surface);color:var(--pos-ink)}
+.dark .pos-page .pos-product-dialog .pos-config fieldset legend{color:var(--pos-ink)}
+.dark .pos-page .pos-product-dialog .pos-config fieldset label>span{background:#1e293b;color:#f1f5f9;border-color:#475569!important}
+.dark .pos-page .pos-product-dialog .pos-config fieldset label>span b{color:#f1f5f9}
+.dark .pos-page .pos-product-dialog .pos-config fieldset label>span small{color:#cbd5e1}
+.dark .pos-page .pos-product-dialog .pos-config fieldset label:hover>span{background:#292044;border-color:#a78bfa!important}
+.dark .pos-page .pos-product-dialog .pos-config fieldset label input:checked+span{background:#312452;color:#f5f3ff;border-color:#b99aff!important}
+.dark .pos-page .pos-product-dialog .pos-config fieldset label input:checked+span :is(b,small){color:#f5f3ff}
+.pos-page .pos-product-dialog .pos-config fieldset label input:focus-visible+span{outline:2px solid var(--pos-accent,#6225ff);outline-offset:3px}
+.dark .pos-page .pos-product-dialog .pos-config fieldset label input:disabled+span{background:#172032;color:#94a3b8;border-color:#334155!important}
+.dark .pos-page .pos-product-dialog .pos-config fieldset label input:disabled+span :is(b,small){color:#94a3b8}
