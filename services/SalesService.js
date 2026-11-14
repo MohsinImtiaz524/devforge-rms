@@ -1750,6 +1750,7 @@ class SalesService {
 
   async getSales(shopId, currentUser = null) {
     const query = db('sales as s')
+      .select('order_shift.status as order_shift_status')
       .select('s.*', 'tip.payment_method as tip_payment_method', 'tip.collection_mode as tip_collection_mode', 'tip.collected_at as tip_collected_at', 'u.name as served_by_name', 'u.username as served_by_username', 'pr.name as payment_receiver_name', 'r.name as rider_name', 'k.name as kitchen_name', 't.table_number')
       .select(db.raw("COALESCE(w.name, CASE WHEN LOWER(u.role) IN ('waiter', 'order_taker') THEN COALESCE(u.name, u.username) END) as waiter_name"))
       .select(db.raw('(SELECT SUM(quantity) FROM return_items WHERE return_id IN (SELECT id FROM returns WHERE sale_id = s.id)) as items_returned'))
@@ -1760,6 +1761,7 @@ class SalesService {
       .leftJoin('users as k', 's.kitchen_id', 'k.id')
       .leftJoin('tables as t', 's.table_id', 't.id')
       .leftJoin('sale_tips as tip', function () { this.on('tip.sale_id', 's.id').andOn('tip.shop_id', 's.shop_id'); })
+      .leftJoin('shifts as order_shift', function () { this.on('order_shift.id', 's.shift_id').andOn('order_shift.shop_id', 's.shop_id'); })
       .where('s.shop_id', shopId);
 
     const role = currentUser?.role;

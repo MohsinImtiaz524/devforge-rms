@@ -109,7 +109,7 @@ async function renderRegisterPaymentsPanel(options = {}) {
             <button id="register-payment-apply" onclick="applyRegisterPaymentFilters()" class="h-11 rounded-xl bg-indigo-600 px-5 text-xs font-black uppercase tracking-wider text-white hover:bg-indigo-500 disabled:opacity-60">Apply</button>
           </div>
           <div class="overflow-x-auto">
-            <table class="w-full min-w-[820px] text-left"><thead class="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:bg-slate-950"><tr><th class="px-5 py-4">Order</th><th class="px-5 py-4">Context</th><th class="px-5 py-4">Method</th><th class="px-5 py-4">Received at</th><th class="px-5 py-4 text-right">Amount received</th></tr></thead><tbody id="register-payment-results" class="divide-y divide-slate-100 dark:divide-slate-800">${renderRegisterPaymentRows(rows)}</tbody></table>
+            <table class="w-full min-w-[820px] text-left"><thead class="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:bg-slate-950"><tr><th class="px-5 py-4">Order</th><th class="px-5 py-4">Context</th><th class="px-5 py-4">Method</th><th class="px-5 py-4">Received at</th><th class="px-5 py-4 text-right">Amount received</th><th class="px-5 py-4 text-right">Print</th></tr></thead><tbody id="register-payment-results" class="divide-y divide-slate-100 dark:divide-slate-800">${renderRegisterPaymentRows(rows)}</tbody></table>
           </div>
           <div id="register-payment-pagination">${renderRegisterPaymentPagination(pagination)}</div>
         </section>
@@ -121,7 +121,7 @@ async function renderRegisterPaymentsPanel(options = {}) {
 }
 
 function renderRegisterPaymentRows(rows) {
-  return rows.length ? rows.map(row => `<tr class="hover:bg-slate-50/70 dark:hover:bg-slate-800/40"><td class="px-5 py-4"><div class="font-black text-slate-900 dark:text-white">Order #${row.order_number || row.order_id}</div><div class="mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">${escapeOrderValue(row.order_status || '—')}${row.customer_name ? ` · ${escapeOrderValue(row.customer_name)}` : ''}</div></td><td class="px-5 py-4 text-sm font-bold text-slate-600 dark:text-slate-300">${registerPaymentContext(row)}</td><td class="px-5 py-4"><span class="inline-flex rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:bg-slate-800 dark:text-slate-300">Bill: ${escapeOrderValue(row.payment_method)}</span>${Number(row.tip_amount || 0) > 0 ? `<div class="mt-1 text-[10px] font-black uppercase tracking-wider text-emerald-600">Tip: ${escapeOrderValue(row.tip_payment_method || row.payment_method || 'cash')}</div>` : ''}</td><td class="px-5 py-4 text-xs font-bold text-slate-500">${registerPaymentDate(row.payment_time)}</td><td class="px-5 py-4 text-right text-sm font-black text-indigo-700 dark:text-indigo-300">${registerPaymentMoney(row.payment_amount)}${Number(row.tip_amount || 0) > 0 ? `<div class="mt-1 text-xs font-medium text-emerald-600">Tip: ${registerPaymentMoney(row.tip_amount)}</div>` : ''}</td></tr>`).join('') : `<tr><td colspan="5" class="px-6 py-16 text-center"><div class="font-black text-slate-700 dark:text-slate-200">No received payments found</div><p class="mt-2 text-sm text-slate-400">Try another shift or clear the filters.</p></td></tr>`;
+  return rows.length ? rows.map(row => `<tr class="hover:bg-slate-50/70 dark:hover:bg-slate-800/40"><td class="px-5 py-4"><div class="font-black text-slate-900 dark:text-white">Order #${row.order_number || row.order_id}</div><div class="mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">${escapeOrderValue(row.order_status || '—')}${row.customer_name ? ` · ${escapeOrderValue(row.customer_name)}` : ''}</div></td><td class="px-5 py-4 text-sm font-bold text-slate-600 dark:text-slate-300">${registerPaymentContext(row)}</td><td class="px-5 py-4"><span class="inline-flex rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:bg-slate-800 dark:text-slate-300">Bill: ${escapeOrderValue(row.payment_method)}</span>${Number(row.tip_amount || 0) > 0 ? `<div class="mt-1 text-[10px] font-black uppercase tracking-wider text-emerald-600">Tip: ${escapeOrderValue(row.tip_payment_method || row.payment_method || 'cash')}</div>` : ''}</td><td class="px-5 py-4 text-xs font-bold text-slate-500">${registerPaymentDate(row.payment_time)}</td><td class="px-5 py-4 text-right text-sm font-black text-indigo-700 dark:text-indigo-300">${registerPaymentMoney(row.payment_amount)}${Number(row.tip_amount || 0) > 0 ? `<div class="mt-1 text-xs font-medium text-emerald-600">Tip: ${registerPaymentMoney(row.tip_amount)}</div>` : ''}</td><td class="px-5 py-4 text-right"><button type="button" onclick="printRegisterPaymentReceipt(${Number(row.order_id)}, this)" aria-label="Print paid receipt" title="Print paid receipt" class="inline-flex h-10 w-10 items-center justify-center rounded-xl text-indigo-600 hover:bg-indigo-50 disabled:opacity-50 dark:text-indigo-300 dark:hover:bg-indigo-950/40"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg></button></td></tr>`).join('') : `<tr><td colspan="6" class="px-6 py-16 text-center"><div class="font-black text-slate-700 dark:text-slate-200">No received payments found</div><p class="mt-2 text-sm text-slate-400">Try another shift or clear the filters.</p></td></tr>`;
 }
 
 function renderRegisterPaymentPagination(pagination) {
@@ -175,4 +175,25 @@ function changeRegisterPaymentOrderPage(direction) {
 function applyRegisterPaymentFilters() {
   _registerPaymentOrderPage = 1;
   refreshRegisterPaymentResults();
+}
+
+const _registerPaymentPrintPending = new Set();
+
+async function printRegisterPaymentReceipt(orderId, button) {
+  if (!Number.isSafeInteger(orderId) || orderId <= 0) {
+    toast('Invalid order for receipt printing', 'error');
+    return;
+  }
+  if (_registerPaymentPrintPending.has(orderId)) return;
+  _registerPaymentPrintPending.add(orderId);
+  if (button) button.disabled = true;
+  try {
+    await printReceipt(orderId, RECEIPT_FORMATS.CUSTOMER, {
+      browserFallback: false,
+      missingPrinterMessage: 'No paid bill printer is configured',
+    });
+  } finally {
+    _registerPaymentPrintPending.delete(orderId);
+    if (button) button.disabled = false;
+  }
 }

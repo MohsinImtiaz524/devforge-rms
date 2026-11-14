@@ -21,8 +21,11 @@ export const filterOrders = (orders,type,search,options) => {
   const query=String(search||'').trim().toLowerCase().replace(/^#/, '')
   const rows=orders.filter(order=>{
     const status=order.order_status||'pending'
-    if(status==='completed')return false
-    const statusMatches=options?.status==='all'||(options?.status&&options.status!=='active'?(options.status==='payment_pending'&&options.savedShop?!['completed','cancelled'].includes(status):status===options.status):options? !['completed','cancelled'].includes(status):status!=='completed')
+    const completedActiveShifts=options?.status==='completed_active_shifts'
+    if(status==='completed'&&!completedActiveShifts)return false
+    const statusMatches=completedActiveShifts
+      ? status==='completed'&&order.order_shift_status==='open'
+      : options?.status==='all'||(options?.status&&options.status!=='active'?(options.status==='payment_pending'&&options.savedShop?!['completed','cancelled'].includes(status):status===options.status):options? !['completed','cancelled'].includes(status):status!=='completed')
     const searchable=options?[order.order_number||order.id,order.table_number,order.customer_name,order.customer_phone,order.delivery_address,order.waiter_name].join(' ').toLowerCase():String(order.order_number||order.id)
     return statusMatches&&(!type||order.order_type===type)&&(!options?.table||String(order.table_id)===String(options.table))&&(!query||searchable.includes(query))
   })
