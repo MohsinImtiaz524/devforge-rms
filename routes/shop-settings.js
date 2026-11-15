@@ -26,6 +26,18 @@ function guardLegacyLogo(req,res,next){
   if(req.body.logo_data!==undefined||req.file)return res.status(409).json({error:'Manage your shop logo in Account Profile.'});
   next();
 }
+router.get('/pos', requireAuth, async (req, res) => {
+  const shopId = req.session.user.shop_id;
+  if (!shopId) return res.status(403).json({ error: 'No shop assigned' });
+  const isPostgres = usePostgres();
+  const query = `SELECT pos_direct_variant_searching FROM shops WHERE id = ${isPostgres ? '$1' : '?'}`;
+  const shop = isPostgres
+    ? (await getPostgres().query(query, [shopId])).rows[0]
+    : getSqlite().prepare(query).get(shopId);
+  if (!shop) return res.status(404).json({ error: 'Shop not found' });
+  res.set('Cache-Control', 'private, no-store');
+  res.json({ pos_direct_variant_searching: toDatabaseBoolean(shop.pos_direct_variant_searching) === 1 });
+});
 // GET /api/shop-settings
 router.get("/", requireAuth, async (req, res) => {
   try {

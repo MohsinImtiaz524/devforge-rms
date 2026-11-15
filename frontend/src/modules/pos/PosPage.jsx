@@ -143,7 +143,7 @@ export default function PosPage() {
   }, [])
   useEffect(() => {
     if (!user) return
-    Promise.all([api('/api/tables'), api('/api/tables/floors'), api('/api/users/assignable'), api('/api/product-categories'), api('/api/shop-settings')])
+    Promise.all([api('/api/tables'), api('/api/tables/floors'), api('/api/users/assignable'), api('/api/product-categories'), api('/api/shop-settings/pos')])
       .then(([tableRows, floorRows, staffRows, categoryRows, settings]) => { setTables(Array.isArray(tableRows) ? tableRows : []); setFloors(Array.isArray(floorRows) ? floorRows : []); setStaff(Array.isArray(staffRows) ? staffRows : []); setCategories((Array.isArray(categoryRows) ? categoryRows : []).map(item => item.name).filter(Boolean)); const enabled = Boolean(settings?.pos_direct_variant_searching); window.__posDirectVariantSearching = enabled; setDirectVariantSearching(enabled) })
       .catch(requestError => setError(requestError.message))
   }, [user])

@@ -4358,7 +4358,7 @@ async function renderPOS() {
   const layoutRestore = window._posLayoutRestore || null;
   window._posLayoutRestore = null;
   const [productResponse, tables, waiters, floors, discounts, taxes] = await loadPOSBootstrapData();
-  const posSettings = await api('/api/shop-settings').catch(() => ({}));
+  const posSettings = await api('/api/shop-settings/pos').catch(() => ({}));
   _posDirectVariantSearching = Boolean(posSettings.pos_direct_variant_searching);
   // Consume the prefetch once so later visits refresh live table/order data.
   _posBootstrapCache = null;

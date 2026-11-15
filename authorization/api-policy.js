@@ -175,7 +175,7 @@ function enforceApiPermissions(req, res, next) {
   }
   if (req.method === 'GET' && resource === 'products') supportingOrderReads.push('orders.view');
   if (req.method === 'GET' && resource === 'users' && /assignable/.test(req.path)) supportingOrderReads.push('orders.create');
-  if (req.method === 'GET' && resource === 'shop-settings' && /discounts|taxes/.test(req.path)) supportingOrderReads.push('orders.create');
+  if (req.method === 'GET' && resource === 'shop-settings' && /\/pos$|discounts|taxes/.test(req.path)) supportingOrderReads.push('orders.create');
   if (resource === 'kds' && req.method === 'PATCH' && /ready|completed/i.test(JSON.stringify(req.body || {}))) {
     return requirePermission('kitchen_orders.complete', 'orders.complete')(req, res, next);
   }
