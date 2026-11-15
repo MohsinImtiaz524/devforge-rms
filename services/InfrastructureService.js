@@ -142,7 +142,20 @@ class InfrastructureService {
         query = query.where('t.assigned_waiter_id', actor.id);
       }
     }
-    return query.orderBy('t.id', 'asc');
+    const tables = await query.orderBy('t.id', 'asc');
+    if (!tables.length) return tables;
+    const activeTableIds = new Set((await db('sales')
+      .where({ shop_id: shopId, order_type: 'dine_in' })
+      .whereIn('order_status', ['pending', 'preparing', 'ready', 'served', 'payment_pending'])
+      .whereNotNull('table_id')
+      .distinct('table_id'))
+      .map(row => Number(row.table_id)));
+    return tables.map(table => ({
+      ...table,
+      status: activeTableIds.has(Number(table.id))
+        ? 'occupied'
+        : table.status === 'occupied' ? 'available' : table.status
+    }));
   }
 
   async getTableAccessConfig(shopId) {

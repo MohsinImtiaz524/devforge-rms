@@ -308,6 +308,12 @@ function renderReceiptSettings() {
         <!-- Settings Form -->
         <div class="flex-1">
           <form id="receipt-settings-form" onsubmit="event.preventDefault(); saveReceiptSettings();" class="space-y-8">
+        <div class="rounded-2xl border border-slate-200 p-6 dark:border-slate-800">
+          <h4 class="font-bold text-slate-900 dark:text-white">Dine-in service charge</h4>
+          <p class="mt-1 text-sm text-slate-500">Applied only to dine-in orders, using the subtotal after discount and before tax.</p>
+          <label for="dine-in-service-charge-percentage" class="mt-4 block text-sm font-semibold">Service charge (%)</label>
+          <input id="dine-in-service-charge-percentage" type="number" min="0" max="100" step="0.01" value="${Number(settings.dine_in_service_charge_percentage || 0)}" class="mt-2 w-full rounded-xl border p-3 dark:bg-slate-800" />
+        </div>
         <!-- Logo Section -->
         <div class="bg-slate-50 dark:bg-slate-900/50 rounded-[2rem] p-8 border border-slate-200 dark:border-slate-800">
           <h4 class="text-lg font-black text-slate-900 dark:text-white mb-6 flex items-center gap-3">
@@ -659,6 +665,7 @@ async function saveReceiptSettings() {
     formData.append("logo_print_width_mm", document.getElementById("logo-print-width")?.value || "60");
     formData.append("use_logo_on_receipt", document.getElementById("use-logo-on-receipt")?.checked ? "true" : "false");
     formData.append("use_text_on_receipt", document.getElementById("use-text-on-receipt")?.checked ? "true" : "false");
+    formData.append("dine_in_service_charge_percentage", document.getElementById("dine-in-service-charge-percentage")?.value || "0");
 
     // Text fields
     const policies = document.getElementById("receipt-policies")?.value || "";

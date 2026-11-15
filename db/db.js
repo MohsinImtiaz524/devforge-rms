@@ -909,6 +909,7 @@ if (!tableExists) {
       { name: "divider_width", type: "INTEGER DEFAULT 1" },
       { name: "section_gap", type: "INTEGER DEFAULT 10" },
       { name: "auto_calculate_damage_to_loss", type: "INTEGER DEFAULT 1" },
+      { name: "pos_direct_variant_searching", type: "INTEGER NOT NULL DEFAULT 0" },
       { name: "customer_bill_printer", type: "TEXT" },
       { name: "unpaid_bill_printer", type: "TEXT" },
       { name: "user_count", type: "INTEGER DEFAULT 0" },

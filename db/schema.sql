@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS shops (
   status TEXT DEFAULT 'active', -- active, blocked
   allowed_panels TEXT, -- JSON array of panel IDs allotted by master
   auto_calculate_damage_to_loss INTEGER DEFAULT 1,
+  dine_in_service_charge_percentage NUMERIC NOT NULL DEFAULT 0 CHECK (dine_in_service_charge_percentage >= 0 AND dine_in_service_charge_percentage <= 100),
+  pos_direct_variant_searching INTEGER NOT NULL DEFAULT 0,
   use_logo_on_receipt INTEGER DEFAULT 1,
   use_text_on_receipt INTEGER DEFAULT 1,
   customer_bill_printer TEXT,
@@ -216,6 +218,8 @@ CREATE TABLE IF NOT EXISTS sales (
   tax_percentage REAL NOT NULL DEFAULT 0,
   tax_amount REAL NOT NULL DEFAULT 0,
   delivery_service_charge NUMERIC NOT NULL DEFAULT 0 CHECK (delivery_service_charge >= 0 AND delivery_service_charge <= 99999999.99),
+  dine_in_service_charge_percentage NUMERIC NOT NULL DEFAULT 0 CHECK (dine_in_service_charge_percentage >= 0 AND dine_in_service_charge_percentage <= 100),
+  dine_in_service_charge NUMERIC NOT NULL DEFAULT 0 CHECK (dine_in_service_charge >= 0),
   payment_method TEXT NOT NULL DEFAULT 'cash',
   amount_received REAL NOT NULL DEFAULT 0,
   order_type TEXT DEFAULT 'dine_in', -- dine_in, takeaway, delivery, walk_in

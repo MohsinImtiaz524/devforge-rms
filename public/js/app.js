@@ -209,6 +209,7 @@ let _posServerPagination = null;
 let _posQuickAddResults = [];
 let _posQuickAddRequest = 0;
 let _posQuickAddBusy = false;
+let _posDirectVariantSearching = false;
 let _inventoryProductPage = 1;
 const INVENTORY_PRODUCTS_PER_PAGE = 20;
 let _posFilteredProducts = [];
@@ -1152,6 +1153,7 @@ function getSettingsNavItems() {
   const items = [
     { id: 'profile', label: 'Account Profile', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
     { id: 'category-order', label: 'POS Category Order', icon: 'M4 6h16M4 12h16M4 18h16' },
+    { id: 'pos-settings', label: 'POS Settings', icon: 'M12 6V4m0 16v-2m6-6h2M4 12h2m9.5-5.5 1.5-1.5M7 17l-1.5 1.5m11 0L15 17M7 7 5.5 5.5M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
     { id: 'receipt', label: 'Receipt Settings', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
     { id: 'printer-routing', label: 'Printers & Routing', icon: 'M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z' }
     ,{ id: 'notification-recipients', label: 'Notification Recipients', icon: 'M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0a3 3 0 01-6 0m6 0H9' }
@@ -1159,6 +1161,31 @@ function getSettingsNavItems() {
 
   if (!isPlatformOwner()) return items;
   return items.filter((item) => !PLATFORM_OWNER_HIDDEN_SETTINGS_TABS.has(item.id));
+}
+
+function renderPOSSettings() {
+  const enabled = Boolean(_receiptSettings?.pos_direct_variant_searching);
+  return `<section class="max-w-3xl rounded-[2rem] border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
+    <h3 class="text-2xl font-black text-slate-950 dark:text-white">POS Search</h3>
+    <p class="mt-2 text-sm text-slate-500">Choose whether the POS search bar can find and directly add product variants.</p>
+    <label class="mt-8 flex cursor-pointer items-center justify-between gap-6 rounded-2xl border border-slate-200 p-5 dark:border-slate-700">
+      <span><strong class="block text-sm text-slate-900 dark:text-white">Direct variant searching</strong><small class="mt-1 block text-slate-500">When disabled, the search filters the product list without opening a quick-add dropdown.</small></span>
+      <input id="pos-direct-variant-searching" type="checkbox" ${enabled ? 'checked' : ''} class="h-5 w-5 accent-indigo-600">
+    </label>
+    <button type="button" onclick="savePOSSettings()" class="mt-6 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-bold text-white">Save POS Settings</button>
+  </section>`;
+}
+
+async function savePOSSettings() {
+  const body = new FormData();
+  body.append('pos_direct_variant_searching', document.getElementById('pos-direct-variant-searching')?.checked ? '1' : '0');
+  try {
+    const response = await fetch('/api/shop-settings', { method: 'POST', body });
+    if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Failed to save POS settings');
+    await fetchReceiptSettings();
+    toast('POS settings saved successfully!');
+    renderSettings('pos-settings');
+  } catch (error) { toast(error.message, 'error'); }
 }
 
 async function renderSettings(tab) {
@@ -1174,7 +1201,7 @@ async function renderSettings(tab) {
   }
 
   // Fetch receipt settings if on receipt tab
-  if (_activeSettingsTab === "receipt") {
+  if (_activeSettingsTab === "receipt" || _activeSettingsTab === "pos-settings") {
     await fetchReceiptSettings();
   }
   if (_activeSettingsTab === "category-order") await fetchCategories();
@@ -1252,6 +1279,7 @@ async function renderSettings(tab) {
 
 
 async function renderActiveSettingsContent() {
+  if (_activeSettingsTab === "pos-settings") return renderPOSSettings();
   if (_activeSettingsTab === "notification-recipients") return renderNotificationRecipientSettings();
   if (_activeSettingsTab === "profile") {
     return `
@@ -4330,6 +4358,8 @@ async function renderPOS() {
   const layoutRestore = window._posLayoutRestore || null;
   window._posLayoutRestore = null;
   const [productResponse, tables, waiters, floors, discounts, taxes] = await loadPOSBootstrapData();
+  const posSettings = await api('/api/shop-settings').catch(() => ({}));
+  _posDirectVariantSearching = Boolean(posSettings.pos_direct_variant_searching);
   // Consume the prefetch once so later visits refresh live table/order data.
   _posBootstrapCache = null;
   const products = Array.isArray(productResponse?.items) ? productResponse.items : [];
@@ -6491,6 +6521,7 @@ async function loadPOSProductsPage(page = 1) {
     menu_only: '1', exclude_components: '1', search_context: 'pos'
   });
   if (_posProductSearch) params.set('search', _posProductSearch);
+  params.set('direct_variants', _posDirectVariantSearching ? '1' : '0');
   if (_posProductCategory) params.set('category', _posProductCategory);
   const response = await api(`/api/products?${params.toString()}`);
   const products = Array.isArray(response?.items) ? response.items : [];
@@ -6737,7 +6768,7 @@ function finishPOSQuickAdd(message, type) {
 
 function getPOSQuickAddEntries(products) {
   return products.flatMap(product => {
-    const variants = currentUser?.shop_type === 'retail' ? getProductMenuVariants(product) : [];
+    const variants = currentUser?.shop_type === 'retail' && _posDirectVariantSearching ? getProductMenuVariants(product) : [];
     if (variants.length) return variants.map(variant => ({ product, variant }));
     return [{ product, variant: null }];
   });
@@ -6774,6 +6805,12 @@ async function searchPOSQuickAdd({ submit = false, autoAddBarcode = true } = {})
   if (!query) return clearPOSQuickAddSearch(false);
   const requestId = ++_posQuickAddRequest;
   const results = $c("pos-quick-add-results");
+  if (!_posDirectVariantSearching) {
+    _posProductSearch = query;
+    if (results) { results.innerHTML = ""; results.classList.add("hidden"); }
+    await loadPOSProductsPage(1).catch(error => toast(error.message || "Could not search products", "error"));
+    return;
+  }
   if (results) {
     results.innerHTML = '<div class="px-3 py-4 text-center text-xs font-bold text-slate-400">Searching…</div>';
     results.classList.remove("hidden");
@@ -6844,7 +6881,7 @@ function quickAddPOSItem(productId, variantId = null) {
     if (!product) return finishPOSQuickAdd("Product is no longer available", "error");
     const isRecipe = inventoryIsRecipeProduct(product);
     const variants = getProductMenuVariants(product);
-    if (currentUser?.shop_type !== 'retail' && (variants.length || product.components?.length)) { clearPOSQuickAddSearch(true); return addToCart(productId); }
+    if ((currentUser?.shop_type !== 'retail' || !_posDirectVariantSearching) && (variants.length || product.components?.length)) { clearPOSQuickAddSearch(true); return addToCart(productId); }
     const variant = variantId == null ? null : variants.find(item => Number(item.id) === Number(variantId));
     if (variantId != null && !variant) return finishPOSQuickAdd("This product variant is inactive or unavailable", "error");
     if (isPOSQuickAddExpired(variant) || isPOSQuickAddExpired(product)) return finishPOSQuickAdd("This product or variant has expired", "error");

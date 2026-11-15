@@ -11,6 +11,7 @@ const expired = record => {
 }
 
 export default function PosQuickAdd({ add, notify, query, onQueryChange, loadMenu, variantSearch=false, configure }) {
+  variantSearch = variantSearch && window.__posDirectVariantSearching === true
   const [results,setResults] = useState([]), [status,setStatus] = useState('')
   const input = useRef(null), request = useRef(0)
   useEffect(()=>{const shortcut=event=>{if(event.key==='F2'){event.preventDefault();input.current?.focus()}};addEventListener('keydown',shortcut);return()=>removeEventListener('keydown',shortcut)},[])
@@ -35,6 +36,11 @@ export default function PosQuickAdd({ add, notify, query, onQueryChange, loadMen
   async function search(value,submit=false) {
     const id=++request.current
     if (!value.trim()) return
+    if (!variantSearch) {
+      try { await loadMenu(value) } catch (error) { notify(error.message,'error') }
+      if(id===request.current){setResults([]);setStatus('')}
+      return
+    }
     setStatus('Searching...')
     try {
       const rows=await loadMenu(value)

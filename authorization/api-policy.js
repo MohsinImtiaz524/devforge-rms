@@ -123,6 +123,7 @@ function enforceApiPermissions(req, res, next) {
   // Its client marks requests explicitly so shared sales endpoints remain usable
   // by the POS under orders.* permissions.
   if (resource === 'sales' && req.query?.view === 'sales_panel') {
+    if (req.method === 'GET') return requirePermission('sales.view', 'sales.update')(req, res, next);
     return requirePermission(`sales.${actionFor(req, resource)}`)(req, res, next);
   }
   // My Inbox is intrinsic to every authenticated shop user. Only requests

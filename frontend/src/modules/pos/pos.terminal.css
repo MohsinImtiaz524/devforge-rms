@@ -196,6 +196,7 @@
 @media(prefers-reduced-motion:reduce){.pos-spin{animation:none}.pos-page .pos-terminal button{transition:none}}
 .pos-print-menu>button>svg{color:var(--pos-accent);vertical-align:middle;margin-right:7px}
 .pos-print-menu p[role=status]{display:flex;align-items:center;gap:7px}
+.pos-page .pos-modal.pos-orders-dialog.pos-unpaid-bill-dialog{overflow:hidden}
 @media(max-width:767px){.pos-cart-header-actions{flex-wrap:wrap}.pos-header-order-taker select{max-width:135px}}
 /* Row selection and read-only quantity display. */
 .pos-page .pos-terminal .pos-products-table tr[role=button]{cursor:pointer;outline-offset:-2px;touch-action:manipulation}

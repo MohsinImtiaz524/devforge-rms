@@ -243,6 +243,7 @@ function renderCustomerReceipt(details, options) {
         ${discount > 0 ? `<div>Discount: -${currency} ${formatMoney(discount)}</div>` : ""}
         ${!isUnpaid && taxPct > 0 ? `<div>Tax (${escapeHtml(taxPct)}%): ${currency} ${formatMoney(taxAmt)}</div>` : ""}
         ${Number(sale.delivery_service_charge || 0) > 0 ? `<div style="display: flex; justify-content: space-between; gap: 8px;"><span style="text-align: left;">Delivery service charge:</span><span style="text-align: right; white-space: nowrap;">${currency} ${formatMoney(sale.delivery_service_charge)}</span></div>` : ""}
+        ${Number(sale.dine_in_service_charge || 0) > 0 ? `<div style="display: flex; justify-content: space-between; gap: 8px;"><span style="text-align: left;">Dine-in service charge (${escapeHtml(sale.dine_in_service_charge_percentage || 0)}%):</span><span style="text-align: right; white-space: nowrap;">${currency} ${formatMoney(sale.dine_in_service_charge)}</span></div>` : ""}
         ${isUnpaid ? quotes.map(quote => `<div class="bold total-row">Pay by ${quote.method === "cash" ? "cash" : "card"} (${escapeHtml(quote.tax_percentage)}% tax): ${currency} ${formatMoney(quote.total)}</div>`).join("") : `<div class="bold total-row" style="margin-top: 4px;">GRAND TOTAL: ${currency} ${formatMoney(grandTotal)}</div>`}
       </div>
 

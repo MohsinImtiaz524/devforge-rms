@@ -51,6 +51,7 @@ async function initPostgres() {
     await query("UPDATE expense_categories SET name = 'Restaurant Expense' WHERE name = 'Shop Expense'");
     await query("ALTER TABLE shops ADD COLUMN IF NOT EXISTS table_visibility_mode TEXT NOT NULL DEFAULT 'all'");
     await query("ALTER TABLE shops ADD COLUMN IF NOT EXISTS realtime_printing_enabled INTEGER NOT NULL DEFAULT 0");
+    await query("ALTER TABLE shops ADD COLUMN IF NOT EXISTS pos_direct_variant_searching INTEGER NOT NULL DEFAULT 0");
     await query("ALTER TABLE tables ADD COLUMN IF NOT EXISTS assigned_waiter_id INTEGER REFERENCES users(id) ON DELETE SET NULL");
 await query("ALTER TABLE sales ADD COLUMN IF NOT EXISTS order_number INTEGER");
     await query("ALTER TABLE sales ADD COLUMN IF NOT EXISTS tax_amount DOUBLE PRECISION NOT NULL DEFAULT 0");

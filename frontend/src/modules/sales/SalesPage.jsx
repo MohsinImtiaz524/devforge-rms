@@ -282,6 +282,70 @@ function CollectPayment({ sale, onDone, onClose }) {
   );
 }
 
+function UpdateSale({ data, onDone, onClose }) {
+  const sale = data.sale || {};
+  const subtotal = (data.items || []).reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.price_at_sale || item.price || item.unit_price || 0), 0);
+  const initialDiscountPercentage = subtotal > 0 ? Number(sale.discount || 0) / subtotal * 100 : 0;
+  const [form, setForm] = useState({
+    customer_name: sale.customer_name || "",
+    customer_phone: sale.customer_phone || "",
+    payment_method: sale.payment_method || "cash",
+    discount_percentage: String(Number(initialDiscountPercentage.toFixed(2))),
+    tax_percentage: String(Number(sale.tax_percentage || 0)),
+    amount_received: String(Number(sale.amount_received || 0)),
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const discountPercentage = Number(form.discount_percentage || 0);
+  const taxPercentage = Number(form.tax_percentage || 0);
+  const discount = Math.round(subtotal * discountPercentage) / 100;
+  const discountedSubtotal = Math.max(0, subtotal - discount);
+  const tax = Math.round(discountedSubtotal * taxPercentage) / 100;
+  const deliveryCharge = Number(sale.delivery_service_charge || 0);
+  const dineInCharge = sale.order_type === "dine_in" ? Math.round(discountedSubtotal * Number(sale.dine_in_service_charge_percentage || 0)) / 100 : 0;
+  const total = (Math.round(discountedSubtotal * 100) + Math.round(tax * 100) + Math.round(deliveryCharge * 100) + Math.round(dineInCharge * 100)) / 100;
+  const due = Math.max(0, Math.round((total - Number(form.amount_received || 0)) * 100) / 100);
+  const field = (name, value) => setForm(current => ({ ...current, [name]: value }));
+
+  async function submit(event) {
+    event.preventDefault();
+    const received = Number(form.amount_received);
+    if (!Number.isFinite(discountPercentage) || discountPercentage < 0 || discountPercentage > 100) return setError("Discount must be from 0 to 100%.");
+    if (!Number.isFinite(taxPercentage) || taxPercentage < 0 || taxPercentage > 100) return setError("Tax must be from 0 to 100%.");
+    if (!Number.isFinite(received) || received < 0) return setError("Amount received must be zero or more.");
+    try {
+      setSaving(true); setError("");
+      const body = {
+        customer_name: form.customer_name.trim(), customer_phone: form.customer_phone.trim(),
+        payment_method: form.payment_method, discount, tax_percentage: taxPercentage,
+      };
+      if (Math.abs(received - Number(sale.amount_received || 0)) > .005) body.amount_received = received;
+      await api("/api/sales/" + sale.id + "/details?view=sales_panel", { method: "PATCH", body });
+      await onDone("Sale updated successfully.");
+    } catch (requestError) { setError(requestError.message); }
+    finally { setSaving(false); }
+  }
+
+  return <form className="sales-form sales-update-form" onSubmit={submit}>
+    {error && <div className="sales-error">{error}</div>}
+    <div className="sales-form-grid">
+      <label>Customer name<input value={form.customer_name} onChange={event => field("customer_name", event.target.value)} /></label>
+      <label>Phone number<input value={form.customer_phone} onChange={event => field("customer_phone", event.target.value)} /></label>
+      <label>Discount (%)<input aria-label="Sale discount percentage" type="number" min="0" max="100" step="0.01" value={form.discount_percentage} onChange={event => field("discount_percentage", event.target.value)} /></label>
+      <label>Tax (%)<input aria-label="Sale tax percentage" type="number" min="0" max="100" step="0.01" value={form.tax_percentage} onChange={event => field("tax_percentage", event.target.value)} /></label>
+    </div>
+    <fieldset className="sales-payment-methods"><legend>Payment method</legend><div>{[["cash","Cash"],["card","Card"],["online","Online"]].map(([value,label]) => <button type="button" key={value} aria-pressed={form.payment_method === value} onClick={() => field("payment_method", value)}>{label}</button>)}</div></fieldset>
+    <label>Amount received<input type="number" min="0" step="0.01" value={form.amount_received} onChange={event => field("amount_received", event.target.value)} /></label>
+    <div className="sales-update-summary">
+      <span>Subtotal <b>{formatShopCurrency(subtotal)}</b></span><span>Discount <b>- {formatShopCurrency(discount)}</b></span>
+      <span>Tax <b>{formatShopCurrency(tax)}</b></span>{deliveryCharge > 0 && <span>Delivery charge <b>{formatShopCurrency(deliveryCharge)}</b></span>}
+      {dineInCharge > 0 && <span>Dine-in service charge <b>{formatShopCurrency(dineInCharge)}</b></span>}
+      <span className="total">Updated total <b>{formatShopCurrency(total)}</b></span><span>Remaining due <b>{formatShopCurrency(due)}</b></span>
+    </div>
+    <div className="sales-modal-actions"><button type="button" onClick={onClose}>Cancel</button><button className="sales-primary" disabled={saving}>{saving ? "Updating…" : "Update Sale"}</button></div>
+  </form>;
+}
+
 function ReturnItems({ data, onDone, onClose }) {
   const [reason, setReason] = useState("");
   const [method, setMethod] = useState("cash");
@@ -537,9 +601,7 @@ export default function SalesPage() {
   const [error, setError] = useState("");
   const [modal, setModal] = useState(null);
   const [toast, setToast] = useState(null);
-  const restricted = ["waiter", "order_taker"].includes(
-    String(session?.role || "").toLowerCase(),
-  );
+  const restricted = ["waiter", "order_taker"].includes(String(session?.role || "").toLowerCase()) && !session?.permissions?.includes("sales.update");
   const has = useCallback(
     (permission) =>
       session?.role === "superadmin" ||
@@ -553,7 +615,8 @@ export default function SalesPage() {
       .then(({ user }) => {
         if (
           user.role !== "superadmin" &&
-          !user.permissions?.includes("sales.view")
+          !user.permissions?.includes("sales.view") &&
+          !user.permissions?.includes("sales.update")
         )
           throw new Error("You do not have permission to view Sales.");
         setSession(user);
@@ -1056,6 +1119,9 @@ export default function SalesPage() {
                             >
                               Due Details
                             </button>
+                            {has("sales.update") && (
+                              <button className="update" title="Update Sale" onClick={() => billFor(sale, "update")}>Update Sale</button>
+                            )}
                             {has("sales.return") && (
                               <button
                                 className="return"
@@ -1140,6 +1206,11 @@ export default function SalesPage() {
             onDone={returnDone}
             onClose={() => setModal(null)}
           />
+        </Modal>
+      )}
+      {modal?.kind === "update" && (
+        <Modal wide title={"Update Sale: Bill #" + (modal.sale.order_number || modal.sale.id)} onClose={() => setModal(null)}>
+          <UpdateSale data={modal.data} onDone={done} onClose={() => setModal(null)} />
         </Modal>
       )}
       {modal?.kind === "return-complete" && (

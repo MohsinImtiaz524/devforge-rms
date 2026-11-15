@@ -26,8 +26,14 @@ test('real checkout/edit/payment transactions preserve a separate delivery charg
  const result=await service.createSale(payload,1,1);assert.equal(result.total,1140);
  const saleId=result.saleId;let row=await db('sales').where({id:saleId}).first();assert.equal(Number(row.delivery_service_charge),150);assert.equal(Number(row.tax_amount),90);
  const duplicate=await service.createSale(payload,1,1);assert.equal(duplicate.duplicate,true);assert.equal(duplicate.total,1140);assert.equal((await db('sales')).length,1);
+ await db('shops').where({id:1}).update({dine_in_service_charge_percentage:5});
+ const dine=await service.createSale({...payload,order_type:'dine_in',delivery_service_charge:0,client_request_id:'dine-service-charge-test-1'},1,1);
+ let dineRow=await db('sales').where({id:dine.saleId}).first();assert.equal(Number(dineRow.dine_in_service_charge_percentage),5);assert.equal(Number(dineRow.dine_in_service_charge),45);assert.equal(Number(dineRow.total),1035);
+ await db('shops').where({id:1}).update({dine_in_service_charge_percentage:8});
+ await service.updateInquiryBill(dine.saleId,1,{discount:0});dineRow=await db('sales').where({id:dine.saleId}).first();assert.equal(Number(dineRow.dine_in_service_charge_percentage),5);assert.equal(Number(dineRow.dine_in_service_charge),50);assert.equal(Number(dineRow.total),1150);
  await assert.rejects(service.updateInquiryBill(saleId,2,{discount:0}),/not found/i);
- await service.updateInquiryBill(saleId,1,{discount:0,tax_percentage:10});assert.equal(Number((await db('sales').where({id:saleId}).first()).total),1250);
+ await db('sales').where({id:saleId}).update({customer_name:'Keep Customer',payment_method:'card',tax_percentage:10});
+ await service.updateInquiryBill(saleId,1,{discount:0});row=await db('sales').where({id:saleId}).first();assert.equal(Number(row.total),1250);assert.equal(row.customer_name,'Keep Customer');assert.equal(row.payment_method,'card');assert.equal(Number(row.tax_percentage),10);
  await service.updateDetails(saleId,1,{discount:100,tax_percentage:10},1);assert.equal(Number((await db('sales').where({id:saleId}).first()).total),1140);
  const edit={...payload};delete edit.delivery_service_charge;delete edit.client_request_id;
  await service.updateSaleItems(saleId,edit,1,1,{canRemoveItems:true});row=await db('sales').where({id:saleId}).first();assert.equal(Number(row.total),1140);assert.equal(Number(row.delivery_service_charge),150);
@@ -52,5 +58,6 @@ test('real checkout/edit/payment transactions preserve a separate delivery charg
  const {renderSaleReceiptPage}=require('../services/ReceiptPrintService');
  const bill={sale:{...row,total:1140,delivery_service_charge:150},items:[{product_name:'Meal',quantity:1,price_at_sale:1000}],shop:{name:'Test'},seller:{name:'Cashier'}};
  const receipt=renderSaleReceiptPage(bill,{format:'customer'});assert.ok(receipt.includes('Delivery service charge:</span><span style="text-align: right; white-space: nowrap;">'));assert.match(receipt,/150\.00/);assert.match(receipt,/1,140\.00|1140\.00/);
+ const dineReceipt=renderSaleReceiptPage({...bill,sale:dineRow},{format:'customer'});assert.match(dineReceipt,/Dine-in service charge \(5%\)/);assert.match(dineReceipt,/50\.00/);
  assert.doesNotMatch(renderSaleReceiptPage({...bill,sale:{...bill.sale,delivery_service_charge:0}},{format:'unpaid'}),/Delivery service charge:/);
 });

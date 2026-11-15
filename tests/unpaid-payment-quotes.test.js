@@ -19,6 +19,11 @@ test('missing method preset uses saved tax; fractions round to two decimals',()=
   const quotes=unpaidPaymentQuotes({tax_percentage:10,discount:2.5},[{quantity:1,price_at_sale:100}],[{linked_payment_method:'card',percentage:0}]);
   assert.equal(quotes[0].total,107.25);assert.equal(quotes[1].total,97.5);
 });
+test('dine-in quotes include the snapshotted service percentage on discounted subtotal',()=>{
+  const sale={order_type:'dine_in',tax_percentage:10,discount:100,dine_in_service_charge_percentage:5,amount_received:0};
+  const quotes=unpaidPaymentQuotes(sale,[{quantity:1,price_at_sale:1000}],[]);
+  assert.equal(quotes[0].total,1035);assert.equal(quotes[1].total,1035);
+});
 test('legacy unpaid buttons queue printing directly without billing API or popup',async()=>{
   const source=fs.readFileSync(require('node:path').join(__dirname,'../public/js/app.js'),'utf8');
   for(const name of ['showPrintOptionsModal','printUnpaidBillInquiry']){
@@ -31,11 +36,11 @@ test('cashier method selection previews linked tax and full payment without savi
   const path=require('node:path');
   const react=fs.readFileSync(path.join(__dirname,'../frontend/src/modules/pos/PosPaymentModal.jsx'),'utf8');
   const code=react.slice(react.indexOf('  function paymentMethod('),react.indexOf('  function discountPreset('));
-  let form={payment_method:'cash',amount_received:'1140',tax_percentage:'10'};
+  let form={payment_method:'cash',amount_received:'1140',tax_percentage:'10',discount_percentage:'10',tip_amount:'0'};
   const context={taxes:[{linked_payment_method:'card',percentage:5}],subtotal:1000,discount:100,currentTax:10,serviceCharge:150,received:1140,finalTotal:1140,tip:0,setForm:fn=>{form=fn(form)}};
   vm.createContext(context);vm.runInContext(code,context);context.paymentMethod('card');
   assert.equal(form.payment_method,'card');assert.equal(form.tax_percentage,'5');assert.equal(form.amount_received,'1095.00');
-  context.received=100;form.amount_received='100';context.paymentMethod('card');assert.equal(form.amount_received,'100');
+  context.received=100;form.amount_received='100';context.paymentMethod('card');assert.equal(form.amount_received,'1095.00');
   const legacy=fs.readFileSync(path.join(__dirname,'../public/js/app.js'),'utf8');
   const start=legacy.indexOf('function applyCompleteOrderLinkedTax('),end=legacy.indexOf('function setCompleteOrderFullPayment(',start);
   const fields={'op-method':{value:'card'},'op-received':{value:'1140'},'op-tip':{value:'0'},'op-tax':{value:'10',dataset:{defaultTax:'10'}},'op-discount':{value:'100',dataset:{deliveryCharge:'150'}},'op-tax-preset':{options:[{value:'5',dataset:{method:'card'}}]}};

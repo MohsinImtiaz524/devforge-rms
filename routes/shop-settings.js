@@ -40,7 +40,7 @@ router.get("/", requireAuth, async (req, res) => {
                 contact_font_size, contact_align, contact_padding,
                 footer_font_size, footer_font_style, footer_margin,
                 divider_style, divider_width, section_gap, auto_calculate_damage_to_loss,
-                customer_bill_printer, unpaid_bill_printer, realtime_printing_enabled
+                customer_bill_printer, unpaid_bill_printer, realtime_printing_enabled, dine_in_service_charge_percentage, pos_direct_variant_searching
          FROM shops WHERE id = ${isPostgres ? '$1' : '?'}`;
 
     let shop;
@@ -58,6 +58,7 @@ router.get("/", requireAuth, async (req, res) => {
 
     shop.use_logo_on_receipt = !!shop.use_logo_on_receipt;
     shop.use_text_on_receipt = !!shop.use_text_on_receipt;
+    shop.pos_direct_variant_searching = toDatabaseBoolean(shop.pos_direct_variant_searching) === 1;
     if (shop.logo_data) shop.logo_url = shop.logo_data;
     else if (shop.logo_path) shop.logo_url = `/uploads/receipt-assets/${path.basename(shop.logo_path)}`;
 
@@ -85,13 +86,17 @@ router.post("/", requireAuth, requireAdmin, require("multer")({limits:{fields:10
       if(!Number.isFinite(width)||width<10||width>110)return res.status(400).json({error:'Logo width must be between 10 and 110 mm.'});
       req.body.logo_print_width_mm=width;
     }
+    if(req.body.dine_in_service_charge_percentage!==undefined){
+      const {validatePercentage}=require('../src/modules/dine-in-service-charge/dine-in-service-charge');
+      req.body.dine_in_service_charge_percentage=validatePercentage(req.body.dine_in_service_charge_percentage);
+    }
     const fields = [
       "name", "google_maps_url", "receipt_header_text", "receipt_extended_name", "receipt_phone", "receipt_address", "receipt_policies",
       "use_logo_on_receipt", "use_text_on_receipt", "receipt_font_family", "header_font_size", "header_font_weight",
       "header_spacing", "extended_name_font_size", "extended_name_font_weight", "extended_name_spacing",
       "contact_font_size", "contact_align", "contact_padding", "footer_font_size", "footer_font_style",
       "footer_margin", "divider_style", "divider_width", "section_gap", "auto_calculate_damage_to_loss",
-      "customer_bill_printer", "unpaid_bill_printer", "realtime_printing_enabled", "logo_print_width_mm"
+      "customer_bill_printer", "unpaid_bill_printer", "realtime_printing_enabled", "logo_print_width_mm", "dine_in_service_charge_percentage", "pos_direct_variant_searching"
     ];
 
     const updates = [];
@@ -108,7 +113,7 @@ router.post("/", requireAuth, requireAdmin, require("multer")({limits:{fields:10
     fields.forEach(f => {
         if (req.body[f] !== undefined) {
             let val = req.body[f];
-            if (["use_logo_on_receipt", "use_text_on_receipt", "auto_calculate_damage_to_loss", "realtime_printing_enabled"].includes(f)) {
+            if (["use_logo_on_receipt", "use_text_on_receipt", "auto_calculate_damage_to_loss", "realtime_printing_enabled", "pos_direct_variant_searching"].includes(f)) {
                 val = toDatabaseBoolean(val);
             }
             updates.push(`${f} = ${isPostgres ? '$' + (values.push(val)) : '?'}`);

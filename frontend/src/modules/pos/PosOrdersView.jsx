@@ -84,7 +84,7 @@ export default function PosOrdersView({user,back,notify,printReceipt,onEdit,onNe
     if(!can(user,'orders.complete'))return notify('You do not have permission to complete orders.','error')
     if(mutating.current||!confirm('Are you sure you want to complete this order and move it to sales history?'))return
     mutating.current=true;setBusyMessage('Completing order...');setBusy(true)
-    try{const retailCompletion=isRetailCompletion(user,order);await api(completionPath(user,order),{method:retailCompletion?'POST':'PATCH',body:retailCompletion?{}:{status:'completed'}});onOrderConfirmed?.({id:order.id,number:order.order_number||order.id,total:order.total,status:'completed'});await load()}catch(error){notify(error.message,'error')}finally{mutating.current=false;setBusy(false)}
+    try{const retailCompletion=isRetailCompletion(user,order);await api(completionPath(user,order),{method:retailCompletion?'POST':'PATCH',body:retailCompletion?{}:{status:'completed'}});window.dispatchEvent(new Event('pos:tables-changed'));onOrderConfirmed?.({id:order.id,number:order.order_number||order.id,total:order.total,status:'completed'});await load()}catch(error){notify(error.message,'error')}finally{mutating.current=false;setBusy(false)}
   }
   async function served(order){
     if(!canServe(user,order)||mutating.current)return

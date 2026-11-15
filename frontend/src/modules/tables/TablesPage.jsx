@@ -116,6 +116,38 @@ export default function TablesPage() {
 
   useEffect(() => { const timer = window.setTimeout(load, 0); return () => window.clearTimeout(timer) }, [load])
 
+  useEffect(() => {
+    if (!session) return
+    let active = true, socket = null, refreshTimer = null
+    const refresh = () => {
+      if (!active || document.hidden) return
+      window.clearTimeout(refreshTimer)
+      refreshTimer = window.setTimeout(load, 150)
+    }
+    const connect = () => {
+      if (!active || typeof window.io !== 'function') return
+      socket = window.orderRealtimeSocket || window.io({ path: '/socket.io', withCredentials: true })
+      window.orderRealtimeSocket = socket
+      socket.on('realtime:ready', refresh)
+      socket.on('order:changed', refresh)
+    }
+    const script = document.querySelector('script[data-order-realtime-client]') || Object.assign(document.createElement('script'), { src: '/socket.io/socket.io.js' })
+    if (!script.dataset.orderRealtimeClient) script.dataset.orderRealtimeClient = 'true'
+    if (!script.isConnected) document.head.appendChild(script)
+    if (typeof window.io === 'function') connect()
+    else script.addEventListener('load', connect, { once: true })
+    const visible = () => { if (!document.hidden) refresh() }
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', visible)
+    return () => {
+      active = false
+      window.clearTimeout(refreshTimer)
+      window.removeEventListener('focus', refresh)
+      document.removeEventListener('visibilitychange', visible)
+      if (socket) { socket.off('realtime:ready', refresh); socket.off('order:changed', refresh) }
+    }
+  }, [session, load])
+
   const notify = useCallback((message, type = 'success') => {
     setToast({ message, type })
     window.setTimeout(() => setToast(null), 3500)

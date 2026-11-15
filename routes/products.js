@@ -80,7 +80,7 @@ router.get('/', requireAuth, async (req, res) => {
       page: req.query.page,
       pageSize: req.query.page_size,
       search: req.query.search,
-      searchVariants: req.query.search_context !== 'pos' || req.session.user.shop_type === 'retail',
+      searchVariants: req.query.search_context !== 'pos' || (req.session.user.shop_type === 'retail' && req.query.direct_variants !== '0'),
       category: req.query.category,
       productType: req.query.product_type,
       stockFilter: req.query.stock_filter,

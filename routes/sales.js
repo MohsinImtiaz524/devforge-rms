@@ -54,7 +54,7 @@ router.get("/", requireAuth, async (req, res) => {
       toDate: req.query.to_date
     });
     const isRestrictedSalesPanel = ['waiter', 'order_taker']
-      .includes(String(req.session.user.role || '').toLowerCase());
+      .includes(String(req.session.user.role || '').toLowerCase()) && !(req.permissions || []).includes('sales.update');
     const rows = isRestrictedSalesPanel
       ? result.rows.map(sale => ({ id: sale.id, order_number: sale.order_number, order_type: sale.order_type, token_number: sale.token_number, order_status: sale.order_status }))
       : result.rows;
@@ -100,7 +100,8 @@ router.get("/:id/bill", requireAuth, async (req, res) => {
   const details = await salesService.getBill(req.params.id, req.session.user.shop_id);
   if (!details) return res.status(404).json({ error: "Sale not found" });
   const isRestrictedSalesPanel = req.query.view === 'sales_panel'
-    && ['waiter', 'order_taker'].includes(String(req.session.user.role || '').toLowerCase());
+    && ['waiter', 'order_taker'].includes(String(req.session.user.role || '').toLowerCase())
+    && !(req.permissions || []).includes('sales.update');
   if (isRestrictedSalesPanel) {
     const saleIsVisible = (await salesService.getSales(req.session.user.shop_id, req.session.user))
       .some(sale => Number(sale.id) === Number(req.params.id));

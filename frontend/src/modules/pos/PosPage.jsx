@@ -79,6 +79,7 @@ export default function PosPage() {
   const [user, setUser] = useState(null), [authError, setAuthError] = useState(''), [stage, setStage] = useState('terminal'), [orderType, setOrderType] = useState('')
   const [products, setProducts] = useState([]), [pagination, setPagination] = useState({ page: 1, page_size: 20, total: 0, total_pages: 1 }), [tables, setTables] = useState([]), [floors, setFloors] = useState([]), [staff, setStaff] = useState([])
   const [categories, setCategories] = useState([])
+  const [directVariantSearching, setDirectVariantSearching] = useState(false)
   const [customerDetailsOpen,setCustomerDetailsOpen]=useState(false)
   const [categoriesCollapsed, setCategoriesCollapsed] = useState(() => !window.matchMedia('(min-width:1024px) and (pointer:fine)').matches || localStorage.getItem('pos_categories_collapsed') === 'true')
   const [layout, setLayout] = useState(() => window.matchMedia('(min-width:1024px) and (pointer:fine)').matches ? 'split' : 'cards'), [checkoutOpen, setCheckoutOpen] = useState(false)
@@ -127,6 +128,11 @@ export default function PosPage() {
   const filtered = products
   const field = (name, value) => setForm(current => ({ ...current, [name]: value }))
   const notify = (message, type = 'success') => { setToast({ message, type }); setTimeout(() => setToast(null), 3500) }
+  const refreshTables = useCallback(() => api('/api/tables').then(rows => setTables(Array.isArray(rows) ? rows : [])).catch(() => {}), [])
+  useEffect(() => {
+    window.addEventListener('pos:tables-changed', refreshTables)
+    return () => window.removeEventListener('pos:tables-changed', refreshTables)
+  }, [refreshTables])
 
   useEffect(() => {
     document.title = 'POS Terminal - DevForge RMS'
@@ -137,12 +143,13 @@ export default function PosPage() {
   }, [])
   useEffect(() => {
     if (!user) return
-    Promise.all([api('/api/tables'), api('/api/tables/floors'), api('/api/users/assignable'), api('/api/product-categories')])
-      .then(([tableRows, floorRows, staffRows, categoryRows]) => { setTables(Array.isArray(tableRows) ? tableRows : []); setFloors(Array.isArray(floorRows) ? floorRows : []); setStaff(Array.isArray(staffRows) ? staffRows : []); setCategories((Array.isArray(categoryRows) ? categoryRows : []).map(item => item.name).filter(Boolean)) })
+    Promise.all([api('/api/tables'), api('/api/tables/floors'), api('/api/users/assignable'), api('/api/product-categories'), api('/api/shop-settings')])
+      .then(([tableRows, floorRows, staffRows, categoryRows, settings]) => { setTables(Array.isArray(tableRows) ? tableRows : []); setFloors(Array.isArray(floorRows) ? floorRows : []); setStaff(Array.isArray(staffRows) ? staffRows : []); setCategories((Array.isArray(categoryRows) ? categoryRows : []).map(item => item.name).filter(Boolean)); const enabled = Boolean(settings?.pos_direct_variant_searching); window.__posDirectVariantSearching = enabled; setDirectVariantSearching(enabled) })
       .catch(requestError => setError(requestError.message))
   }, [user])
   const loadMenu = useCallback((value = search) => {
     const params = new URLSearchParams({ paginate: '1', page: String(pagination.page), page_size: '20', menu_only: '1', exclude_components: '1', search_context: 'pos' })
+    params.set('direct_variants', directVariantSearching ? '1' : '0')
     if (value.trim()) params.set('search', value.trim())
     if (category) params.set('category', category)
     const key = params.toString()
@@ -159,7 +166,7 @@ export default function PosPage() {
     }).catch(error => { if (menuRequestRef.current === entry) { setError(error.message); menuRequestRef.current = null } throw error }).finally(() => { if (menuRequestRef.current === entry) setLoading(false) })
     menuRequestRef.current = entry
     return entry.promise
-  }, [search, category, pagination.page])
+  }, [search, category, pagination.page, directVariantSearching])
   useEffect(() => {
     if (!user) return
     const timer = setTimeout(() => { loadMenu().catch(() => { }) }, search ? 180 : 0)
@@ -274,7 +281,6 @@ export default function PosPage() {
     if (form.order_note.trim() && !/^[A-Za-z0-9 ]+$/.test(form.order_note.trim())) return notify('Order Note may contain letters, numbers, and spaces only', 'error')
     if (orderType === 'dine_in' && !form.table_id) return setTablesOpen(true)
     if (orderType === 'delivery' && (!form.customer_name.trim() || !form.customer_phone.trim() || !form.delivery_address.trim())) return setCustomerDetailsOpen(true)
-    if (orderType === 'dine_in' && !form.waiter_id) return notify('This table has no assigned waiter. Assign one in Table Management first.', 'error')
     if (!Number.isFinite(serviceCharge) || serviceCharge < 0 || serviceCharge > 99999999.99 || Math.abs(serviceCharge * 100 - Math.round(serviceCharge * 100)) > .00001) return notify('Enter a valid delivery service charge with at most two decimals.', 'error')
     let selectedOrderTaker
     try { selectedOrderTaker = orderType === 'dine_in' && selectedTable?.assigned_waiter_id && !canAssignOrderTaker ? Number(selectedTable.assigned_waiter_id) : orderTakerId(user, orderTakers, form.waiter_id, orderType); setAssignmentError('') }
@@ -285,6 +291,7 @@ export default function PosPage() {
       setSaving(true)
       setError('')
       const result = await api(editing ? '/api/sales/' + editing.id + '/items' : '/api/sales', { method: editing ? 'PUT' : 'POST', body: payload })
+      await refreshTables()
       workload.refresh(true)
       const saleId = result.saleId || editing?.id
       // Match vanilla: Save Order relies on the sales API's category/station jobs.
