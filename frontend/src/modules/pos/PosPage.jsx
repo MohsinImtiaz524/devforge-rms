@@ -1,3 +1,4 @@
+import { usePaymentOptions } from './usePaymentOptions'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Plus, Minus, Printer, LoaderCircle, AlertCircle, Bell, Trash2, Pencil, Bookmark, Check, ShoppingBasket, CupSoda, House, Milk, Cookie, Orbit, Layers, LayoutGrid, Zap, TableProperties, ChefHat, ChevronDown, ChevronLeft, ChevronRight, Circle, ClipboardList, Image as ImageIcon, PackageOpen, ShoppingCart, Truck, Utensils, X } from 'lucide-react'
 import { api, legacyUrl } from '../../api/client'
@@ -77,6 +78,7 @@ export default function PosPage() {
   const [online, setOnline] = useState(navigator.onLine), [unread, setUnread] = useState(null)
   useEffect(() => { const update = () => setOnline(navigator.onLine); addEventListener('online', update); addEventListener('offline', update); return () => { removeEventListener('online', update); removeEventListener('offline', update) } }, [])
   const [user, setUser] = useState(null), [authError, setAuthError] = useState(''), [stage, setStage] = useState('terminal'), [orderType, setOrderType] = useState('')
+  usePaymentOptions(user)
   const [products, setProducts] = useState([]), [pagination, setPagination] = useState({ page: 1, page_size: 20, total: 0, total_pages: 1 }), [tables, setTables] = useState([]), [floors, setFloors] = useState([]), [staff, setStaff] = useState([])
   const [categories, setCategories] = useState([])
   const [directVariantSearching, setDirectVariantSearching] = useState(false)

@@ -1,3 +1,4 @@
+import { usePaymentOptions } from './usePaymentOptions'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Pencil, Printer, RefreshCw, Eye, CreditCard, Check, Truck, Plus, Coins, Table2, ShoppingBag, Utensils, Store, Search, Layers, Activity, ChevronDown, ChevronLeft, ChevronRight, Clock, Bookmark, ChefHat, CircleCheck, CircleX, Zap, PackageOpen, AlertCircle, LoaderCircle, X } from 'lucide-react'
 import { api } from '../../api/client'
@@ -13,6 +14,7 @@ import './pos.orders.css'
 const TYPES=['dine_in','takeaway','delivery','walk_in']
 
 export default function PosOrdersView({user,back,notify,printReceipt,onEdit,onNew,printTip,retail,onOrderConfirmed}) {
+  usePaymentOptions(user)
   const [orders,setOrders]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[search,setSearch]=useState(''),[type,setType]=useState(''),[view,setView]=useState(()=>window.matchMedia('(min-width:1280px)').matches?'table':'cards')
   const [details,setDetails]=useState(null),[payment,setPayment]=useState(null),[printing,setPrinting]=useState(null),[tip,setTip]=useState(false),[busy,setBusy]=useState(false)
   const [busyMessage,setBusyMessage]=useState('Loading order...')

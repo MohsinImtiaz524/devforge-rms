@@ -1,3 +1,4 @@
+import { usePaymentOptions } from './usePaymentOptions'
 import { CreditCard, LoaderCircle } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import PosDialog from './PosDialog'
@@ -16,7 +17,8 @@ export default function PosPaymentModal({user,order,close,notify,onDone,printRec
   const taxableSubtotal=currentTax===-100?total-deliveryServiceCharge-storedDineInServiceCharge:(total-deliveryServiceCharge-storedDineInServiceCharge)/(1+(currentTax/100)),subtotal=taxableSubtotal+currentDiscount
   const initialDiscountPercentage=subtotal>0?(currentDiscount/subtotal)*100:0
   const [form,setForm]=useState({...emptyCustomer,customer_id:order.customer_id||null,customer_name:order.customer_name||'',customer_phone:order.customer_phone||'',discount_percentage:String(Number(initialDiscountPercentage.toFixed(2))),tax_percentage:String(currentTax),amount_received:String(Number(order.amount_received||0)>.01?order.amount_received:total),tip_amount:String(order.tip_amount||0),tip_payment_method:order.tip_payment_method||order.payment_method||'cash',payment_method:order.payment_method||'cash'})
-  const [discounts,setDiscounts]=useState([]),[taxes,setTaxes]=useState([])
+  const options = usePaymentOptions(user)
+  const discounts = options.discounts.rows, taxes = options.taxes.rows
   const [selectedDiscountPreset,setSelectedDiscountPreset]=useState('')
   const [saving,setSaving]=useState(false)
   const submitting=useRef(false)
@@ -25,12 +27,12 @@ export default function PosPaymentModal({user,order,close,notify,onDone,printRec
   const tax=(subtotal-discount)*(taxPercentage/100),finalTotal=(Math.round((subtotal-discount+tax)*100)+Math.round(serviceCharge*100))/100
   const received=Math.max(0,Number(form.amount_received||0)),tip=Number(form.tip_amount||0),payableTotal=(Math.round(finalTotal*100)+Math.round(tip*100))/100,difference=(Math.round(received*100)-Math.round(payableTotal*100))/100
   const previousPayableTotal=useRef(payableTotal)
-  useEffect(()=>{Promise.all([api('/api/shop-settings/discounts').catch(()=>[]),api('/api/shop-settings/taxes').catch(()=>[])]).then(([discountRows,taxRows])=>{setDiscounts(discountRows);setTaxes(taxRows);setForm(current=>{
+  useEffect(()=>{if(options.taxes.loading || options.taxes.error)return;const taxRows=taxes;setForm(current=>{
     const percentage=Number(taxRows.find(item=>item.linked_payment_method===current.payment_method)?.percentage??currentTax)
     const currentDiscount=Math.round(subtotal*Number(current.discount_percentage||0))/100
     const nextTotal=(Math.round(((subtotal-currentDiscount)*(1+percentage/100))*100)+Math.round(serviceCharge*100))/100
     return {...current,tax_percentage:String(percentage),...(Number(order.amount_received||0)<=.01?{amount_received:(nextTotal+Number(current.tip_amount||0)).toFixed(2)}:{})}
-  })})},[])
+  })},[taxes])
   useEffect(()=>{if(Math.abs(previousPayableTotal.current-payableTotal)<.005)return;previousPayableTotal.current=payableTotal;setForm(current=>({...current,amount_received:payableTotal.toFixed(2)}))},[payableTotal])
   function paymentMethod(value){
     const linked=taxes.find(item=>item.linked_payment_method===value)
@@ -69,6 +71,9 @@ export default function PosPaymentModal({user,order,close,notify,onDone,printRec
       <div className="payment-layout">
         <section className="payment-fields" aria-label="Payment details">
           <PosCustomerFields form={form} setForm={setForm} due={Math.max(0,finalTotal-received)}/>
+          {options.discounts.loading && <p role="status">Loading discount presets...</p>}
+          {options.discounts.error && <p role="alert">Discount presets unavailable. <button type="button" onClick={()=>options.retry('discounts')}>Retry</button></p>}
+          {options.taxes.error && <p role="alert">Tax options unavailable. <button type="button" onClick={()=>options.retry('taxes')}>Retry</button></p>}
           {discounts.length>0&&<fieldset className="payment-option-group"><legend>Discount presets</legend><div className="payment-option-cards discount-option-cards">{discounts.map(item=><button type="button" key={item.id} aria-pressed={selectedDiscountPreset===String(item.id)} onClick={()=>discountPreset(String(item.id))}><b>{item.name}</b><small>{item.type==='percentage'?item.value+'%':money(item.value)}</small></button>)}</div></fieldset>}
           <div className="pair payment-adjustments"><label>Custom Discount (%)<input aria-label="Discount percentage" type="number" min="0" max="100" step=".01" value={form.discount_percentage} onChange={event=>{setSelectedDiscountPreset('');setDiscountPercentage(event.target.value)}}/></label><label>Tax (%)<input type="number" step=".01" value={form.tax_percentage} onChange={event=>setTaxPercentage(event.target.value)}/></label></div>
           <fieldset className="payment-option-group"><legend>Bill payment method</legend><div className="payment-option-cards payment-method-cards">{[['cash','Cash'],['card','Card'],['online','Online']].map(([value,label])=><button type="button" key={value} aria-pressed={form.payment_method===value} onClick={()=>paymentMethod(value)}>{label}</button>)}</div></fieldset>
