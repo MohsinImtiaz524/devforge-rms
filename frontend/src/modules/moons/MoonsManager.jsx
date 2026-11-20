@@ -85,7 +85,7 @@ function PriceEditor({ moon, onSaved }) {
   </form>;
 }
 
-export default function MoonsManager() {
+export default function MoonsManager({ embedded = false }) {
   const [user, setUser] = useState(null), [items, setItems] = useState([]), [loading, setLoading] = useState(true);
   const [error, setError] = useState(''), [message, setMessage] = useState(''), [filesEnabled, setFilesEnabled] = useState(false);
   const [editing, setEditing] = useState(null), [pending, setPending] = useState(null), [history, setHistory] = useState(null);
@@ -113,8 +113,8 @@ export default function MoonsManager() {
     catch(requestError){setError(requestError.message);}finally{setPending(null);}
   }
   return <main className="moons-page">
-    <NotificationTopbar user={user} unread={0} channel="platform"/>
-    <div className="moons-shell"><header className="moons-heading"><div><small>Platform modules</small><h1>Moons Catalog</h1><p>Shape each Moon's details, artwork and offered price.</p><a href="/app/moons">View Moons directory</a></div><button onClick={()=>{setLoading(true);void load();}} disabled={loading || Boolean(editing) || Boolean(pending)}><RefreshCw size={16}/> Refresh</button></header>
+    {!embedded && <NotificationTopbar user={user} unread={0} channel="platform"/>}
+    <div className="moons-shell"><header className="moons-heading"><div><small>Platform modules</small><h1>Moons Catalog</h1><p>Shape each Moon's details, artwork and offered price.</p>{!embedded && <a href="/app/moons">View Moons directory</a>}</div><button onClick={()=>{setLoading(true);void load();}} disabled={loading || Boolean(editing) || Boolean(pending)}><RefreshCw size={16}/> Refresh</button></header>
       <div className="moons-banner"><Moon size={22}/><span><strong>Catalog foundation</strong>Subscriptions and billing are not enabled here. Existing Staff and Analytics access continues.</span></div>
       {message && <p className="moons-success" role="status">{message}</p>}
       {error && <div className="moons-error" role="alert"><p>{error}</p><button onClick={()=>{setLoading(true);void load();}}>Retry</button></div>}

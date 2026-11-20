@@ -6,6 +6,7 @@ const ShopLogo = lazy(() => import('./modules/shops/ShopLogo'))
 const StaffDirectory = lazy(() => import('./modules/staff/StaffDirectory'))
 const Lobby = lazy(() => import('./modules/lobby/Lobby'))
 const ChangePassword = lazy(() => import('./modules/auth/ChangePassword'))
+const PlatformAdmin = lazy(() => import('./modules/platform-admin/PlatformAdmin'))
 const LoginPage = lazy(() => import('./modules/auth/LoginPage'))
 const InventoryPage = lazy(() => import('./modules/inventory/InventoryPage'))
 const AnalyticsPage = lazy(() => import('./modules/analytics/AnalyticsPage'))
@@ -31,6 +32,7 @@ function RouteLoader() {
 }
 
 function App() {
+  if (window.location.pathname === '/app/admin' || window.location.pathname.startsWith('/app/admin/')) return <Suspense fallback={<RouteLoader />}><PlatformAdmin /></Suspense>
   if (window.location.pathname === '/app/shop-logo') return <Suspense fallback={<RouteLoader />}><ShopLogo /></Suspense>
   const page = window.location.pathname.startsWith('/app/change-password')
     ? <ChangePassword />
