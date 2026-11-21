@@ -936,6 +936,14 @@
           "bold": true
         },
         {
+          "type": "text",
+          "value": "WAITER: {{data.waiterName}}",
+          "when": {
+            "path": "data.waiterName"
+          },
+          "bold": true
+        },
+        {
           "type": "gap",
           "value": 2
         },

@@ -291,6 +291,7 @@ function renderKitchenReceipt(details, options = {}) {
 
       <div class="order-info">
         <div class="bold" style="font-size: 14px;">${escapeHtml(formatOrderType(sale.order_type).toUpperCase())}</div>
+        ${sale.waiter_name ? `<div class="bold">WAITER: ${escapeHtml(sale.waiter_name)}</div>` : ""}
         ${sale.table_id ? `<div class="bold" style="font-size: 16px;">TABLE: ${escapeHtml(sale.table_number || "N/A")}</div>` : ""}
         ${sale.token_number ? `<div class="bold" style="font-size: 16px;">TOKEN: ${escapeHtml(sale.token_number)}</div>` : ""}
         <div style="margin-top: 3px;">Time: ${escapeHtml(formatReceiptTime(sale.created_at, options.timeZone))}</div>

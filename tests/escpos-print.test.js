@@ -538,3 +538,15 @@ test('removing a review job reserves its printer lane, releases later work and s
     fs.rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test('kitchen tickets show assigned waiter on both paper widths and omit unassigned waiter', () => {
+  for (const columns of [32, 48]) {
+    const document = { format: 'kitchen', sale: { id: 42, waiter_name: 'Ayesha' }, items: [{name:'Cappuccino',quantity:6},{name:'Vanilla Matcha',quantity:1}] };
+    const output = encode(document, {receipt:{}}, columns).toString();
+    assert.match(output, /WAITER: Ayesha/);
+    assert.match(output, /Cappuccino/);
+    assert.match(output, /Vanilla Matcha/);
+    document.sale.waiter_name = null;
+    assert.doesNotMatch(encode(document, {receipt:{}}, columns).toString(), /WAITER:/);
+  }
+});

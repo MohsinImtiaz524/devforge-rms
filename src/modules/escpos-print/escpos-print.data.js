@@ -20,6 +20,7 @@ function prepareData(document, receipt = {}, timeZone = 'Asia/Karachi') {
     time: Number.isNaN(date.getTime()) ? '' : shortTime(date), generatedTime: shortTime(new Date(document.generated_at || Date.now())),
     staff: document.seller?.name || 'Staff', customer: sale.customer_name || 'Walk-in', phone: sale.customer_phone || '',
     orderType, upperOrderType: orderType.toUpperCase(), method: payment(sale.payment_method), tipMethod: payment(sale.tip_payment_method || sale.payment_method),
+    waiterName: sale.waiter_name || '',
     kitchenName: String(document.route_label || sale.kitchen_name || 'Kitchen').replace(/^Kitchen:\s*/i, ''),
     updateLabel: document.is_update ? ' - UPDATED' : '', hasTable: Boolean(sale.table_id), table: sale.table_number || 'N/A', token: sale.token_number || '', note: sale.special_instructions || '',
     currency: receipt.currency && receipt.currency !== 'PKR' ? receipt.currency : 'Rs.', subtotal: subtotal.toFixed(0),

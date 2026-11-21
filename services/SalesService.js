@@ -638,7 +638,7 @@ class SalesService {
   async generatePrintJobs(saleId, items, shopId, trx, options = {}) {
     const dbInstance = trx || db;
 
-    const { printers, resolvePrinterRoute } = await this.getPrinterRouting(dbInstance, shopId);
+    const { printers, resolvePrinterRoute } = options.routing || await this.getPrinterRouting(dbInstance, shopId);
     if (!printers.length) {
       return { queued: 0, printer_configured: false };
     }
@@ -666,8 +666,8 @@ class SalesService {
     };
 
     const [categoryRouteMap, kitchenRoute] = await Promise.all([
-      this.getCategoryPrintRouteMap(dbInstance, shopId, resolvePrinterRoute),
-      this.resolveKitchenRoute(dbInstance, sale, shopId, resolvePrinterRoute)
+      options.routing ? options.routing.categoryRouteMap : this.getCategoryPrintRouteMap(dbInstance, shopId, resolvePrinterRoute),
+      options.routing ? options.routing.kitchenRoute(sale) : this.resolveKitchenRoute(dbInstance, sale, shopId, resolvePrinterRoute)
     ]);
 
     for (const [itemIndex, item] of items.entries()) {
@@ -685,10 +685,13 @@ class SalesService {
     let queuedCount = 0;
     const table = sale.table_id
       ? await dbInstance('tables').where({ id: sale.table_id, shop_id: shopId }).first('table_number') : null;
+    const assignedWaiter = sale.waiter_id
+      ? await dbInstance('users').where({ id: sale.waiter_id, shop_id: shopId }).first('name', 'username') : null;
     const kitchenSnapshot = {
       id: sale.id, order_number: sale.order_number || sale.id, created_at: sale.created_at,
       order_type: sale.order_type, table_id: sale.table_id, table_number: table?.table_number || null,
       token_number: sale.token_number, kitchen_name: sale.kitchen_name,
+      waiter_name: assignedWaiter?.name || assignedWaiter?.username || null,
       special_instructions: sale.special_instructions || null
     };
     for (const { route, items: stationItems, routeLabels } of Object.values(jobs)) {
@@ -1224,7 +1227,18 @@ class SalesService {
     return changes;
   }
 
-  async getKitchenIdsForItems(dbInstance, sale, items, shopId) {
+  async loadKitchenRouting(dbInstance, shopId) {
+    const routing = await this.getPrinterRouting(dbInstance, shopId);
+    const categoryRouteMap = await this.getCategoryPrintRouteMap(dbInstance, shopId, routing.resolvePrinterRoute);
+    const kitchens = new Map();
+    return { ...routing, categoryRouteMap, kitchenRoute: sale => {
+      const key = sale?.kitchen_id || null;
+      if (!kitchens.has(key)) kitchens.set(key, this.resolveKitchenRoute(dbInstance, sale, shopId, routing.resolvePrinterRoute));
+      return kitchens.get(key);
+    } };
+  }
+
+  async getKitchenIdsForItems(dbInstance, sale, items, shopId, routing) {
     const { resolvePrinterRoute } = await this.getPrinterRouting(dbInstance, shopId);
     const [categoryRouteMap, kitchenRoute] = await Promise.all([
       this.getCategoryPrintRouteMap(dbInstance, shopId, resolvePrinterRoute),
@@ -1245,7 +1259,7 @@ class SalesService {
     return [...kitchenIds];
   }
 
-  async getKitchenChangeGroups(dbInstance, sale, items, shopId) {
+  async getKitchenChangeGroups(dbInstance, sale, items, shopId, routing) {
     if (!items.length) return new Map();
 
     const { resolvePrinterRoute } = await this.getPrinterRouting(dbInstance, shopId);
@@ -1291,6 +1305,9 @@ class SalesService {
   }
 
   async updateSaleItems(saleId, payload, shopId, userId, options = {}) {
+    const timings = {};
+    let stageStarted = performance.now();
+    const mark = name => { const now = performance.now(); timings[name] = Math.round(now - stageStarted); stageStarted = now; };
     const data = checkoutSchema.parse(payload);
     await assertOrderTypeAllowed(shopId, data.order_type);
     const shop = await db('shops').where({ id: shopId }).select('shop_type', 'dine_in_service_charge_percentage').first();
@@ -1591,6 +1608,9 @@ class SalesService {
         });
       }
 
+      mark('stock-and-order');
+      const routing = isRetailOrder ? null : await this.loadKitchenRouting(trx, shopId);
+      mark('routing');
       // 8. Print only the item quantity changes to affected kitchen routes.
       const itemChanges = this.calculateOrderItemChanges(oldItems, resolvedItems);
       const kitchenChanges = itemChanges.map(item => ({
@@ -1604,12 +1624,13 @@ class SalesService {
         special_instructions: item.special_instructions || null,
       }));
       const printResult = itemChanges.length
-        ? await this.generatePrintJobs(saleId, itemChanges, shopId, trx, { isUpdate: true })
+        ? await this.generatePrintJobs(saleId, itemChanges, shopId, trx, { isUpdate: true, routing })
         : { queued: 0, printer_configured: true };
+      mark('print-queue');
       const updatedSaleForRouting = { ...sale, kitchen_id: data.kitchen_id || sale.kitchen_id };
       const [oldKitchenIds, newKitchenIds] = isRetailOrder ? [[], []] : await Promise.all([
-        this.getKitchenIdsForItems(trx, sale, oldItems, shopId),
-        this.getKitchenIdsForItems(trx, updatedSaleForRouting, resolvedItems, shopId),
+        this.getKitchenIdsForItems(trx, sale, oldItems, shopId, routing),
+        this.getKitchenIdsForItems(trx, updatedSaleForRouting, resolvedItems, shopId, routing),
       ]);
 
       const kitchenChangeGroups = isRetailOrder ? new Map() : await this.getKitchenChangeGroups(
@@ -1699,6 +1720,8 @@ class SalesService {
         },
       };
     });
+    mark('kitchen-updates-and-commit');
+    options.onTiming?.(timings);
     const notification = {
       saleId,
       orderNumber: result.orderNumber,

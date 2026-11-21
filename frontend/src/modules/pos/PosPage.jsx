@@ -293,7 +293,7 @@ export default function PosPage() {
       setSaving(true)
       setError('')
       const result = await api(editing ? '/api/sales/' + editing.id + '/items' : '/api/sales', { method: editing ? 'PUT' : 'POST', body: payload })
-      await refreshTables()
+      void refreshTables()
       workload.refresh(true)
       const saleId = result.saleId || editing?.id
       // Match vanilla: Save Order relies on the sales API's category/station jobs.
