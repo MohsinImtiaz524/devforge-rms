@@ -162,6 +162,9 @@ app.use((req, res, next) => {
   return next();
 });
 
+app.use("/api/admin/icons", require("./src/modules/platform-icons/icons.routes").createIconRouter(require("./db/knex")));
+app.use("/api/integrations", require("./src/modules/integrations/integrations.routes").createIntegrationsRouter(db));
+app.use("/api/platform-icons", require("./src/modules/platform-icons/icons.routes").createIconReadRouter(db));
 const { enforceApiPermissions } = require('./authorization/api-policy');
 app.use(enforceApiPermissions);
 app.use(require('./src/modules/escpos-print/escpos-print.changes').configurationChanges());
@@ -368,6 +371,10 @@ if (require.main === module) {
     await db.transaction(async trx=>{
       if(usePostgres())await trx.raw('SELECT pg_advisory_xact_lock(?)',[72401384]);
       await require('./src/modules/shops/shops.migration').ensureShopLogoSchema(trx);
+      await require('./src/modules/platform-icons/icons.migration').ensureIconSchema(trx);
+      await require('./src/modules/delivery/order-source').ensureOrderSourceSchema(trx);
+      await require('./src/modules/delivery/order-source').migrateFoodpandaOrderType(trx);
+      await require('./src/modules/integrations/integrations.service').ensureIntegrationsSchema(trx);
     });
     if (process.env.FILES_ENABLED === 'true') {
       require('./src/modules/files/files.config').r2Config();

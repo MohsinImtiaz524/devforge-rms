@@ -2,6 +2,8 @@ const db = require('../db/knex');
 
 const RESTAURANT_ORDER_TYPES = ['dine_in', 'takeaway', 'delivery'];
 const ORDER_TYPES = [...RESTAURANT_ORDER_TYPES, 'walk_in'];
+const INTEGRATION_ORDER_TYPES = ['foodpanda'];
+const ALL_ORDER_TYPES = [...ORDER_TYPES, ...INTEGRATION_ORDER_TYPES];
 
 function normalizeOrderTypes(value, shopType = 'restaurant') {
   let source = value;
@@ -17,6 +19,10 @@ function normalizeOrderTypes(value, shopType = 'restaurant') {
 }
 
 async function assertOrderTypeAllowed(shopId, orderType, dbInstance = db) {
+  if (orderType === 'foodpanda') {
+    await require('../src/modules/integrations/integrations.service').assertFoodpandaEnabled(dbInstance, shopId);
+    return;
+  }
   const shop = await dbInstance('shops').where({ id: shopId }).select('allowed_order_types', 'shop_type').first();
   if (!normalizeOrderTypes(shop?.allowed_order_types, shop?.shop_type).includes(orderType)) {
     const error = new Error('This order type is not enabled for this shop.');
@@ -25,4 +31,4 @@ async function assertOrderTypeAllowed(shopId, orderType, dbInstance = db) {
   }
 }
 
-module.exports = { ORDER_TYPES, RESTAURANT_ORDER_TYPES, normalizeOrderTypes, assertOrderTypeAllowed };
+module.exports = { ALL_ORDER_TYPES, INTEGRATION_ORDER_TYPES, ORDER_TYPES, RESTAURANT_ORDER_TYPES, normalizeOrderTypes, assertOrderTypeAllowed };

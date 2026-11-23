@@ -195,6 +195,7 @@ class AuthService {
       shopCurrency = shop.currency || 'PKR';
       shopType = shop.shop_type || 'restaurant';
       allowedOrderTypes = require('./OrderTypePermissionService').normalizeOrderTypes(shop.allowed_order_types, shop.shop_type);
+      if (shop.foodpanda_enabled === true || shop.foodpanda_enabled === 1) allowedOrderTypes.push('foodpanda');
       shopStatus = shop.status || 'active';
       shopCreatedAt = shop.created_at;
       shopPhone = shop.receipt_phone || '';

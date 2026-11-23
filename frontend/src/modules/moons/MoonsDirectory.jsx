@@ -1,10 +1,14 @@
 import { MoonsSidebar } from './MoonsSidebar';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowRight, ArrowUpRight, Bell, Bike, Boxes, Check, ChevronDown, CircleHelp, FileText, Image as ImageIcon, LayoutGrid, LogOut, Menu, Moon, Search, Settings, Sun, MessageCircle, X } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Bell, Boxes, Check, ChevronDown, Image as ImageIcon, LayoutGrid, LogOut, Menu, Moon, Search, Settings, Store, Sun, X } from 'lucide-react';
 import { api, legacyUrl } from '../../api/client';
 import heroArtwork from './assets/moons-dashboard-hero.png';
 import './marketplace.css';
+import './directory-layout.css';
+import FoodpandaIntegration from './FoodpandaIntegration';
+import IntegrationCards from './IntegrationCards';
 
+function directoryView() {const view=new URLSearchParams(location.search).get('tab');if(view==='discover')return 'store';if(view==='mine')return 'moons';return ['store','moons','integrations'].includes(view)?view:'home';}
 const CATEGORIES = ['All','Insights','Sales','Operations','Marketing','Finance'];
 const categoryLabel = moon => ({people:'Operations',insights:'Insights',web:'Marketing',other:'Operations'}[moon.category] || (moon.key === 'analytics' ? 'Insights' : 'Operations'));
 const initials = name => name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase() || 'OS';
@@ -40,15 +44,20 @@ function Dialog({title,children,onClose}) {
 export default function MoonsDirectory() {
   const [user,setUser]=useState(null),[items,setItems]=useState([]);
   const [loading,setLoading]=useState(true),[error,setError]=useState('');
-  const [query,setQuery]=useState(''),[category,setCategory]=useState('All'),[tab,setTab]=useState('discover');
+  const [query,setQuery]=useState(''),[category,setCategory]=useState('All'),[tab,setTab]=useState(directoryView);
   const [drawer,setDrawer]=useState(false),[profile,setProfile]=useState(false),[dialog,setDialog]=useState(null);
   const [signingOut,setSigningOut]=useState(false);
+  const [storeView,setStoreView]=useState('moons');
+  const [foodpanda,setFoodpanda]=useState(null);
+  const [canSubscribe,setCanSubscribe]=useState(false),[subscribing,setSubscribing]=useState(null),[notice,setNotice]=useState('');
+  const subscribingRef=useRef(false);
   const [dark,setDark]=useState(()=>(document.cookie.match(/(?:^|; )rms_theme=(dark|light)(?:;|$)/)?.[1] || localStorage.getItem('theme'))==='dark');
-  const profileRef=useRef(null),resultsRef=useRef(null),menuButton=useRef(null);
+  const profileRef=useRef(null),menuButton=useRef(null);
   const load=useCallback(async()=>{
     try{
       const directory=await api('/api/moons/directory');
-      setUser(directory.user);setItems(directory.items);setError('');
+      setUser(directory.user);setItems(directory.items);setCanSubscribe(Boolean(directory.can_subscribe));setError('');
+      setFoodpanda(await api('/api/integrations/foodpanda'));
     }catch(requestError){if(requestError.status===401)location.replace(legacyUrl('/'));else setError(requestError.message);}
     finally{setLoading(false);}
   },[]);
@@ -65,41 +74,59 @@ export default function MoonsDirectory() {
     try{await api('/api/auth/logout',{method:'POST'});location.replace(legacyUrl('/'));}
     catch(requestError){setError(requestError.message);setSigningOut(false);}
   }
+  async function subscribe(moon){
+    if(subscribingRef.current||!canSubscribe)return;
+    subscribingRef.current=true;setSubscribing(moon.key);setError('');setNotice('');
+    try{
+      await api('/api/moons/directory/'+encodeURIComponent(moon.key)+'/subscribe',{method:'POST',body:{catalog_version:moon.version,price_id:moon.price.id}});
+      const directory=await api('/api/moons/directory');
+      setItems(directory.items);setCanSubscribe(Boolean(directory.can_subscribe));
+      setDialog(null);selectTab('moons');setNotice(moon.name+' subscribed successfully. It is now in your Moons.');
+    }catch(requestError){setError(requestError.message);}
+    finally{subscribingRef.current=false;setSubscribing(null);}
+  }
+  function subscribeButton(moon){
+    if(moon.subscription?.state==='active')return null;
+    if(moon.launch_ready===false||!moon.price)return <span className="market-subscribe-unavailable">Coming soon</span>;
+    return <button type="button" className="market-primary" aria-label={'Subscribe to '+moon.name} disabled={!canSubscribe||Boolean(subscribing)} onClick={()=>subscribe(moon)} title={canSubscribe?'Subscribe to '+moon.name:'Ask your shop administrator to subscribe'}>{subscribing===moon.key?'Subscribing...':'Subscribe'}<ArrowRight size={15}/></button>;
+  }
   const name=user?.name || user?.username || 'Your account';
   const subscribed=items.filter(item=>item.subscription?.state==='active');
-  const filtered=(tab==='mine'?subscribed:items).filter(item=>(category==='All'||categoryLabel(item)===category) && (item.name+' '+item.summary+' '+(item.description || '')).toLowerCase().includes(query.toLowerCase().trim()));
+  const filtered=(tab==='moons'?subscribed:items.filter(item=>item.subscription?.state!=='active')).filter(item=>(category==='All'||categoryLabel(item)===category) && (item.name+' '+item.summary+' '+(item.description || '')).toLowerCase().includes(query.toLowerCase().trim()));
   const closeDrawer=useCallback(()=>setDrawer(false),[]);
-  function selectTab(next){setTab(next);setQuery('');setCategory('All');}
-  return <div className="marketplace">
-    <MoonsSidebar user={user} drawerOpen={drawer} onClose={closeDrawer} activeId={tab} items={[
-      {key:'discover',label:'Discover',icon:<LayoutGrid size={21}/>,onClick:()=>selectTab('discover')},
-      {key:'mine',label:'My Moons',icon:<Moon size={21}/>,count:subscribed.length,onClick:()=>selectTab('mine')},
+  useEffect(()=>{const back=()=>setTab(directoryView());window.addEventListener('popstate',back);return()=>window.removeEventListener('popstate',back);},[]);
+  function selectTab(next){setTab(next);setQuery('');setCategory('All');const url=new URL(location.href);if(next==='home')url.searchParams.delete('tab');else url.searchParams.set('tab',next);history.pushState({},'',url);window.scrollTo({top:0,behavior:'instant'});}
+  return <div className={'marketplace moons-directory '+(tab==='home'?'is-home':'')}>
+    <MoonsSidebar user={user} drawerOpen={drawer} onClose={closeDrawer} onDiscover={()=>selectTab('home')} activeId={tab} items={[
+      {key:'store',label:'Marketplace',icon:<Store size={21}/>,onClick:()=>selectTab('store')},
+      {key:'moons',label:'Moons',icon:<Moon size={21}/>,count:subscribed.length,onClick:()=>selectTab('moons')},
       {key:'integrations',label:'Integrations',icon:<Boxes size={21}/>,onClick:()=>selectTab('integrations')},
       {key:'subscriptions',label:'Subscriptions',icon:<Settings size={21}/>,onClick:()=>setDialog({kind:'subscriptions'})}
-    ]} footer={<button title="Moons help" onClick={()=>{setDialog({kind:'help'});setDrawer(false);}}><CircleHelp size={20}/><span className="moons-nav-copy">Moons help</span></button>}>
+    ]} >
       <div className="market-profile" ref={profileRef}>
-        <button className="market-profile-trigger" aria-expanded={profile} aria-label="Open account menu" onClick={()=>setProfile(value=>!value)}><span className="market-avatar">{initials(name)}</span><span><strong>{name}</strong><small>{user?.role || 'Account'}</small></span><ChevronDown size={15}/></button>
+        <div className="market-profile-row"><button className="market-profile-trigger" aria-expanded={profile} aria-label="Open account menu" onClick={()=>setProfile(value=>!value)}><span className="market-avatar">{initials(name)}</span><span><strong>{name}</strong><small>{user?.role || 'Account'}</small></span><ChevronDown size={15}/></button><a className="market-profile-notifications" title="Notifications" aria-label="Notifications" href={user?.role==='superadmin'?'/app/notifications':'/app/notification-inbox'}><Bell size={19}/></a></div>
         {profile&&<div className="market-profile-menu"><button onClick={()=>{setDark(value=>!value);setProfile(false);}}>{dark?<Sun size={17}/>:<Moon size={17}/>}Switch to {dark?'light':'dark'} mode</button><a href="/app/lobby"><LayoutGrid size={17}/>Switch workspace</a><button onClick={logout} disabled={signingOut}><LogOut size={17}/>{signingOut?'Signing out...':'Sign out'}</button></div>}
       </div>
     </MoonsSidebar>
     <div className="market-main">
-      <header className="market-topbar"><div><button ref={menuButton} className="market-icon-button market-menu-toggle" aria-label="Open navigation" aria-expanded={drawer} onClick={()=>setDrawer(value=>!value)}><Menu size={21}/></button><a href="/app/lobby">Workspace</a><span>/</span><h1>Moons</h1></div><div><a className="market-icon-button" aria-label="Notifications" href={user?.role==='superadmin'?'/app/notifications':'/app/notification-inbox'}><Bell size={21}/></a><span className="market-avatar" aria-label={name}>{initials(name)}</span></div></header>
-      <section className="market-hero" aria-labelledby="market-hero-title"><div className="market-hero-copy"><p className="market-eyebrow">Your business, with more possibility</p><h2 id="market-hero-title">A little Moon.<br/>A whole new possibility.</h2><p>Discover helpful apps that bring new powers to your shop.</p><button className="market-primary" onClick={()=>{selectTab('discover');resultsRef.current?.scrollIntoView({behavior:'smooth',block:'start'});}}>Explore your Moons<ArrowRight size={19}/></button></div>
+      <button ref={menuButton} type="button" className="moons-mobile-navigation" aria-label="Open navigation" aria-expanded={drawer} onClick={()=>setDrawer(true)}><Menu size={21}/></button>
+      {tab==='home'&&<section className="market-hero" aria-labelledby="market-hero-title"><div className="market-hero-copy"><p className="market-eyebrow">Your business, with more possibility</p><h2 id="market-hero-title">A little Moon.<br/>A whole new possibility.</h2><p>Discover helpful apps that bring new powers to your shop.</p><button className="market-primary" onClick={()=>selectTab('store')}>Explore your Moons<ArrowRight size={19}/></button></div>
         <div className="market-hero-art" aria-hidden="true"><img className="market-hero-combined" src={heroArtwork} fetchPriority="high" decoding="async" alt=""/></div>
-      </section>
-      <div className="market-content" ref={resultsRef}>
-        <div className="market-toolbar"><div className="market-tabs" role="tablist" aria-label="Moons views">{[{key:'discover',label:'Discover'},{key:'mine',label:'My Moons'},{key:'integrations',label:'Integrations'}].map(item=><button id={'market-tab-'+item.key} key={item.key} role="tab" aria-selected={tab===item.key} aria-controls="market-results" tabIndex={tab===item.key?0:-1} onKeyDown={event=>{const tabs=['discover','mine','integrations'];if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();const next=event.key==='Home'?'discover':event.key==='End'?'integrations':tabs[(tabs.indexOf(tab)+(event.key==='ArrowRight'?1:2))%3];selectTab(next);document.getElementById('market-tab-'+next)?.focus();}}} onClick={()=>selectTab(item.key)}>{item.label}{item.key==='mine'&&<span>{subscribed.length}</span>}</button>)}</div><button className="market-outline" onClick={()=>setDialog({kind:'subscriptions'})}><Settings size={18}/>Manage subscriptions</button></div>
+      </section>}
+      {tab!=='home'&&<div className="market-content">
+        <div className="market-toolbar"><div className="market-view-heading"><h2>{tab==='integrations'?'Integrations':tab==='moons'?'Your Moons':'Marketplace'}</h2><p>{tab==='integrations'?'Your activated integrations and their records.':tab==='moons'?'Your subscribed Moons, all in one place.':'Discover new Moons, integrations and upcoming additions.'}</p></div>{tab==='store'?<div className="market-store-toggle" role="group" aria-label="Store catalog"><span className={'market-store-toggle-indicator '+(storeView==='integrations'?'is-integrations':'')} aria-hidden="true"/>{['moons','integrations'].map(view=><button key={view} type="button" aria-pressed={storeView===view} onClick={()=>setStoreView(view)}>{view==='moons'?'Moons':'Integrations'}</button>)}</div>:<button className="market-outline" onClick={()=>setDialog({kind:'subscriptions'})}><Settings size={18}/>Manage subscriptions</button>}</div>
+        {notice&&<div className="market-subscription-notice" role="status"><Check size={17}/>{notice}</div>}
         {error&&<div className="market-error" role="alert"><span>{error}</span><button onClick={()=>{setLoading(true);void load();}}>Try again</button></div>}
-        <section id="market-results" role="tabpanel" aria-labelledby={'market-tab-'+tab}>
-          {tab!=='integrations'&&<><div className="market-filters"><label className="market-search"><Search size={19}/><input aria-label="Search Moons" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search Moons and integrations..."/>{query&&<button aria-label="Clear search" onClick={()=>setQuery('')}><X size={15}/></button>}</label><div className="market-categories" aria-label="Moon categories">{CATEGORIES.map(value=><button key={value} aria-pressed={category===value} onClick={()=>setCategory(value)}>{value}</button>)}</div></div><div className="market-section-heading"><h2>{tab==='mine'?'Your Moons':'Find your next Moon'}</h2><span>{loading?'Finding your Moons...':filtered.length+' '+(filtered.length===1?'Moon':'Moons')+(tab==='mine'?' in your workspace':' to explore')}</span></div>
-          {loading?<div className="market-card-grid" aria-busy="true" aria-label="Loading Moons">{[1,2,3,4,5,6].map(id=><div className="market-card market-skeleton" key={id}><div/><span/><span/></div>)}</div>:filtered.length?<div className="market-card-grid">{filtered.map(moon=><article className="market-card" key={moon.key}><div className="market-card-top"><div className={'market-card-art art-'+(moon.category || 'insights')}><Artwork key={moon.artwork?.map(file=>file.id).join(',')} moon={moon}/></div><div className="market-card-copy"><div><h3><button className="market-card-title" onClick={()=>setDialog({kind:'moon',moon})} aria-label={'View details for '+moon.name}>{moon.name}</button></h3>{moon.subscription?.state==='active'&&<span className="market-active">Active</span>}</div><small>{categoryLabel(moon)}</small><p>{moon.summary}</p></div></div><footer><strong>{priceLabel(moon.price)}</strong>{moon.can_open?<a href={moon.route} className="market-card-open" aria-label={'Open '+moon.name}>Open<ArrowUpRight size={14}/></a>:<button className="market-primary" onClick={()=>setDialog({kind:'moon',moon})}>Discover</button>}</footer></article>)}</div>:<div className="market-empty"><Moon size={32}/><h3>{query || category!=='All'?'No matching Moons':tab==='mine'?'Your next possibility starts here':'Your next Moon is on its way'}</h3><p>{query || category!=='All'?'Try another search or category.':tab==='mine'?'Subscribed Moons will appear here. You can explore available apps in Discover.':'New Moons will appear here when they launch.'}</p>{(query||category!=='All')?<button className="market-outline" onClick={()=>{setQuery('');setCategory('All');}}>Clear filters</button>:tab==='mine'?<button className="market-primary" onClick={()=>selectTab('discover')}>Discover Moons<ArrowRight size={16}/></button>:user?.role==='superadmin'&&<a className="market-card-open" href="/app/moons/manage">Manage catalog</a>}</div>}</>}
-          {(tab==='integrations'||tab==='discover')&&<section className={'market-integrations '+(tab==='integrations'?'is-expanded':'')}><div><h2>Connect your tools</h2><p>Bring your favourite tools into your OrbitOS workspace.</p>{tab==='integrations'&&<p className="market-integration-note">Connections will appear here when integration setup is available.</p>}</div><div className="market-integration-grid">{[{name:'FBR',icon:FileText},{name:'Foodpanda',icon:Bike},{name:'WhatsApp',icon:MessageCircle}].map(({name:label,icon:Icon})=><button className="market-integration-card" key={label} onClick={()=>setDialog({kind:'integration',name:label})}><Icon size={24}/><strong>{label}</strong><span>Coming soon<ArrowRight size={13}/></span></button>)}</div></section>}
+        <section id="market-results" key={tab+storeView} className="market-catalog-transition" aria-label={tab==='integrations'||(tab==='store'&&storeView==='integrations')?'Integrations':'Moons catalog'}>
+          {(tab==='moons'||(tab==='store'&&storeView==='moons'))&&<><div className="market-section-heading"><h2>{tab==='moons'?'Your Moons':'Explore Moons'}</h2><p>Extend your business with powerful new features.</p><span>{loading?'Finding your Moons...':filtered.length+(tab==='moons'?' in your workspace':' available')}</span></div><div className="market-filters"><label className="market-search"><Search size={19}/><input aria-label="Search Moons" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search Moons..."/>{query&&<button aria-label="Clear search" onClick={()=>setQuery('')}><X size={15}/></button>}</label><div className="market-categories" aria-label="Moon categories">{CATEGORIES.map(value=><button key={value} aria-pressed={category===value} onClick={()=>setCategory(value)}>{value}</button>)}</div></div>
+          {loading?<div className="market-card-grid" aria-busy="true" aria-label="Loading Moons">{[1,2,3,4,5,6].map(id=><div className="market-card market-skeleton" key={id}><div/><span/><span/></div>)}</div>:filtered.length?<div className="market-card-grid">{filtered.map(moon=><article className="market-card" key={moon.key}><div className="market-card-top"><div className={'market-card-art art-'+(moon.category || 'insights')}><Artwork key={moon.artwork?.map(file=>file.id).join(',')} moon={moon}/></div><div className="market-card-copy"><div><h3><button className="market-card-title" onClick={()=>setDialog({kind:'moon',moon})} aria-label={'View details for '+moon.name}>{moon.name}</button></h3>{moon.subscription?.state==='active'?<span className="market-active">Subscribed</span>:moon.launch_ready===false?<span className="market-active">Coming soon</span>:null}</div><small>{categoryLabel(moon)}</small><p>{moon.summary}</p></div></div><footer><strong>{priceLabel(moon.price)}</strong>{tab==='store'?subscribeButton(moon):moon.can_open?<a href={moon.route} className="market-card-open" aria-label={'Open '+moon.name}>Open<ArrowUpRight size={14}/></a>:<button className="market-primary" onClick={()=>setDialog({kind:'moon',moon})}>View details</button>}</footer></article>)}</div>:<div className="market-empty"><Moon size={32}/><h3>{query || category!=='All'?'No matching Moons':tab==='moons'?'Your next possibility starts here':'Your next Moon is on its way'}</h3><p>{query || category!=='All'?'Try another search or category.':tab==='moons'?'Your active subscriptions will appear here. Explore new Moons in the Marketplace.':'New Moons will appear here when they launch.'}</p>{(query||category!=='All')?<button className="market-outline" onClick={()=>{setQuery('');setCategory('All');}}>Clear filters</button>:tab==='moons'?<button className="market-primary" onClick={()=>selectTab('store')}>Browse Marketplace<ArrowRight size={16}/></button>:user?.role==='superadmin'&&<a className="market-card-open" href="/app/moons/manage">Manage catalog</a>}</div>}</>}
+          {(tab==='integrations'||(tab==='store'&&storeView==='integrations'))&&<section className="market-integrations integration-catalog is-expanded"><div><h2>{tab==='store'?'Discover integrations':'Your integrations'}</h2><p>{tab==='store'?'Upcoming services and integrations you can enable.':'Open your connected tools and preserved records.'}</p></div><IntegrationCards loading={loading} view={tab==='store'?'store':'enabled'} onBrowseStore={()=>selectTab('store')} foodpanda={foodpanda} onSelect={label=>label==='Foodpanda'&&(foodpanda?.enabled||foodpanda?.activated)?location.assign('/app/integrations/foodpanda'):setDialog({kind:'integration',name:label})}/></section>}
         </section>
         <footer className="market-page-footer"><span>Small additions. Bigger possibilities.</span>{user?.role==='superadmin'&&<a href="/app/moons/manage">Manage Moon catalog<ArrowUpRight size={13}/></a>}</footer>
-      </div>
+      </div>}
     </div>
     {dialog&&<Dialog title={dialog.kind==='moon'?dialog.moon.name:dialog.kind==='subscriptions'?'Your Moon subscriptions':dialog.kind==='help'?'A little help with Moons':dialog.name+' integration'} onClose={()=>setDialog(null)}>
-      {dialog.kind==='moon'?<div className="market-dialog-body"><div className="market-dialog-art"><Artwork moon={dialog.moon}/></div><p>{dialog.moon.description || dialog.moon.summary}</p><ul>{dialog.moon.features.map(feature=><li key={feature}><Check size={16}/>{feature}</li>)}</ul><strong>{priceLabel(dialog.moon.price)}</strong>{dialog.moon.can_open?<a className="market-primary" href={dialog.moon.route}>Open {dialog.moon.name}<ArrowUpRight size={16}/></a>:<p>Ask your shop administrator for access to this Moon.</p>}</div>:<div className="market-dialog-body"><p>{dialog.kind==='subscriptions'?'Shop subscriptions are coming soon. You can open available Moons using your existing workspace permissions.':dialog.kind==='help'?'Explore Moons in Discover, search by name or category, and open the apps your shop has access to. Your shop administrator manages your permissions.':dialog.name+' is not available to connect yet. It will appear here when setup is ready.'}</p><button className="market-outline" onClick={()=>setDialog(null)}>Got it</button></div>}
+      {dialog.kind==='integration'&&dialog.name==='Foodpanda'?<FoodpandaIntegration/>:dialog.kind==='moon'?<div className="market-dialog-body"><div className="market-dialog-art"><Artwork moon={dialog.moon}/></div><p>{dialog.moon.description || dialog.moon.summary}</p><ul>{dialog.moon.features.map(feature=><li key={feature}><Check size={16}/>{feature}</li>)}</ul><strong>{priceLabel(dialog.moon.price)}</strong><p>Activation only. No payment is collected and no invoice is created.</p>{error&&<p role="alert">{error}</p>}{dialog.moon.subscription?.state!=='active'?subscribeButton(dialog.moon):dialog.moon.can_open?<a className="market-primary" href={dialog.moon.route}>Open {dialog.moon.name}<ArrowUpRight size={16}/></a>:<p>Ask your shop administrator for access to this Moon.</p>}</div>:<div className="market-dialog-body"><p>{dialog.kind==='subscriptions'?'Subscribe to available Moons in the Marketplace to add them to your Moons list. Activation does not collect payment or create invoices.':dialog.kind==='help'?'Browse new additions in Marketplace, find subscribed apps in Moons, and open activated services in Integrations. Your shop administrator manages your permissions.':dialog.name+' is not available to connect yet. It will appear here when setup is ready.'}</p><button className="market-outline" onClick={()=>setDialog(null)}>Got it</button></div>}
     </Dialog>}
   </div>;
 }

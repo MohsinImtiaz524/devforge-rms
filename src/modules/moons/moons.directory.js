@@ -14,9 +14,11 @@ function createDirectoryService({db,catalog,resolvePermissions=getUserPermission
     return offers(user,permissions);
   }
   async function offers(user,permissions) {
-    // Catalog offers are global; no subscription or business data is exposed here.
+    // Cache only global offers; attach this shop's subscription state per request.
     const rows=await catalog.published();
-    return rows.filter(row=>REGISTRY[row.key]?.launchReady).map(row=>({...row,can_open:user.role==='superadmin'||permissions.includes(REGISTRY[row.key].entryPermission)}));
+    const subscriptions=user.shop_id&&rows.length?await db('shop_moon_subscriptions').where({shop_id:user.shop_id}).whereIn('moon_id',rows.map(row=>row.id)).select('moon_id','state'):[];
+    const states=new Map(subscriptions.map(row=>[Number(row.moon_id),row.state]));
+    return rows.filter(row=>REGISTRY[row.key]?.launchReady).map(row=>({...row,subscription:states.has(Number(row.id))?{state:states.get(Number(row.id))}:null,can_open:user.role==='superadmin'||permissions.includes(REGISTRY[row.key].entryPermission)}));
   }
   async function bootstrap(sessionUser) {
     if(!sessionUser?.id)fail(401,'Unauthorized','UNAUTHORIZED');
@@ -28,21 +30,27 @@ function createDirectoryService({db,catalog,resolvePermissions=getUserPermission
     const permissions=await resolvePermissions(actor);
     if(!canAccessDirectory(actor,permissions))fail(403,'You do not have permission to access Moons.','MOON_ACCESS_REQUIRED');
     const items=await offers(actor,permissions);
-    return {items,user:{id:actor.id,shop_id:actor.shop_id,name:actor.name,username:actor.username,role:actor.role,shop_name:actor.shop_name}};
+    return {items,can_subscribe:Boolean(actor.shop_id)&&permissions.includes('settings.update'),user:{id:actor.id,shop_id:actor.shop_id,name:actor.name,username:actor.username,role:actor.role,shop_name:actor.shop_name}};
   }
-  return {list,bootstrap};
+  const {subscribe}=require('./moons.subscriptions').createMoonSubscriptions({db,resolvePermissions});
+  return {list,bootstrap,subscribe};
 }
 function createDirectoryRouter({service,isEnabled=enabled}) {
   const router=express.Router();
   router.use((req,res,next)=>{res.set('Cache-Control','private, no-store');next();});
   router.use(requireAuth);
+  router.post('/:key/subscribe',async(req,res)=>{
+    if(!isEnabled())return res.status(503).json({error:'The Moons store is not enabled.',code:'MOONS_DISABLED'});
+    try {res.json(await service.subscribe(req.session.user,req.params.key,req.body));}
+    catch(error){require('../../../utils/error-response').sendError(res,error);}
+  });
   router.get('/',async(req,res)=>{
     if(!isEnabled())return res.status(503).json({error:'The Moons directory is not enabled yet.',code:'MOONS_DISABLED'});
     try {
       const started=performance.now();
       const result=service.bootstrap ? await service.bootstrap(req.session.user) : {items:await service.list(req.session.user,Array.isArray(req.permissions)?req.permissions:await getUserPermissions(req.session.user))};
       res.set('Server-Timing','moons;dur='+Math.round(performance.now()-started));
-      res.json({...result,subscriptions_enabled:false});
+      res.json({...result,subscriptions_enabled:true});
     }catch(error){
       if(error.status)return res.status(error.status).json({error:error.message,code:error.publicCode});
       console.error('[Moons directory]',{code:error.code||'UNEXPECTED'});

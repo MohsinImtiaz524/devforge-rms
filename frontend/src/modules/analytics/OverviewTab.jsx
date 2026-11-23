@@ -208,7 +208,7 @@ export function OverviewTab({
   }));
   const channelSlices = data.channelBreakdown.map(cb => {
     let lbl = cb.label || "dine_in";
-    if (lbl === 'dine_in') lbl = "Dine In";else if (lbl === 'takeaway') lbl = "Takeaway";else if (lbl === 'delivery') lbl = "Delivery";else if (lbl === 'pos' || lbl === 'retail') lbl = "In-Store POS";
+    if (lbl === 'dine_in') lbl = "Dine In";else if (lbl === 'takeaway') lbl = "Takeaway";else if (lbl === 'delivery') lbl = "Delivery";else if (lbl === 'foodpanda') lbl = "Foodpanda";else if (lbl === 'pos' || lbl === 'retail') lbl = "In-Store POS";
     return {
       label: lbl,
       sales: cb.sales

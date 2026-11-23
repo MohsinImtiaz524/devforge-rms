@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../../api/client'
 import { queuedUpload, putFile } from './client'
+import { normalizeUploadFile } from './upload-file'
 const pause = (ms, signal) => new Promise((resolve, reject) => {
   if (signal.aborted) return reject(new DOMException('Cancelled', 'AbortError'))
   const abort = () => { clearTimeout(timer); reject(new DOMException('Cancelled', 'AbortError')) }
@@ -43,7 +44,7 @@ export function useFileUpload({ purpose, value, onChange }) {
   function add(files) {
     if (!policy) return
     setError('')
-    const selected = Array.from(files)
+    const selected = Array.from(files, file => normalizeUploadFile(file, policy))
     if (!selected.length) return
     const replacing = policy.maxCount === 1 && selected.length === 1
     if ((!replacing && values.current.length + selected.length > policy.maxCount) || selected.length > policy.maxCount) { setError(`Select at most ${policy.maxCount} files.`); return }

@@ -295,7 +295,7 @@ export function SpecificTab({
           <div className={"grid grid-cols-1 md:grid-cols-2 gap-6"}>
             {data.channelBreakdown.map((c, idx) => {
             let lbl = c.label || "dine_in";
-            if (lbl === 'dine_in') lbl = "Dine In";else if (lbl === 'takeaway') lbl = "Takeaway";else if (lbl === 'delivery') lbl = "Delivery";else if (lbl === 'pos' || lbl === 'retail') lbl = "In-Store POS";
+            if (lbl === 'dine_in') lbl = "Dine In";else if (lbl === 'takeaway') lbl = "Takeaway";else if (lbl === 'delivery') lbl = "Delivery";else if (lbl === 'foodpanda') lbl = "Foodpanda";else if (lbl === 'pos' || lbl === 'retail') lbl = "In-Store POS";
             return <div className={"p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800/60 flex items-center justify-between"} key={idx}>
                   <div>
                     {renderMetricLabel(lbl, "This channel bucket includes completed orders of this type. Revenue = bill subtotal - discount + tax - refunds.")}

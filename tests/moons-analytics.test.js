@@ -24,7 +24,7 @@ test('Moons directory HTTP requires authentication, flag and preserves safe fail
  try{
   assert.equal((await fetch(url)).status,401);actor={id:2,shop_id:1,role:'admin'};
   assert.equal((await fetch(url)).status,503);enabled=true;
-  let response=await fetch(url);assert.equal(response.status,200);assert.match(response.headers.get('cache-control'),/no-store/);assert.equal((await response.json()).subscriptions_enabled,false);
+  let response=await fetch(url);assert.equal(response.status,200);assert.match(response.headers.get('cache-control'),/no-store/);assert.equal((await response.json()).subscriptions_enabled,true);
   fail=true;response=await fetch(url);assert.equal(response.status,503);assert.doesNotMatch(await response.text(),/password|secret/);
  }finally{await new Promise(resolve=>server.close(resolve));await require('../db/knex').destroy();}
 });

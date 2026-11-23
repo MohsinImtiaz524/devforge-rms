@@ -49,6 +49,7 @@ const RestaurantManagement = lazy(() => import("./RestaurantManagement"));
 const PlatformPayments = lazy(() => import("./PlatformPayments"));
 const RootUsers = lazy(() => import("./RootUsers"));
 const RootAudit = lazy(() => import("./RootAudit"));
+const RootIcons = lazy(() => import("./RootIcons"));
 const RootSettings = lazy(() => import("./RootSettings"));
 const RootNotifications = lazy(() => import("./RootNotifications"));
 const RootCategories = lazy(() => import("./RootCategories"));
@@ -69,6 +70,7 @@ const TABS = {
   hierarchy: "Restaurant management",
   subscriptions: "Platform payments",
   users: "Users & access",
+  icons: "Icons",
   settings: "Root settings",
   logs: "Audit logs",
   notifications: "Notifications",
@@ -532,6 +534,7 @@ export default function PlatformAdmin() {
       [Network, "hierarchy", "Restaurant management"],
       [CircleDollarSign, "subscriptions", "Platform payments"],
       [Users, "users", "Users & access"],
+      [Settings, "icons", "Icons"],
       [Settings, "settings", "Settings"],
       [FileText, "logs", "Audit logs"],
     ].map(([Icon, key, label]) => ({
@@ -1304,6 +1307,7 @@ export default function PlatformAdmin() {
               <RootUsers user={user} version={version} onChange={refresh} />
             )}
             {tab === "logs" && <RootAudit version={version} />}
+            {tab === "icons" && <RootIcons />}
             {tab === "settings" && <RootSettings user={user} />}
             {tab === "notifications" && <RootNotifications version={version} />}
             {tab === "categories" && <RootCategories version={version} />}

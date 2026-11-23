@@ -16,6 +16,7 @@ const { z } = require('zod');
 const { resolveDeliveryCharge } = require('../src/modules/delivery/delivery-charge');
 const { calculateDineInServiceCharge, addServiceCharges } = require('../src/modules/dine-in-service-charge/dine-in-service-charge');
 
+const { orderSourceSchema, resolveOrderSource, normalizeFoodpandaType } = require('../src/modules/delivery/order-source');
 // Validation Schemas
 const orderNoteSchema = z.preprocess(
   value => value === undefined ? undefined : (value === null ? null : String(value).trim().replace(/\s+/g, ' ')),
@@ -48,7 +49,8 @@ const checkoutSchema = z.object({
   customer_name: z.string().nullable().optional(),
   customer_phone: z.string().nullable().optional(),
   customer_id: z.number().int().nullable().optional(),
-  order_type: z.string().default("dine_in"),
+  order_type: z.enum(require('./OrderTypePermissionService').ALL_ORDER_TYPES).default("dine_in"),
+  order_source: orderSourceSchema,
   table_id: z.number().int().nullable().optional(),
   waiter_id: z.number().int().nullable().optional(),
   rider_id: z.number().int().nullable().optional(),
@@ -689,7 +691,7 @@ class SalesService {
       ? await dbInstance('users').where({ id: sale.waiter_id, shop_id: shopId }).first('name', 'username') : null;
     const kitchenSnapshot = {
       id: sale.id, order_number: sale.order_number || sale.id, created_at: sale.created_at,
-      order_type: sale.order_type, table_id: sale.table_id, table_number: table?.table_number || null,
+      order_type: sale.order_type, order_source: sale.order_source, table_id: sale.table_id, table_number: table?.table_number || null,
       token_number: sale.token_number, kitchen_name: sale.kitchen_name,
       waiter_name: assignedWaiter?.name || assignedWaiter?.username || null,
       special_instructions: sale.special_instructions || null
@@ -794,9 +796,17 @@ class SalesService {
    * Main Checkout Workflow
    */
   async createSale(payload, shopId, userId) {
-    const data = checkoutSchema.parse(payload);
+    const data = normalizeFoodpandaType(checkoutSchema.parse(payload));
+    data.order_source = resolveOrderSource(data.order_type, data.order_source);
+    if (data.order_source === 'foodpanda') {
+      await require('../src/modules/integrations/integrations.service').assertFoodpandaEnabled(db, shopId);
+      if (data.rider_id) throw Object.assign(new Error('Foodpanda provides its own riders.'), { status: 400 });
+      data.rider_id = null;
+      data.delivery_service_charge = 0;
+      data.customer_id = null;data.customer_name = '';data.customer_phone = '';data.delivery_address = '';
+    }
     resolveDeliveryCharge(data.delivery_service_charge, data.order_type);
-    await assertOrderTypeAllowed(shopId, data.order_type);
+    if (data.order_type !== 'foodpanda') await assertOrderTypeAllowed(shopId, data.order_type);
     const shop = await db('shops').where({ id: shopId }).select('shop_type', 'dine_in_service_charge_percentage').first();
     const isRetailOrder = shop?.shop_type === 'retail' || data.order_type === 'walk_in';
     const creator = await db('users').where({ id: userId, shop_id: shopId }).first('role');
@@ -834,7 +844,7 @@ class SalesService {
           .first();
         if (activeShift) {
           shiftId = activeShift.id;
-        } else if (data.order_status === 'completed' || (Number(data.amount_received || 0) > 0.01 && data.order_type !== 'delivery')) {
+        } else if (data.order_status === 'completed' || (Number(data.amount_received || 0) > 0.01 && !['delivery','foodpanda'].includes(data.order_type))) {
           data.order_status = 'payment_pending';
           data.amount_received = 0;
         }
@@ -973,6 +983,7 @@ class SalesService {
           payment_method: data.payment_method,
           amount_received: data.amount_received,
           order_type: data.order_type,
+          order_source: data.order_source,
           table_id: data.table_id,
           waiter_id: data.waiter_id,
           rider_id: data.rider_id,
@@ -982,8 +993,8 @@ class SalesService {
           special_instructions: data.order_note || null,
           order_status: data.order_status,
           shift_id: shiftId,
-          payment_receiver_id: data.order_type === 'delivery' && data.money_received ? userId : null,
-          payment_received_at: data.order_type === 'delivery' && data.money_received ? trx.fn.now() : null,
+          payment_receiver_id: ['delivery','foodpanda'].includes(data.order_type) && data.money_received ? userId : null,
+          payment_received_at: ['delivery','foodpanda'].includes(data.order_type) && data.money_received ? trx.fn.now() : null,
           client_request_id: data.client_request_id || null
         })
         .returning('id');
@@ -1308,8 +1319,8 @@ class SalesService {
     const timings = {};
     let stageStarted = performance.now();
     const mark = name => { const now = performance.now(); timings[name] = Math.round(now - stageStarted); stageStarted = now; };
-    const data = checkoutSchema.parse(payload);
-    await assertOrderTypeAllowed(shopId, data.order_type);
+    const data = normalizeFoodpandaType(checkoutSchema.parse(payload));
+    if (data.order_type !== 'foodpanda') await assertOrderTypeAllowed(shopId, data.order_type);
     const shop = await db('shops').where({ id: shopId }).select('shop_type', 'dine_in_service_charge_percentage').first();
     const isRetailOrder = shop?.shop_type === 'retail' || data.order_type === 'walk_in';
     
@@ -1317,6 +1328,14 @@ class SalesService {
       const sale = await trx('sales').where({ id: saleId, shop_id: shopId }).forUpdate().first();
       if (!sale) throw new Error("Sale not found");
       if (sale.order_status === 'completed') throw new Error("Cannot edit a completed order");
+      data.order_source = resolveOrderSource(data.order_type, data.order_source, sale.order_type === 'foodpanda' ? 'foodpanda' : sale.order_source);
+      if (data.order_source === 'foodpanda') {
+        if (sale.order_type !== 'foodpanda') await require('../src/modules/integrations/integrations.service').assertFoodpandaEnabled(trx, shopId);
+        if (data.rider_id) throw Object.assign(new Error('Foodpanda provides its own riders.'), { status: 400 });
+        data.rider_id = null;
+        data.delivery_service_charge = Number(sale.delivery_service_charge || 0);
+        data.customer_id = sale.customer_id || null;data.customer_name = sale.customer_name || '';data.customer_phone = sale.customer_phone || '';data.delivery_address = sale.delivery_address || '';
+      }
       if (payload.amount_received === undefined) data.amount_received = Number(sale.amount_received || 0);
       const requestedCharge = resolveDeliveryCharge(data.delivery_service_charge, data.order_type, sale.delivery_service_charge);
       if (requestedCharge !== Number(sale.delivery_service_charge || 0) && ['ready', 'served', 'cancelled'].includes(sale.order_status)) {
@@ -1333,7 +1352,7 @@ class SalesService {
           .first();
         if (activeShift) {
           shiftId = activeShift.id;
-        } else if (data.order_status === 'completed' || (Number(data.amount_received || 0) > 0.01 && data.order_type !== 'delivery')) {
+        } else if (data.order_status === 'completed' || (Number(data.amount_received || 0) > 0.01 && !['delivery','foodpanda'].includes(data.order_type))) {
           data.order_status = 'payment_pending';
           data.amount_received = 0;
         }
@@ -1487,6 +1506,7 @@ class SalesService {
         payment_method: data.payment_method,
         amount_received: data.amount_received,
         order_type: data.order_type,
+        order_source: data.order_source,
         table_id: updatedTableId,
         waiter_id: data.waiter_id || sale.waiter_id,
         rider_id: data.rider_id === undefined ? sale.rider_id : data.rider_id,
@@ -1497,8 +1517,8 @@ class SalesService {
         special_instructions: data.order_note === undefined ? (sale.special_instructions || null) : (data.order_note || null),
         order_status: data.order_status,
         shift_id: shiftId,
-        payment_receiver_id: data.order_type === 'delivery' ? (data.money_received ? userId : null) : sale.payment_receiver_id,
-        payment_received_at: data.order_type === 'delivery' ? (data.money_received ? trx.fn.now() : null) : sale.payment_received_at,
+        payment_receiver_id: ['delivery','foodpanda'].includes(data.order_type) ? (data.money_received ? userId : null) : sale.payment_receiver_id,
+        payment_received_at: ['delivery','foodpanda'].includes(data.order_type) ? (data.money_received ? trx.fn.now() : null) : sale.payment_received_at,
         updated_at: trx.fn.now()
       });
 
@@ -1993,6 +2013,7 @@ class SalesService {
       if (customer_phone !== undefined) updateData.customer_phone = customer_phone;
       if (customer_name !== undefined || customer_phone !== undefined) shouldSyncSaleLedger = true;
       if (delivery_address !== undefined) updateData.delivery_address = delivery_address;
+      if (sale.order_type === 'foodpanda' && rider_id) throw Object.assign(new Error('Foodpanda provides its own riders.'), { status: 400 });
       if (rider_id !== undefined) updateData.rider_id = rider_id ? parseInt(rider_id, 10) : null;
       const tipOnlyCollection = Number(tip_amount || 0) > 0 && Number(sale.amount_received || 0) >= Number(sale.total) - 0.01;
       if (payment_method !== undefined && !tipOnlyCollection) updateData.payment_method = payment_method;

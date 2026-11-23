@@ -73,6 +73,7 @@ function formatReceiptTime(value, timeZone) {
 }
 
 function formatOrderType(type) {
+  if (type === "foodpanda") return "Foodpanda";
   if (type === "dine_in") return "Dine-in";
   if (type === "takeaway") return "Takeaway";
   if (type === "walk_in") return "Walk-in";
@@ -209,7 +210,7 @@ function renderCustomerReceipt(details, options) {
         <strong>Staff:</strong> ${escapeHtml(seller ? seller.name : "Staff")}<br>
         <strong>Customer:</strong> ${escapeHtml(sale.customer_name || "Walk-in")}<br>
         ${sale.customer_phone ? `<strong>Phone:</strong> ${escapeHtml(sale.customer_phone)}<br>` : ""}
-        <strong>Type:</strong> ${escapeHtml(formatOrderType(sale.order_type))}<br>
+        <strong>Type:</strong> ${escapeHtml((sale.order_source === 'foodpanda' ? 'Foodpanda' : formatOrderType(sale.order_type)))}<br>
         <strong>Payment:</strong> ${isUnpaid ? "Pending - method to be confirmed" : escapeHtml(method)}<br>
       </div>
 
@@ -290,7 +291,7 @@ function renderKitchenReceipt(details, options = {}) {
       </div>
 
       <div class="order-info">
-        <div class="bold" style="font-size: 14px;">${escapeHtml(formatOrderType(sale.order_type).toUpperCase())}</div>
+        <div class="bold" style="font-size: 14px;">${escapeHtml((sale.order_source === 'foodpanda' ? 'Foodpanda' : formatOrderType(sale.order_type)).toUpperCase())}</div>
         ${sale.waiter_name ? `<div class="bold">WAITER: ${escapeHtml(sale.waiter_name)}</div>` : ""}
         ${sale.table_id ? `<div class="bold" style="font-size: 16px;">TABLE: ${escapeHtml(sale.table_number || "N/A")}</div>` : ""}
         ${sale.token_number ? `<div class="bold" style="font-size: 16px;">TOKEN: ${escapeHtml(sale.token_number)}</div>` : ""}
@@ -469,7 +470,7 @@ function renderTipReceiptPage(details, options = {}) {
   const autoPrint = options.autoPrint !== false;
   const context = sale.order_type === 'dine_in' && table.table_number
     ? `Table ${table.table_number}`
-    : formatOrderType(sale.order_type);
+    : (sale.order_source === 'foodpanda' ? 'Foodpanda' : formatOrderType(sale.order_type));
   return `<!DOCTYPE html>
 <html>
 <head>

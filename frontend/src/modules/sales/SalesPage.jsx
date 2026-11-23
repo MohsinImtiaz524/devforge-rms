@@ -22,6 +22,7 @@ function orderTypeLabel(value) {
       dine_in: "Dine-in",
       takeaway: "Takeaway",
       delivery: "Delivery",
+      foodpanda: "Foodpanda",
       walk_in: "Walk-in",
     }[value] || String(value || "").replaceAll("_", " ")
   );
@@ -936,6 +937,7 @@ export default function SalesPage() {
                   <option value="dine_in">Dine-in</option>
                   <option value="takeaway">Takeaway</option>
                   <option value="delivery">Delivery</option>
+                  <option value="foodpanda">Foodpanda</option>
                   <option value="walk_in">Walk-in</option>
                 </select>
               </label>
@@ -1240,7 +1242,7 @@ export default function SalesPage() {
       {modal?.kind === "print" && (
         <Modal title="Print Receipt" onClose={() => setModal(null)}>
           <div className="sales-print-menu">
-            {(['restaurant','retail_restaurant'].includes(String(session?.shop_type||'').toLowerCase())||['dine_in','takeaway','delivery'].includes(modal.sale.order_type)) && (
+            {(['restaurant','retail_restaurant'].includes(String(session?.shop_type||'').toLowerCase())||['dine_in','takeaway','delivery','foodpanda'].includes(modal.sale.order_type)) && (
               <button
                 className="kitchen"
                 onClick={() => openPrint(modal.sale.id, "kitchen")}

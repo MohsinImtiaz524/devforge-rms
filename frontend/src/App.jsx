@@ -18,6 +18,7 @@ const NotificationsPage = lazy(() => import('./modules/notifications/Notificatio
 const SalesPage = lazy(() => import('./modules/sales/SalesPage'))
 const TablesPage = lazy(() => import('./modules/tables/TablesPage'))
 const ExpensesPage = lazy(() => import('./modules/expenses/ExpensesPage'))
+const FoodpandaDashboard = lazy(() => import('./modules/moons/foodpanda/FoodpandaDashboard'))
 const PosPage = lazy(() => import('./modules/pos/PosPage'))
 const AnnouncementsManager = lazy(() => import('./modules/announcements/AnnouncementsManager'))
 import AnnouncementPrompt from './modules/announcements/AnnouncementPrompt'
@@ -37,6 +38,7 @@ function App() {
   const page = window.location.pathname.startsWith('/app/change-password')
     ? <ChangePassword />
     : window.location.pathname.startsWith('/app/login') ? <LoginPage />
+      : window.location.pathname === '/app/integrations/foodpanda' ? <FoodpandaDashboard />
       : window.location.pathname === '/app/moons/website' ? <WebsiteMoon />
       : window.location.pathname === '/app/moons/analytics' ? <AnalyticsMoon />
       : window.location.pathname === '/app/moons' ? <MoonsDirectory />

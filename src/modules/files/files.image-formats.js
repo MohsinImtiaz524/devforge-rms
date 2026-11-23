@@ -1,5 +1,6 @@
 ﻿// Only these raster encodings may reach the native image decoder.
 const formats=Object.freeze({
+ 'image/svg+xml':{format:'svg',extension:'.svg',matches:b=>/^\s*<svg[\s>]/.test(require('./files.svg-source').svgSource(b))},
  'image/jpeg':{format:'jpeg',extension:'.jpg',matches:b=>b.length>=3&&b[0]===255&&b[1]===216&&b[2]===255},
  'image/png':{format:'png',extension:'.png',matches:b=>b.length>=8&&b.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))},
  'image/webp':{format:'webp',extension:'.webp',matches:b=>b.length>=12&&b.toString('ascii',0,4)==='RIFF'&&b.toString('ascii',8,12)==='WEBP'},

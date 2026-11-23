@@ -2,6 +2,7 @@
 const imageDefaults = { maxDimension:4000, maxPixels:16000000, maxFrames:1, maxDecodedPixels:32000000, autoResize:true, processingTimeoutMs:15000, inline:true };
 const stillTypes = ['image/jpeg','image/png','image/webp'];
 const definitions = {
+  'platform.icon': { ...imageDefaults, types:[...stillTypes,'image/gif','image/svg+xml'], maxBytes:2*MB, maxCount:1, maxTotalBytes:2*MB, scope:'platform', authority:'platform_admin', outputFormat:'webp' },
   'moon.icon': { ...imageDefaults, types:stillTypes, maxBytes:2*MB, maxCount:1, maxTotalBytes:2*MB, scope:'platform', authority:'platform_admin' },
   'moon.cover': { ...imageDefaults, types:stillTypes, maxBytes:5*MB, maxCount:1, maxTotalBytes:5*MB, scope:'platform', authority:'platform_admin' },
   'moon.screenshot': { ...imageDefaults, types:stillTypes, maxBytes:5*MB, maxCount:6, maxTotalBytes:30*MB, scope:'platform', authority:'platform_admin' },

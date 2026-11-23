@@ -2,6 +2,8 @@ CREATE TABLE IF NOT EXISTS shops (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
   shop_type TEXT NOT NULL DEFAULT 'restaurant' CHECK (shop_type IN ('restaurant', 'retail', 'retail_restaurant')),
+  foodpanda_activated INTEGER NOT NULL DEFAULT 0,
+  foodpanda_enabled INTEGER NOT NULL DEFAULT 0,
   allowed_order_types TEXT NOT NULL DEFAULT 'dine_in,takeaway,delivery',
   currency TEXT NOT NULL DEFAULT 'PKR',
   status TEXT DEFAULT 'active', -- active, blocked
@@ -222,6 +224,7 @@ CREATE TABLE IF NOT EXISTS sales (
   dine_in_service_charge NUMERIC NOT NULL DEFAULT 0 CHECK (dine_in_service_charge >= 0),
   payment_method TEXT NOT NULL DEFAULT 'cash',
   amount_received REAL NOT NULL DEFAULT 0,
+  order_source VARCHAR(32),
   order_type TEXT DEFAULT 'dine_in', -- dine_in, takeaway, delivery, walk_in
   order_status TEXT DEFAULT 'pending', -- pending, preparing, ready, completed
   table_id INTEGER,

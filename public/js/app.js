@@ -636,7 +636,7 @@ const AVAILABLE_PANELS = [
   },
 ];
 
-const PLATFORM_OWNER_PANELS = ["dashboard", "hierarchy", "subscriptions", "notifications", "settings", "users", "logs"];
+const PLATFORM_OWNER_PANELS = ["icons", "dashboard", "hierarchy", "subscriptions", "notifications", "settings", "users", "logs"];
 
 function canCurrentUserAccessRegister() {
   if (isPlatformOwner()) return false;
@@ -1001,6 +1001,7 @@ function navigate(page, options = {}) {
     settings: "System Settings",
     users: "Staff Directory",
     subscriptions: "Platform Payments",
+    icons: "Icons",
     hierarchy: "Master Platform Hierarchy",
     tables: "Table Management",
     kds: "Kitchen Display System",
@@ -1047,6 +1048,7 @@ function navigate(page, options = {}) {
     customers: renderCustomers,
     notifications: renderNotifications,
     "notification-inbox": renderNotificationInbox,
+    icons: renderPlatformIcons,
     settings: renderSettings,
     users: renderUsers,
     subscriptions: renderSubscriptions,
@@ -4052,6 +4054,7 @@ function capturePOSLayoutState() {
   return {
     values,
     orderType: window._posOrderType,
+    orderSource: window._posOrderSource || null,
     quotation: !!$c("pos-is-quotation")?.checked,
     deliveryMoneyReceived: !!$c("delivery-money-received")?.checked
   };
@@ -4124,14 +4127,14 @@ async function withAppLoader(title, detail, action) {
 }
 
 function getPOSAllowedOrderTypes() {
-  const supportedTypes = ['dine_in', 'takeaway', 'delivery', 'walk_in'];
+  const supportedTypes = ['dine_in', 'takeaway', 'delivery', 'foodpanda', 'walk_in'];
   const defaultTypes = ['retail', 'retail_restaurant'].includes(currentUser?.shop_type)
     ? supportedTypes
     : ['dine_in', 'takeaway', 'delivery'];
   const configuredTypes = Array.isArray(currentUser?.allowed_order_types)
     ? currentUser.allowed_order_types
     : defaultTypes;
-  return supportedTypes.filter(type => configuredTypes.includes(type));
+  return supportedTypes.filter(type => type === 'foodpanda' ? (window._posFoodpandaEnabled || _tempEditSaleDetails?.order_type === 'foodpanda') : configuredTypes.includes(type));
 }
 
 function showPOSOrderTypeChooser() {
@@ -4140,11 +4143,15 @@ function showPOSOrderTypeChooser() {
 }
 
 async function selectPOSCheckoutOrderType(type) {
+  const source = type === 'foodpanda' ? 'foodpanda' : null;
+  if (source && !window._posFoodpandaEnabled) return toast('Enable Foodpanda in Integrations first.', 'error');
+
   if (_posCheckoutSubmitting || _editingOrderId) return;
   if (!currentUserHasPermission('orders.create')) return toast('You do not have permission to create orders.', 'error');
   if (!getPOSAllowedOrderTypes().includes(type)) return toast('This order type is not enabled for this shop.', 'error');
   const form = capturePOSLayoutState();
   form.orderType = type;
+  form.orderSource = source;
   ['pos-table', 'pos-waiter', 'pos-rider', 'pos-delivery-order-taker', 'pos-delivery-addr', 'pos-token', 'pos-takeaway-waiter'].forEach(id => delete form.values[id]);
   window._posSelectedTableId = null;
   window._posEntryOrderType = type;
@@ -4155,11 +4162,11 @@ async function selectPOSCheckoutOrderType(type) {
 
 async function startPOSOrder(orderType) {
   if (!currentUserHasPermission('orders.create')) return toast('You do not have permission to create orders.', 'error');
-  const allowedTypes = ['dine_in', 'takeaway', 'delivery', 'walk_in'];
+  const allowedTypes = ['dine_in', 'takeaway', 'delivery', 'foodpanda', 'walk_in'];
   if (!allowedTypes.includes(orderType)) return;
   const shopAllowedTypes = getPOSAllowedOrderTypes();
   if (!shopAllowedTypes.includes(orderType)) return toast('This order type is not enabled for this shop.', 'error');
-  const labels = { dine_in: ['Opening dine-in', 'Loading your floor and available tables...'], takeaway: ['Opening takeaway', 'Preparing the counter order screen...'], delivery: ['Opening delivery', 'Loading customers, riders, and menu...'], walk_in: ['Opening walk-in', 'Preparing the retail counter order...'] };
+  const labels = { dine_in: ['Opening dine-in', 'Loading your floor and available tables...'], takeaway: ['Opening takeaway', 'Preparing the counter order screen...'], delivery: ['Opening delivery', 'Loading customers, riders, and menu...'], foodpanda: ['Opening Foodpanda', 'Preparing the Foodpanda order screen...'], walk_in: ['Opening walk-in', 'Preparing the retail counter order...'] };
   const [title, detail] = labels[orderType];
   return withAppLoader(title, detail, async () => {
     if (orderType === 'dine_in') return renderPOSTableSelection();
@@ -4325,6 +4332,7 @@ function returnToPOSOrderTypeSelection() {
   _posProductSearch = "";
   window._posEntryOrderType = null;
   window._posOrderType = null;
+  window._posOrderSource = null;
   window._posSelectedTableId = null;
   window._posLayoutRestore = null;
   return renderPOS();
@@ -4407,7 +4415,16 @@ async function renderPOS() {
   const canAssignOrderTaker = ['admin','superadmin','owner','cashier','pos_user'].includes(String(currentUser?.role || '').toLowerCase());
   const deliveryOrderTakers = (waiters || []).filter(person => ['waiter','order_taker','rider'].includes(String(person.role).toLowerCase()));
   const lockTableWaiter = activePOSOrderType === 'dine_in' && !!selectedPOSTable && !canAssignOrderTaker;
+  const activePOSOrderSource = activePOSOrderType === 'foodpanda' ? 'foodpanda' : null;
+  window._posOrderSource = activePOSOrderSource;
+  window._posFoodpandaEnabled = false;
+  try { window._posFoodpandaEnabled = (await api('/api/integrations/foodpanda')).enabled; }
+  catch (error) { console.warn('Foodpanda settings unavailable:', error.message); }
+  let foodpandaIconUrl = null;
+  try { const rows = await api('/api/platform-icons'); const normalizeIconKey = value => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, ''); foodpandaIconUrl = rows.find(row => row.key === 'foodpanda' && row.image_url)?.image_url || rows.find(row => row.image_url && (normalizeIconKey(row.key) === 'foodpanda' || normalizeIconKey(row.label) === 'foodpanda'))?.image_url || null; }
+  catch (error) { console.warn('Foodpanda icon unavailable:', error.message); }
   const posOrderTypeMeta = {
+    foodpanda: {label:'Foodpanda Order',detail:'Foodpanda rider',icon:'FP',style:'border-pink-200 bg-pink-50 text-pink-800 dark:border-pink-800 dark:bg-pink-950/40 dark:text-pink-200'},
     dine_in: {
       label: 'Dine-in Order',
       detail: selectedPOSTable ? `Table ${escapeOrderValue(selectedPOSTable.table_number)}` : 'Table service',
@@ -4548,7 +4565,8 @@ async function renderPOS() {
             <fieldset id="pos-order-type" tabindex="-1" aria-required="true" class="min-w-0 flex-1">
               <legend class="mb-1 text-[10px] font-black uppercase tracking-widest text-slate-500">Order Type <span class="text-rose-500">*</span></legend>
               <div class="grid grid-cols-2 gap-1">
-                ${getPOSAllowedOrderTypes().map(type => `<button type="button" id="otype-${type}" onclick="selectPOSCheckoutOrderType('${type}')" aria-pressed="${activePOSOrderType === type}" ${_editingOrderId || deliveryOnly ? 'disabled' : ''} class="rounded-xl border px-2 py-2 text-xs font-bold transition-all disabled:cursor-not-allowed disabled:opacity-60 ${activePOSOrderType === type ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'}">${posOrderTypeMeta[type].label.replace(' Order', '')}</button>`).join('')}
+                ${getPOSAllowedOrderTypes().map(type => `<button type="button" id="otype-${type}" onclick="selectPOSCheckoutOrderType('${type}')" aria-pressed="${activePOSOrderType === type}" ${_editingOrderId || deliveryOnly ? 'disabled' : ''} class="rounded-xl border px-2 py-2 text-xs font-bold transition-all disabled:cursor-not-allowed disabled:opacity-60 ${activePOSOrderType === type ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'}">${type === 'foodpanda' && foodpandaIconUrl ? `<img src="${escapeOrderValue(foodpandaIconUrl)}" alt="" width="16" height="16" class="inline-block object-contain" /> ` : ''}${posOrderTypeMeta[type].label.replace(' Order', '')}</button>`).join('')}
+
               </div>
             </fieldset>
             <div class="flex items-center gap-2">
@@ -4609,8 +4627,8 @@ async function renderPOS() {
               </div>
               <div>
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Rider</label>
-                <select id="pos-rider" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 text-sm font-bold">
-                  <option value="">-- Rider --</option>
+                <select id="pos-rider" ${activePOSOrderSource === 'foodpanda' ? 'disabled aria-label="Foodpanda provides the rider"' : ''} class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 text-sm font-bold">
+                  <option value="">${activePOSOrderSource === 'foodpanda' ? 'Foodpanda rider' : '-- Rider --'}</option>
                   ${riderList.length
                     ? riderList.map(r => `<option value="${r.id}">${r.name}</option>`).join('')
                     : '<option value="" disabled>No riders available</option>'}
@@ -4797,7 +4815,7 @@ async function renderPOS() {
                 <option value="">All Types</option>
                 <option value="dine_in">Dine-in</option>
                 <option value="takeaway">Takeaway</option>
-                <option value="delivery">Delivery</option>
+                <option value="delivery">Delivery</option><option value="foodpanda">Foodpanda</option>
                 <option value="walk_in">Walk-in</option>
               </select>
               <button onclick="renderPOSOrders()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-600 dark:text-slate-400 transition-all active:scale-95">
@@ -4988,7 +5006,7 @@ function switchOrderType(type) {
   const activeOrderClass = `flex items-center justify-center gap-1.5 ${orderButtonSize} rounded-xl bg-indigo-600 text-white font-bold transition-all`;
   const inactiveOrderClass = `flex items-center justify-center gap-1.5 ${orderButtonSize} rounded-xl text-slate-500 dark:text-slate-400 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all`;
 
-  ['dine_in', 'takeaway', 'delivery', 'walk_in'].forEach(t => {
+  ['dine_in', 'takeaway', 'delivery', 'foodpanda', 'walk_in'].forEach(t => {
     const btn = $c(`otype-${t}`);
     if (!btn) return;
     btn.className = (t === activeType ? activeOrderClass : inactiveOrderClass) + ' disabled:cursor-not-allowed disabled:opacity-60';
@@ -5028,7 +5046,7 @@ function switchOrderType(type) {
     if (dineEl) dineEl.classList.toggle('hidden', type !== 'dine_in' || isRetail);
     if (deliveryEl) deliveryEl.classList.toggle('hidden', type !== 'delivery' || isRetail);
     if (takeawayEl) takeawayEl.classList.toggle('hidden', type !== 'takeaway' || isRetail);
-    if (customerIdentityEl) customerIdentityEl.classList.remove('hidden');
+    if (customerIdentityEl) customerIdentityEl.classList.toggle('hidden', type === 'foodpanda');
   }
 }
 
@@ -5268,14 +5286,14 @@ async function renderPOSOrdersNow() {
       const typeLabel = s.order_type === 'dine_in' ? '🍽️ Dine-in' : s.order_type === 'takeaway' ? '🛍️ Takeaway' : '🚚 Delivery';
       const detail = s.order_type === 'dine_in'
         ? `Table: ${s.table_number || 'N/A'}`
-        : s.order_type === 'delivery'
+        : ['delivery','foodpanda'].includes(s.order_type)
           ? `
             <div>${escapeOrderValue(s.customer_name || 'Walk-in')}</div>
             <div class="text-[10px] font-bold text-slate-400 mt-0.5">${escapeOrderValue(s.customer_phone || 'No phone')}</div>
             ${s.delivery_address ? `<div class="text-[10px] font-medium text-slate-400 truncate max-w-[180px]" title="${escapeOrderValue(s.delivery_address)}">${escapeOrderValue(s.delivery_address)}</div>` : ""}
           `
           : escapeOrderValue(s.customer_name || 'Walk-in');
-      const displayTypeLabel = s.order_type === 'walk_in' ? 'Walk-in' : typeLabel;
+      const displayTypeLabel = s.order_type === 'foodpanda' ? 'Foodpanda' : s.order_type === 'walk_in' ? 'Walk-in' : typeLabel;
 
       let statusColor = 'bg-slate-100 text-slate-600';
       if (s.order_status === 'pending') statusColor = 'bg-amber-100 text-amber-600';
@@ -5289,7 +5307,7 @@ async function renderPOSOrdersNow() {
       const canMarkServed = Number(s.user_id) === Number(currentUser?.id) || Number(s.waiter_id) === Number(currentUser?.id) || currentUser?.role === 'receptionist';
       const primaryAction = ['dine_in', 'takeaway'].includes(s.order_type) && s.order_status === 'ready' && canMarkServed
         ? `<button onclick="markOrderServed(${s.id}, '${s.order_type}')" class="px-3 py-1.5 rounded-lg bg-violet-600 text-white font-bold text-[10px] uppercase hover:bg-violet-500 transition-all shadow-sm">${s.order_type === 'takeaway' ? 'Mark Handed Over' : 'Mark Served'}</button>`
-        : s.order_type === 'delivery' && s.order_status !== 'ready'
+        : ['delivery','foodpanda'].includes(s.order_type) && s.order_status !== 'ready'
         ? `<button onclick="viewOrderItems(${s.id})" class="px-3 py-1.5 rounded-lg bg-blue-500 text-white font-bold text-[10px] uppercase hover:bg-blue-600 transition-all shadow-sm">Out</button>`
         : currentUserHasPermission('orders.take_payment') && currentUserHasPermission('orders.complete')
           ? `<button onclick="showOrderCompleteModal(${s.id})" class="px-3 py-1.5 rounded-lg bg-emerald-500 text-white font-bold text-[10px] uppercase hover:bg-emerald-600 transition-all shadow-sm">Complete Payment</button>`
@@ -5387,17 +5405,17 @@ function orderStatusLabel(order) {
 }
 
 function renderActiveOrderCard(order) {
-  const type = order.order_type === 'dine_in' ? 'Dine-in' : order.order_type === 'takeaway' ? 'Takeaway' : order.order_type === 'walk_in' ? 'Walk-in' : 'Delivery';
+  const type = order.order_type === 'dine_in' ? 'Dine-in' : order.order_type === 'takeaway' ? 'Takeaway' : order.order_type === 'walk_in' ? 'Walk-in' : order.order_type === 'foodpanda' ? 'Foodpanda' : 'Delivery';
   const context = order.order_type === 'dine_in'
     ? `Table ${escapeOrderValue(order.table_number || 'N/A')}`
-    : order.order_type === 'delivery'
+    : ['delivery','foodpanda'].includes(order.order_type)
       ? escapeOrderValue(order.customer_name || order.delivery_address || 'Delivery customer')
       : escapeOrderValue(order.customer_name || 'Counter order');
   const statusTone = order.order_status === 'served' ? 'bg-violet-100 text-violet-700' : order.order_status === 'ready' ? 'bg-emerald-100 text-emerald-700' : order.order_status === 'preparing' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700';
   const canPayAndComplete = currentUserHasPermission('orders.take_payment') && currentUserHasPermission('orders.complete');
   return `<article class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm active:scale-[0.99] transition-all">
     <div class="flex items-start justify-between gap-3">
-      <div><div class="text-[10px] font-black uppercase tracking-widest text-slate-400">Order #${order.order_number || order.id}</div><div class="mt-1 text-lg font-black text-slate-900 dark:text-white">${context}</div>${order.order_type === 'delivery' ? `<div class="pos-card-delivery"><small>${escapeOrderValue(order.customer_phone || 'No phone')}</small>${order.delivery_address ? `<small>${escapeOrderValue(order.delivery_address)}</small>` : ''}</div>` : ''}</div>
+      <div><div class="text-[10px] font-black uppercase tracking-widest text-slate-400">Order #${order.order_number || order.id}</div><div class="mt-1 text-lg font-black text-slate-900 dark:text-white">${context}</div>${['delivery','foodpanda'].includes(order.order_type) ? `<div class="pos-card-delivery"><small>${escapeOrderValue(order.customer_phone || 'No phone')}</small>${order.delivery_address ? `<small>${escapeOrderValue(order.delivery_address)}</small>` : ''}</div>` : ''}</div>
       <span class="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase ${statusTone}">${escapeOrderValue(orderStatusLabel(order))}</span>
     </div>
     <div class="mt-4 grid grid-cols-2 gap-3 text-xs">
@@ -5410,7 +5428,7 @@ function renderActiveOrderCard(order) {
       ${currentUserHasPermission('orders.view') ? `<button onclick="viewOrderItems(${order.id})" class="flex-1 min-w-[120px] py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-black">Order Details</button>` : ''}
       ${currentUserHasPermission('orders.update') ? `<button onclick="editOrder(${order.id})" class="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-black">Edit</button>` : ''}
       ${currentUserHasPermission('orders.view') ? `<button onclick="showReceiptPrintMenu(${order.id})" class="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-black">Print</button>` : ''}
-      ${['dine_in', 'takeaway'].includes(order.order_type) && order.order_status === 'ready' && (Number(order.user_id) === Number(currentUser?.id) || Number(order.waiter_id) === Number(currentUser?.id) || currentUser?.role === 'receptionist') ? `<button onclick="markOrderServed(${order.id}, '${order.order_type}')" class="px-4 py-2.5 rounded-xl bg-violet-600 text-white text-xs font-black">${order.order_type === 'takeaway' ? 'Mark Handed Over' : 'Mark Served'}</button>` : order.order_type === 'delivery' && order.order_status !== 'ready' ? `<button onclick="viewOrderItems(${order.id})" class="px-4 py-2.5 rounded-xl bg-blue-500 text-white text-xs font-black">Out</button>` : canPayAndComplete ? `<button onclick="showOrderCompleteModal(${order.id})" class="px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-xs font-black">Pay</button>` : currentUserHasPermission('orders.complete') ? `<button onclick="completeOrderFromPOS(${order.id}, false, '${order.order_type}')" class="px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-xs font-black">Complete</button>` : ''}
+      ${['dine_in', 'takeaway'].includes(order.order_type) && order.order_status === 'ready' && (Number(order.user_id) === Number(currentUser?.id) || Number(order.waiter_id) === Number(currentUser?.id) || currentUser?.role === 'receptionist') ? `<button onclick="markOrderServed(${order.id}, '${order.order_type}')" class="px-4 py-2.5 rounded-xl bg-violet-600 text-white text-xs font-black">${order.order_type === 'takeaway' ? 'Mark Handed Over' : 'Mark Served'}</button>` : ['delivery','foodpanda'].includes(order.order_type) && order.order_status !== 'ready' ? `<button onclick="viewOrderItems(${order.id})" class="px-4 py-2.5 rounded-xl bg-blue-500 text-white text-xs font-black">Out</button>` : canPayAndComplete ? `<button onclick="showOrderCompleteModal(${order.id})" class="px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-xs font-black">Pay</button>` : currentUserHasPermission('orders.complete') ? `<button onclick="completeOrderFromPOS(${order.id}, false, '${order.order_type}')" class="px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-xs font-black">Complete</button>` : ''}
     </div>
   </article>`;
 }
@@ -5494,7 +5512,7 @@ async function viewOrderItems(id, readOnly = false) {
     const isPaymentPaid = Number(sale.amount_received || 0) >= Number(sale.total || 0) - 0.01;
     const canEditOrder = !readOnly && currentUserHasPermission('orders.update');
     const canEditDelivery = canEditOrder && isDelivery && !['ready', 'completed'].includes(sale.order_status);
-    const serviceLabel = sale.order_type === 'dine_in' ? 'Dine-in' : sale.order_type === 'takeaway' ? 'Takeaway' : sale.order_type === 'walk_in' ? 'Walk-in' : 'Delivery';
+    const serviceLabel = sale.order_type === 'dine_in' ? 'Dine-in' : sale.order_type === 'takeaway' ? 'Takeaway' : sale.order_type === 'walk_in' ? 'Walk-in' : sale.order_type === 'foodpanda' ? 'Foodpanda' : 'Delivery';
     const currentRiderId = Number(sale.rider_id || 0);
     const riderList = Array.isArray(assignableUsers) ? [...assignableUsers] : [];
     if (currentRiderId && !riderList.some(u => Number(u.id) === currentRiderId)) {
@@ -5535,7 +5553,7 @@ async function viewOrderItems(id, readOnly = false) {
         </div>
     `).join('');
 
-    const orderInfoHtml = isDelivery ? `
+    const orderInfoHtml = sale.order_type === 'foodpanda' ? `<div class="p-4 rounded-xl border border-slate-200 dark:border-slate-700"><h4 class="font-bold">Foodpanda</h4><p>Customer details, delivery charges and riders are handled by Foodpanda.</p>${canEditOrder && !['ready','completed'].includes(sale.order_status) ? `<button type="button" class="mt-3 px-4 py-2 rounded-xl bg-indigo-600 text-white" onclick="markFoodpandaReady(${Number(id)})">Ready for Foodpanda pickup</button>` : ''}</div>` : isDelivery ? `
       <div class="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-2xl border border-blue-100 dark:border-blue-900/40 space-y-3">
         <div class="flex items-center justify-between gap-3">
           <div>
@@ -5562,9 +5580,9 @@ async function viewOrderItems(id, readOnly = false) {
           </div>
           <div class="md:col-span-2">
             <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Rider</label>
-            ${canEditDelivery
+            ${canEditDelivery && sale.order_source !== 'foodpanda'
               ? `<select id="order-info-rider" class="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-blue-100 dark:border-blue-900/40 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-blue-500">${riderOptions}</select>`
-              : `<div class="px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-blue-100 dark:border-blue-900/40 text-sm font-bold text-slate-600 dark:text-slate-300">${escapeOrderValue(sale.rider_name || 'No rider assigned')}</div>`
+              : `<div class="px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-blue-100 dark:border-blue-900/40 text-sm font-bold text-slate-600 dark:text-slate-300">${escapeOrderValue(sale.order_source === 'foodpanda' ? 'Foodpanda rider' : sale.rider_name || 'No rider assigned')}</div>`
             }
           </div>
         </div>
@@ -5610,6 +5628,9 @@ async function viewOrderItems(id, readOnly = false) {
   }
 }
 
+async function markFoodpandaReady(id) {
+ try { await api('/api/kds/'+id+'/status','PATCH',{status:'ready'});closeModal();renderPOSOrders();toast('Ready for Foodpanda pickup'); } catch(error) {toast(error.message,'error');}
+}
 async function saveDeliveryOrderInfo(id, nextStatus = null) {
   if (!currentUserHasPermission('orders.update')) return toast('You do not have permission to edit orders.', 'error');
   const payload = {
@@ -6002,7 +6023,7 @@ async function loadTipOrderOptions(loadTables = false) {
 
 function tipOrderContext(order) {
   if (order.order_type === 'dine_in') return `Table ${escapeOrderValue(order.table_number || 'N/A')}`;
-  if (order.order_type === 'delivery') return `Delivery${order.customer_name ? ` · ${escapeOrderValue(order.customer_name)}` : ''}`;
+  if (['delivery','foodpanda'].includes(order.order_type)) return `Delivery${order.customer_name ? ` · ${escapeOrderValue(order.customer_name)}` : ''}`;
   return `Takeaway${order.customer_name ? ` · ${escapeOrderValue(order.customer_name)}` : ''}`;
 }
 
@@ -7956,10 +7977,10 @@ async function checkout(status = 'completed', openPaymentAfterSave = false) {
       resetPOSCheckoutSubmission(status, isEditing, actionId);
       return toast('Select a waiter for this dine-in order.', 'error');
     }
-  } else if (orderType === 'delivery') {
+  } else if (['delivery','foodpanda'].includes(orderType)) {
     waiter_id = Number($c('pos-delivery-order-taker')?.value) || null;
     delivery_address = $c('pos-delivery-addr')?.value.trim() || '';
-    rider_id = parseInt($c('pos-rider')?.value) || null;
+    rider_id = window._posOrderSource === 'foodpanda' ? null : parseInt($c('pos-rider')?.value) || null;
   } else if (orderType === 'takeaway') {
     waiter_id = Number($c('pos-takeaway-waiter')?.value) || null;
     token_number = $c('pos-token')?.value.trim() || `TK-${Date.now()}`;
@@ -8011,6 +8032,7 @@ async function checkout(status = 'completed', openPaymentAfterSave = false) {
     order_status: status,
     money_received: deliveryMoneyReceived,
     customer_id: null,
+    order_source: isEditing ? (_tempEditSaleDetails?.order_source || null) : (['delivery','foodpanda'].includes(orderType) ? window._posOrderSource || null : null),
     order_note: order_note || null,
     client_request_id: window.crypto?.randomUUID
       ? window.crypto.randomUUID()
@@ -8899,7 +8921,7 @@ async function renderSalesHistory(onlyPendingDues = false) {
               <option value="">All Types</option>
               <option value="dine_in">Dine-in</option>
               <option value="takeaway">Takeaway</option>
-              <option value="delivery">Delivery</option>
+              <option value="delivery">Delivery</option><option value="foodpanda">Foodpanda</option>
               <option value="walk_in">Walk-in</option>
             </select>
           </div>
@@ -11517,7 +11539,7 @@ async function generateQuotation() {
   if (orderType === "dine_in") {
     customer_name = $c("pos-customer")?.value.trim() || "Valued Customer";
     customer_phone = $c("pos-phone")?.value.trim() || "";
-  } else if (orderType === "delivery") {
+  } else if (["delivery","foodpanda"].includes(orderType)) {
     customer_name = $c("pos-cust-name")?.value.trim() || "Valued Customer";
     customer_phone = $c("pos-cust-phone")?.value.trim() || "";
   } else if (orderType === "takeaway") {
@@ -14046,4 +14068,38 @@ async function saveShopCurrency() {
   } catch (error) {
     toast(error.message, 'error');
   }
+}
+async function renderPlatformIcons() {
+  const content=document.getElementById('page-content');content.replaceChildren();
+  const heading=document.createElement('h2');heading.textContent='Icons';content.append(heading);
+  const message=document.createElement('p');message.setAttribute('role','status');content.append(message);
+  async function save(row,file){try{
+    let file_id;
+    if(file){
+      if(file.size>2*1024*1024)throw Error('Choose an icon up to 2 MB.');
+      if(/\.svg$/i.test(file.name)&&(!file.type||['text/xml','application/xml','image/svg'].includes(file.type)))file=new File([file],file.name,{type:'image/svg+xml',lastModified:file.lastModified});
+      async function request(url,method='GET',body){const response=await fetch(url,{method,credentials:'same-origin',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});const data=await response.json();if(!response.ok)throw Error(data.error||'Upload failed');return data;}
+      await request('/api/admin/icons/'+encodeURIComponent(row.key),'PUT',{label:row.label});
+      const session=await request('/api/files/upload-sessions','POST',{purpose:'platform.icon',filename:file.name,contentType:file.type,size:file.size,idempotencyKey:crypto.randomUUID()});
+      message.textContent='Uploading icon...';
+      const uploaded=await fetch(session.url,{method:'PUT',headers:session.headers,body:file});if(!uploaded.ok)throw Error('Cloudflare upload failed.');
+      await request('/api/files/upload-sessions/'+session.sessionId+'/complete','POST',{});
+      const deadline=Date.now()+300000;let ready=false;
+      while(Date.now()<deadline){await new Promise(resolve=>setTimeout(resolve,1500));const current=await request('/api/files/'+session.fileId);if(current.status==='ready'){ready=true;break}if(['rejected','expired','deleted','deleting'].includes(current.status))throw Error('Icon verification failed.');}
+      if(!ready)throw Error('Verification timed out. Please retry.');file_id=session.fileId;
+    }else if(row.image_url||row.file)file_id=null;
+    const response=await fetch('/api/admin/icons/'+encodeURIComponent(row.key),{method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({label:row.label,...(file_id!==undefined?{file_id}:{})})});
+    const result=await response.json();if(!response.ok)throw Error(result.error||'Cannot save icon');await renderPlatformIcons();
+  }catch(error){message.textContent=error.message;}}
+  try{
+    const response=await fetch('/api/admin/icons',{credentials:'same-origin'});const rows=await response.json();if(!response.ok)throw Error(rows.error||'Cannot load icons');
+    const form=document.createElement('form');const key=document.createElement('input'),name=document.createElement('input'),add=document.createElement('button');
+    key.placeholder='Icon key (lowercase)';key.setAttribute('aria-label','Icon key');key.required=true;name.placeholder='Icon name';name.setAttribute('aria-label','Icon name');name.required=true;name.maxLength=100;add.textContent='Add icon';form.append(key,name,add);
+    form.onsubmit=event=>{event.preventDefault();if(!/^[a-z][a-z0-9_-]{0,63}$/.test(key.value)||rows.some(r=>r.key===key.value)){message.textContent='Choose a unique lowercase icon key.';return;}void save({key:key.value,label:name.value},null)};content.append(form);
+    for(const row of rows){const section=document.createElement('section');section.style.padding='16px';const title=document.createElement('h3');title.textContent=row.label+' ('+row.key+')';section.append(title);
+      if(row.image_url){const image=document.createElement('img');image.src=row.image_url;image.alt=row.label;image.style.cssText='width:64px;height:64px;object-fit:contain';section.append(image)}
+      const label=document.createElement('label');label.textContent='Upload or replace icon (up to 2 MB)';const input=document.createElement('input');input.type='file';input.accept='image/png,image/jpeg,image/webp,image/gif,image/svg+xml';input.onchange=()=>{if(input.files[0]){input.disabled=true;void save(row,input.files[0]).finally(()=>{input.disabled=false})}};label.append(input);section.append(label);
+      const remove=document.createElement('button');remove.textContent='Remove image';remove.disabled=!row.image_url;remove.onclick=()=>save(row,null);section.append(remove);content.append(section);
+    }
+  }catch(error){message.textContent=error.message;}
 }

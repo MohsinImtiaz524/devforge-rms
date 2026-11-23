@@ -17,7 +17,9 @@
         "postgres:migrate": "node scripts/migrate-sqlite-to-postgres.js",
         "files:check": "node scripts/check-files-pipeline.js",
         "test:files:postgres": "node --test tests/files-postgres.test.js",
-        "test:moons": "node --test tests/moons*.test.js"
+        "test:moons": "node --test tests/moons*.test.js",
+        "test:foodpanda": "node --test tests/foodpanda-dashboard.test.js tests/foodpanda-integration.test.js tests/foodpanda-icons.test.js tests/platform-icons.test.js tests/delivery-charge-sales.test.js",
+        "test:foodpanda:ui": "node --test tests/foodpanda-ui.test.js"
     },
     "engines": {
         "node": "22.x"

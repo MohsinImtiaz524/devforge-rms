@@ -14,7 +14,7 @@ function prepareData(document, receipt = {}, timeZone = 'Asia/Karachi') {
   const received = Math.max(0, Number(sale.amount_received || 0));
   const standalone = sale.tip_collection_mode === 'standalone';
   const remaining = total + (standalone ? 0 : tip) - received;
-  const orderType = { dine_in: 'Dine-in', takeaway: 'Takeaway', walk_in: 'Walk-in' }[sale.order_type] || 'Delivery';
+  const orderType = { dine_in: 'Dine-in', takeaway: 'Takeaway', walk_in: 'Walk-in', foodpanda: 'Foodpanda' }[sale.order_type] || 'Delivery';
   return {
     number: sale.order_number || sale.id, date: Number.isNaN(date.getTime()) ? '' : date.toLocaleString('en-GB', { timeZone }),
     time: Number.isNaN(date.getTime()) ? '' : shortTime(date), generatedTime: shortTime(new Date(document.generated_at || Date.now())),
