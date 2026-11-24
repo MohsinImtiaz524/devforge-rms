@@ -17,7 +17,7 @@ const execFileAsync = promisify(execFile);
 // This profile is replaced automatically when the agent is downloaded from
 // Settings > Printers & Routing. Environment variables remain available for
 // manual deployments and temporary overrides.
-const AGENT_PROFILE = Object.freeze({ websiteName: 'DEVFORGE RMS', shopName: 'Shop 1', shopId: 1, serverUrl: 'http://localhost:4000', printers: ['BIXOLON SRP-QE302'] });
+const AGENT_PROFILE = Object.freeze({ websiteName: 'ORBIT OS', shopName: 'Shop 1', shopId: 1, serverUrl: 'http://localhost:4000', printers: ['BIXOLON SRP-QE302'] });
 const WEBSITE_NAME = process.env.WEBSITE_NAME || AGENT_PROFILE.websiteName;
 const SHOP_NAME = process.env.SHOP_NAME || AGENT_PROFILE.shopName;
 const ASSIGNED_PRINTERS = process.env.ASSIGNED_PRINTERS

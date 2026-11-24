@@ -37,7 +37,7 @@ export default function AnalyticsPage() {
   useEffect(() => {
     document.documentElement.classList.add('analytics-document', 'analytics-moon-document')
     const oldTitle = document.title
-    document.title = 'Analytics & Reports — DevForge RMS'
+    document.title = 'Analytics & Reports — ORBIT OS'
     let active = true
     api('/api/auth/me').then(({ user }) => {
       if (!active) return

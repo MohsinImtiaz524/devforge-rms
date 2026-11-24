@@ -146,7 +146,7 @@ export default function PosPage() {
   }, [refreshTables])
 
   useEffect(() => {
-    document.title = 'POS Terminal - DevForge RMS'
+    document.title = 'POS Terminal - ORBIT OS'
     api('/api/auth/me').then(({ user: session }) => {
       if (!can(session, 'orders.create') && !can(session, 'orders.view')) throw new Error('You do not have permission to access POS Terminal.')
       setUser(session)

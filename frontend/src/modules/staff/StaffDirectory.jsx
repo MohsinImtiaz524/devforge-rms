@@ -91,7 +91,7 @@ export default function StaffDirectory() {
   if (loading) return <StaffDirectorySkeleton />
 
   return <main className="staff-page">
-    <nav className="staff-topbar"><a href="/app/lobby">← Shop lobby</a><div><span>{session?.shop_name || 'DevForge RMS'}</span><strong>{session?.name || session?.username}</strong></div></nav>
+    <nav className="staff-topbar"><a href="/app/lobby">← Shop lobby</a><div><span>{session?.shop_name || 'ORBIT OS'}</span><strong>{session?.name || session?.username}</strong></div></nav>
     <div className="staff-workspace-layout">
       <StaffWorkspaceSidebar active={activePanel} has={has} onSelect={setActivePanel} />
       <section className="staff-shell">

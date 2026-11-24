@@ -1,6 +1,6 @@
 ---
 name: rms-backend-modules
-description: Implement new DevForge RMS backend capabilities as modular-monolith modules with Express, Knex, Zod, sessions, permissions, and transactions. Use for new APIs or business workflows; preserve legacy routes unless migration is requested.
+description: Implement new ORBIT OS backend capabilities as modular-monolith modules with Express, Knex, Zod, sessions, permissions, and transactions. Use for new APIs or business workflows; preserve legacy routes unless migration is requested.
 ---
 
 # RMS Backend Modules

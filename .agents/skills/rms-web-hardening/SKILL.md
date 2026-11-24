@@ -1,6 +1,6 @@
 ---
 name: rms-web-hardening
-description: Audit and improve DevForge RMS database queries, application security, sessions and cookies, PWA reliability, and backend or frontend speed. Use for focused diagnosis, review, or implementation in these areas.
+description: Audit and improve ORBIT OS database queries, application security, sessions and cookies, PWA reliability, and backend or frontend speed. Use for focused diagnosis, review, or implementation in these areas.
 ---
 
 # RMS Web Hardening

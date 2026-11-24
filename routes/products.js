@@ -72,6 +72,8 @@ async function syncCatalogAddonToProducts(trx, shopId, addonId, replacement) {
 // MULTER CONFIG FOR PRODUCT IMAGES (Kept in routes as it's part of the HTTP transport layer)
 const upload=createVerifiedImageUpload({directory:path.join(__dirname,'..','public','uploads','products'),prefix:'prod',maxBytes:2*1024*1024});
 
+require('../src/modules/menu/menu.archive').registerMenuArchive(router, db);
+
 // GET /api/products
 router.get('/', requireAuth, async (req, res) => {
     const paginate = req.query.paginate === '1' || req.query.paginate === 'true';

@@ -611,7 +611,7 @@ export default function SalesPage() {
   );
 
   useEffect(() => {
-    document.title = "Sales — DevForge RMS";
+    document.title = "Sales — ORBIT OS";
     api("/api/auth/me")
       .then(({ user }) => {
         if (

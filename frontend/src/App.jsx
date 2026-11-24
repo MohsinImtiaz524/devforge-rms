@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 
+const MenuPage = lazy(() => import('./modules/menu/MenuPage'))
 const WebsiteMoon = lazy(() => import('./modules/moons/website/WebsiteMoon'))
 const MoonsManager = lazy(() => import('./modules/moons/MoonsManager'))
 const ShopLogo = lazy(() => import('./modules/shops/ShopLogo'))
@@ -48,6 +49,7 @@ function App() {
       : window.location.pathname.startsWith('/app/tables') ? <TablesPage />
       : window.location.pathname.startsWith('/app/sales') ? <SalesPage />
       : window.location.pathname.startsWith('/app/expenses') ? <ExpensesPage />
+      : window.location.pathname === '/app/menu' ? <MenuPage />
       : window.location.pathname.startsWith('/app/pos') ? <PosPage />
         : window.location.pathname.startsWith('/app/reports') ? <ReportsPage />
         : window.location.pathname.startsWith('/app/analytics') ? <AnalyticsPage />

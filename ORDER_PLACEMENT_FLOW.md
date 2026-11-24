@@ -1,6 +1,6 @@
 # Order Placement Flow: Frontend to Database and Printing
 
-This is the verified DevForge RMS flow. It is documentation only and changes no application behavior.
+This is the verified ORBIT OS flow. It is documentation only and changes no application behavior.
 
 ## Complete system view
 

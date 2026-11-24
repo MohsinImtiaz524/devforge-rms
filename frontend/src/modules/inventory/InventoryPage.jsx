@@ -183,7 +183,7 @@ export default function InventoryPage() {
       <nav className="inventory-topbar">
         <a href="/app/lobby">← Shop lobby</a>
         <div>
-          <span>{session.shop_name || "DevForge RMS"}</span>
+          <span>{session.shop_name || "ORBIT OS"}</span>
           <strong>{session.name || session.username}</strong>
         </div>
       </nav>

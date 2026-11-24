@@ -1,6 +1,6 @@
 ---
 name: rms-verification
-description: Verify DevForge RMS changes across legacy and React frontends, Express APIs, permissions, tenant isolation, PWA/mobile behavior, production builds, and Render deployment. Use for migration sign-off, regression checks, or release readiness.
+description: Verify ORBIT OS changes across legacy and React frontends, Express APIs, permissions, tenant isolation, PWA/mobile behavior, production builds, and Render deployment. Use for migration sign-off, regression checks, or release readiness.
 ---
 
 # RMS Verification

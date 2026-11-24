@@ -1,6 +1,6 @@
 ---
 name: rms-data-integrity
-description: Design or review DevForge RMS database changes, tenant isolation, attendance records, payroll calculations, auditability, and safe migrations. Use when work changes persistent business data or financial/timekeeping rules.
+description: Design or review ORBIT OS database changes, tenant isolation, attendance records, payroll calculations, auditability, and safe migrations. Use when work changes persistent business data or financial/timekeeping rules.
 ---
 
 # RMS Data Integrity

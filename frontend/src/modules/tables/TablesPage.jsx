@@ -91,7 +91,7 @@ export default function TablesPage() {
   const canManage = has('manage')
 
   useEffect(() => {
-    document.title = 'Table Management — DevForge RMS'
+    document.title = 'Table Management — ORBIT OS'
     api('/api/auth/me').then(({ user }) => {
       if (user.role !== 'superadmin' && !user.permissions?.includes('tables.view')) throw new Error('You do not have permission to view Table Management.')
       setSession(user)

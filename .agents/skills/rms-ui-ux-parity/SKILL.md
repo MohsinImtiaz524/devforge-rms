@@ -1,6 +1,6 @@
 ---
 name: rms-ui-ux-parity
-description: Build or migrate DevForge RMS React interfaces while preserving the established vanilla UI, navigation, PWA behavior, responsive layout, and interaction logic. Use for RMS frontend pages, lobby modules, theme behavior, loaders, or vanilla-to-React migration.
+description: Build or migrate ORBIT OS React interfaces while preserving the established vanilla UI, navigation, PWA behavior, responsive layout, and interaction logic. Use for RMS frontend pages, lobby modules, theme behavior, loaders, or vanilla-to-React migration.
 ---
 
 # RMS UI/UX Parity

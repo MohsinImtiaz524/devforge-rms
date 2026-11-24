@@ -1,6 +1,6 @@
 ---
 name: rms-architecture
-description: Design or review DevForge RMS architecture, module boundaries, migrations, and cross-module dependencies. Use for new RMS capabilities, structural refactors, or deciding where code belongs; do not use for isolated cosmetic edits.
+description: Design or review ORBIT OS architecture, module boundaries, migrations, and cross-module dependencies. Use for new RMS capabilities, structural refactors, or deciding where code belongs; do not use for isolated cosmetic edits.
 ---
 
 # RMS Architecture

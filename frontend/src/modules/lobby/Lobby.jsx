@@ -144,9 +144,9 @@ function Lobby() {
   return (
     <main className="react-lobby">
       <header className="lobby-topbar">
-        <a className="lobby-brand" href="/app/lobby" aria-label="DevForge RMS home">
+        <a className="lobby-brand" href="/app/lobby" aria-label="ORBIT OS home">
           <span className="lobby-brand-logo"><img className="theme-logo-light" src="/icons/logo-light.png" alt="" /><img className="theme-logo-dark" src="/icons/logo-dark.png" alt="" /></span>
-          <strong>{user.shop_name || 'DevForge RMS'}</strong>
+          <strong>{user.shop_name || 'ORBIT OS'}</strong>
         </a>
         <label className="lobby-search"><Search size={20} aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search modules..." aria-label="Search modules" /><kbd>Ctrl K</kbd></label>
         <div className="lobby-controls">
