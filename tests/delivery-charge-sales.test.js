@@ -64,6 +64,8 @@ test('real checkout/edit/payment transactions preserve a separate delivery charg
  let pandaRow=await db('sales').where({id:panda.saleId}).first();
  assert.equal(pandaRow.order_type,'foodpanda');assert.equal(pandaRow.order_source,'foodpanda');assert.equal(pandaRow.rider_id,null);assert.equal(Number(pandaRow.delivery_service_charge),0);assert.equal(pandaRow.customer_name,'');assert.equal(pandaRow.customer_phone,'');assert.equal(pandaRow.delivery_address,'');assert.equal(Number(pandaRow.total),990);
  assert.equal((await service.getBill(panda.saleId,1)).sale.order_source,'foodpanda');
+ await assert.rejects(service.updateDetails(panda.saleId,1,{amount_received:990},1),/settled directly/);
+ assert.equal(Number((await db('sales').where({id:panda.saleId}).first()).amount_received),0);
  assert.equal(await service.getBill(panda.saleId,2),null);
  await assert.rejects(service.updateSaleItems(panda.saleId,edit,2,1,{canRemoveItems:true}),/not found/i);
  await db('shops').where({id:1}).update({foodpanda_enabled:false});
@@ -96,6 +98,10 @@ test('real checkout/edit/payment transactions preserve a separate delivery charg
  const {renderSaleReceiptPage}=require('../services/ReceiptPrintService');
  const bill={sale:{...row,total:1140,delivery_service_charge:150},items:[{product_name:'Meal',quantity:1,price_at_sale:1000}],shop:{name:'Test'},seller:{name:'Cashier'}};
  assert.match(renderSaleReceiptPage({...bill,sale:{...bill.sale,order_source:'foodpanda'}},{format:'customer'}),/Foodpanda/);
+ const completedPandaReceipt=renderSaleReceiptPage({...bill,sale:{...bill.sale,order_type:'foodpanda',order_status:'completed',amount_received:0}},{format:'customer'});
+ assert.match(completedPandaReceipt,/ORDER COMPLETED/);
+ assert.match(completedPandaReceipt,/No payment received/);
+ assert.doesNotMatch(completedPandaReceipt,/<strong>Due:/);
  const receipt=renderSaleReceiptPage(bill,{format:'customer'});assert.ok(receipt.includes('Delivery service charge:</span><span style="text-align: right; white-space: nowrap;">'));assert.match(receipt,/150\.00/);assert.match(receipt,/1,140\.00|1140\.00/);
  const dineReceipt=renderSaleReceiptPage({...bill,sale:dineRow},{format:'customer'});assert.match(dineReceipt,/Dine-in service charge \(5%\)/);assert.match(dineReceipt,/50\.00/);
  assert.doesNotMatch(renderSaleReceiptPage({...bill,sale:{...bill.sale,delivery_service_charge:0}},{format:'unpaid'}),/Delivery service charge:/);

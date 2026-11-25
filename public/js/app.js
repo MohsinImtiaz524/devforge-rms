@@ -5314,7 +5314,7 @@ async function renderPOSOrdersNow() {
         ? `<button onclick="markOrderServed(${s.id}, '${s.order_type}')" class="px-3 py-1.5 rounded-lg bg-violet-600 text-white font-bold text-[10px] uppercase hover:bg-violet-500 transition-all shadow-sm">${s.order_type === 'takeaway' ? 'Mark Handed Over' : 'Mark Served'}</button>`
         : ['delivery','foodpanda'].includes(s.order_type) && s.order_status !== 'ready'
         ? `<button onclick="viewOrderItems(${s.id})" class="px-3 py-1.5 rounded-lg bg-blue-500 text-white font-bold text-[10px] uppercase hover:bg-blue-600 transition-all shadow-sm">Out</button>`
-        : currentUserHasPermission('orders.take_payment') && currentUserHasPermission('orders.complete')
+        : s.order_type !== 'foodpanda' && currentUserHasPermission('orders.take_payment') && currentUserHasPermission('orders.complete')
           ? `<button onclick="showOrderCompleteModal(${s.id})" class="px-3 py-1.5 rounded-lg bg-emerald-500 text-white font-bold text-[10px] uppercase hover:bg-emerald-600 transition-all shadow-sm">Complete Payment</button>`
           : currentUserHasPermission('orders.complete')
             ? `<button onclick="completeOrderFromPOS(${s.id}, false, '${s.order_type}')" class="px-3 py-1.5 rounded-lg bg-emerald-500 text-white font-bold text-[10px] uppercase hover:bg-emerald-600 transition-all shadow-sm">Complete</button>` : '';
@@ -5417,7 +5417,7 @@ function renderActiveOrderCard(order) {
       ? escapeOrderValue(order.customer_name || order.delivery_address || 'Delivery customer')
       : escapeOrderValue(order.customer_name || 'Counter order');
   const statusTone = order.order_status === 'served' ? 'bg-violet-100 text-violet-700' : order.order_status === 'ready' ? 'bg-emerald-100 text-emerald-700' : order.order_status === 'preparing' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700';
-  const canPayAndComplete = currentUserHasPermission('orders.take_payment') && currentUserHasPermission('orders.complete');
+  const canPayAndComplete = order.order_type !== 'foodpanda' && currentUserHasPermission('orders.take_payment') && currentUserHasPermission('orders.complete');
   return `<article class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm active:scale-[0.99] transition-all">
     <div class="flex items-start justify-between gap-3">
       <div><div class="text-[10px] font-black uppercase tracking-widest text-slate-400">Order #${order.order_number || order.id}</div><div class="mt-1 text-lg font-black text-slate-900 dark:text-white">${context}</div>${['delivery','foodpanda'].includes(order.order_type) ? `<div class="pos-card-delivery"><small>${escapeOrderValue(order.customer_phone || 'No phone')}</small>${order.delivery_address ? `<small>${escapeOrderValue(order.delivery_address)}</small>` : ''}</div>` : ''}</div>
@@ -5849,6 +5849,7 @@ async function completeOrderFromPOS(id, skipConfirm = false, orderType = null) {
       : await api(_currentPage === 'delivery' ? `/api/delivery/${id}/status` : `/api/kds/${id}/status`, 'PATCH', { status: 'completed' });
     if (result?.error) throw new Error(result.error);
     toast('Order completed!');
+    if (bill.sale.order_type === 'foodpanda') await printCustomerBill(id);
     renderPOSOrders();
     return true;
   } catch (e) {
@@ -6132,6 +6133,7 @@ async function showOrderCompleteModal(id, selectedOrder = null) {
   }
   const s = selectedOrder || _posActiveOrders.find(o => o.id === id);
   if (!s) return toast('Order not found', 'error');
+  if (s.order_type === 'foodpanda') return completeOrderFromPOS(id, false, s.order_type);
   showAppLoader('Preparing payment', `Opening payment for order #${id}...`);
   await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 

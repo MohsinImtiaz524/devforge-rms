@@ -252,7 +252,7 @@ function renderCustomerReceipt(details, options) {
       <hr class="divider" />
 
       <div style="font-size: 10px;">
-        ${isUnpaid ? `
+        ${sale.order_type === 'foodpanda' && sale.order_status === 'completed' && Number(sale.amount_received || 0) === 0 ? `<div class="bold">ORDER COMPLETED<br>Foodpanda - No payment received</div>` : isUnpaid ? `
           <div style="text-align: center; border: 1px dashed #111827; padding: 5px; margin-top: 5px; font-weight: bold;">
             *** UNPAID BILL ***<br>
             Reference prices only. Confirm method at payment.<br>

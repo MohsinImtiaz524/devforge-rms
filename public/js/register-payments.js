@@ -23,6 +23,7 @@ function registerPaymentDate(value, includeTime = true) {
 function registerPaymentContext(row) {
   if (row.order_type === 'dine_in') return row.table_number ? `Table ${escapeOrderValue(row.table_number)}` : 'Dine-in';
   if (row.order_type === 'delivery') return 'Delivery';
+  if (row.order_type === 'foodpanda') return 'Foodpanda';
   return 'Takeaway';
 }
 
@@ -105,7 +106,7 @@ async function renderRegisterPaymentsPanel(options = {}) {
           <div class="grid gap-3 border-b border-slate-200 p-4 dark:border-slate-800 sm:grid-cols-[minmax(180px,1fr)_180px_180px_auto]">
             <input id="register-payment-search" value="${escapeOrderValue(filters.search)}" onkeydown="if(event.key==='Enter') applyRegisterPaymentFilters()" placeholder="Search order ID or customer" class="h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white">
             <select id="register-payment-method" class="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white"><option value="">All payment methods</option>${['cash','card','online','mixed'].map(value => `<option value="${value}" ${filters.payment_method === value ? 'selected' : ''}>${value[0].toUpperCase() + value.slice(1)}</option>`).join('')}</select>
-            <select id="register-payment-order-type" class="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white"><option value="">All order types</option><option value="dine_in" ${filters.order_type === 'dine_in' ? 'selected' : ''}>Dine-in</option><option value="takeaway" ${filters.order_type === 'takeaway' ? 'selected' : ''}>Takeaway</option><option value="delivery" ${filters.order_type === 'delivery' ? 'selected' : ''}>Delivery</option></select>
+            <select id="register-payment-order-type" class="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white"><option value="">All order types</option><option value="dine_in" ${filters.order_type === 'dine_in' ? 'selected' : ''}>Dine-in</option><option value="takeaway" ${filters.order_type === 'takeaway' ? 'selected' : ''}>Takeaway</option><option value="delivery" ${filters.order_type === 'delivery' ? 'selected' : ''}>Delivery</option><option value="foodpanda" ${filters.order_type === 'foodpanda' ? 'selected' : ''}>Foodpanda</option></select>
             <button id="register-payment-apply" onclick="applyRegisterPaymentFilters()" class="h-11 rounded-xl bg-indigo-600 px-5 text-xs font-black uppercase tracking-wider text-white hover:bg-indigo-500 disabled:opacity-60">Apply</button>
           </div>
           <div class="overflow-x-auto">

@@ -49,3 +49,11 @@ test('duplicate clicks are suppressed and failure permits a later retry', async 
   reject(new Error('offline'));
   await assert.rejects(retry, /offline/);
 });
+
+test('Foodpanda payment context is distinct and existing types retain labels', () => {
+ const { c } = setup();
+ assert.equal(c.registerPaymentContext({order_type:'foodpanda'}),'Foodpanda');
+ assert.equal(c.registerPaymentContext({order_type:'takeaway'}),'Takeaway');
+ assert.equal(c.registerPaymentContext({order_type:'delivery'}),'Delivery');
+ assert.equal(c.registerPaymentContext({order_type:'dine_in',table_number:'3'}),'Table 3');
+});

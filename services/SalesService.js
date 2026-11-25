@@ -2013,6 +2013,9 @@ class SalesService {
       if (customer_phone !== undefined) updateData.customer_phone = customer_phone;
       if (customer_name !== undefined || customer_phone !== undefined) shouldSyncSaleLedger = true;
       if (delivery_address !== undefined) updateData.delivery_address = delivery_address;
+      if (sale.order_type === 'foodpanda' && (Number(amount_received || 0) > Number(sale.amount_received || 0) || Number(tip_amount || 0) > 0)) {
+        throw Object.assign(new Error('Foodpanda payments are settled directly with the owner.'), { status: 400 });
+      }
       if (sale.order_type === 'foodpanda' && rider_id) throw Object.assign(new Error('Foodpanda provides its own riders.'), { status: 400 });
       if (rider_id !== undefined) updateData.rider_id = rider_id ? parseInt(rider_id, 10) : null;
       const tipOnlyCollection = Number(tip_amount || 0) > 0 && Number(sale.amount_received || 0) >= Number(sale.total) - 0.01;
