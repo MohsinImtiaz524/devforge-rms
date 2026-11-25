@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "DevForge OS Restaurant Management",
-  "short_name": "DevForge OS",
+  "name": "Orbit  OS Restaurant Management",
+  "short_name": "Orbit  OS",
   "start_url": "/app/lobby",
   "scope": "/",
   "display": "standalone",

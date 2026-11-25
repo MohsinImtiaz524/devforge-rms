@@ -14,11 +14,11 @@ function rmsPushPlatformGuidance() {
   const ua = navigator.userAgent || '';
   const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   if (!window.isSecureContext) return 'Notifications require a secure HTTPS address. Open the HTTPS version of this app.';
-  if (isIOS && !pwaIsStandalone()) return 'On iPhone/iPad, first use Share → Add to Home Screen, then open DevForge OS from its Home Screen icon and enable notifications there.';
+  if (isIOS && !pwaIsStandalone()) return 'On iPhone/iPad, first use Share → Add to Home Screen, then open Orbit  OS from its Home Screen icon and enable notifications there.';
   if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return 'This browser does not support web push notifications. Use a current version of Safari on iPhone/iPad or Chrome on Android.';
   if (Notification.permission === 'denied') {
     return isIOS
-      ? 'Notifications are blocked. Open iPhone Settings → Notifications → DevForge OS and enable Allow Notifications. If DevForge OS is absent, remove its Home Screen icon, add it again, open it from the icon, and retry.'
+      ? 'Notifications are blocked. Open iPhone Settings → Notifications → Orbit  OS and enable Allow Notifications. If Orbit  OS is absent, remove its Home Screen icon, add it again, open it from the icon, and retry.'
       : 'Notifications are blocked for this site. In Chrome, open this site → Page info → Permissions → Notifications → Allow, then retry.';
   }
   return '';

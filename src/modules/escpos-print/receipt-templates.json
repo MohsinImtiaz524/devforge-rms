@@ -184,6 +184,16 @@
         },
         {
           "type": "text",
+          "value": "Delivery Address: {{data.deliveryAddress}}",
+          "when": { "path": "data.deliveryAddress" }
+        },
+        {
+          "type": "gap",
+          "value": 2,
+          "when": { "path": "data.deliveryAddress" }
+        },
+        {
+          "type": "text",
           "value": "Type: {{data.orderType}}"
         },
         {
@@ -663,6 +673,16 @@
           "when": {
             "path": "data.phone"
           }
+        },
+        {
+          "type": "text",
+          "value": "Delivery Address: {{data.deliveryAddress}}",
+          "when": { "path": "data.deliveryAddress" }
+        },
+        {
+          "type": "gap",
+          "value": 2,
+          "when": { "path": "data.deliveryAddress" }
         },
         {
           "type": "text",

@@ -210,6 +210,7 @@ function renderCustomerReceipt(details, options) {
         <strong>Staff:</strong> ${escapeHtml(seller ? seller.name : "Staff")}<br>
         <strong>Customer:</strong> ${escapeHtml(sale.customer_name || "Walk-in")}<br>
         ${sale.customer_phone ? `<strong>Phone:</strong> ${escapeHtml(sale.customer_phone)}<br>` : ""}
+        ${['delivery', 'foodpanda'].includes(sale.order_type) && String(sale.delivery_address || '').trim() ? `<div style="white-space: pre-wrap; overflow-wrap: anywhere;"><strong>Delivery Address:</strong> ${escapeHtml(String(sale.delivery_address).trim())}</div>` : ""}
         <strong>Type:</strong> ${escapeHtml((sale.order_source === 'foodpanda' ? 'Foodpanda' : formatOrderType(sale.order_type)))}<br>
         <strong>Payment:</strong> ${isUnpaid ? "Pending - method to be confirmed" : escapeHtml(method)}<br>
       </div>

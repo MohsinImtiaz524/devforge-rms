@@ -19,6 +19,7 @@ function prepareData(document, receipt = {}, timeZone = 'Asia/Karachi') {
     number: sale.order_number || sale.id, date: Number.isNaN(date.getTime()) ? '' : date.toLocaleString('en-GB', { timeZone }),
     time: Number.isNaN(date.getTime()) ? '' : shortTime(date), generatedTime: shortTime(new Date(document.generated_at || Date.now())),
     staff: document.seller?.name || 'Staff', customer: sale.customer_name || 'Walk-in', phone: sale.customer_phone || '',
+    deliveryAddress: ['delivery', 'foodpanda'].includes(sale.order_type) ? String(sale.delivery_address || '').trim() : '',
     orderType, upperOrderType: orderType.toUpperCase(), method: payment(sale.payment_method), tipMethod: payment(sale.tip_payment_method || sale.payment_method),
     waiterName: sale.waiter_name || '',
     kitchenName: String(document.route_label || sale.kitchen_name || 'Kitchen').replace(/^Kitchen:\s*/i, ''),

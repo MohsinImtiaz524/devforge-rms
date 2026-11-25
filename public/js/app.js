@@ -882,6 +882,11 @@ function openPendingInventoryProductEditor(page) {
 }
 
 function navigate(page, options = {}) {
+  if (page === "waste-management" && !options.legacy) {
+    localStorage.setItem("pos_page", page);
+    window.location.assign("/app/waste-management");
+    return true;
+  }
   if (page === "dashboard") {
     localStorage.setItem("pos_page", page);
     window.location.assign("/app/dashboard");
@@ -8510,6 +8515,7 @@ async function printBill(saleId, isUnpaid = false) {
       <strong>Staff:</strong> ${seller ? seller.name : "Staff"}<br>
       <strong>Customer:</strong> ${sale.customer_name || "Walk-in"}<br>
       ${sale.customer_phone ? `<strong>Phone:</strong> ${sale.customer_phone}<br>` : ""}
+      ${['delivery', 'foodpanda'].includes(sale.order_type) && String(sale.delivery_address || '').trim() ? `<div style="white-space: pre-wrap; overflow-wrap: anywhere;"><strong>Delivery Address:</strong> ${escapeOrderValue(String(sale.delivery_address).trim())}</div>` : ""}
       <strong>Type:</strong> ${_formatOrderType(sale.order_type)}<br>
       <strong>Payment:</strong> ${method}<br>
     </div>
